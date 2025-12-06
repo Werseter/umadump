@@ -66,12 +66,12 @@ def extract_veteran_data():
         success = True
 
 script = session.create_script(r"""
-//                   'B3 trained_chara_array'
-const trainedCharaPattern = 'B3 74 72 61 69 6E 65 64 5F 63 68 61 72 61 5F 61 72 72 61 79';
-//                 'BC trained_chara_favorite_array'
+//                                  'B3 trained_chara_array'
+const trainedCharaPattern =         'B3 74 72 61 69 6E 65 64 5F 63 68 61 72 61 5F 61 72 72 61 79';
+//                                  'BC trained_chara_favorite_array'
 const trainedCharaFavoritePattern = 'BC 74 72 61 69 6E 65 64 5F 63 68 61 72 61 5F 66 61 76 6F 72 69 74 65 5F 61 72 72 61 79';
-//                 'BF room_match_entry_chara_id_array'
-const roomMatchEntryPattern = 'BF 72 6F 6F 6D 5F 6D 61 74 63 68 5F 65 6E 74 72 79 5F 63 68 61 72 61 5F 69 64 5F 61 72 72 61 79'
+//                                  'BF room_match_entry_chara_id_array'
+const roomMatchEntryPattern =       'BF 72 6F 6F 6D 5F 6D 61 74 63 68 5F 65 6E 74 72 79 5F 63 68 61 72 61 5F 69 64 5F 61 72 72 61 79'
 
 function findPayload(startPattern, endPattern, tag) {
     const ranges = Process.enumerateRanges({protection: "r--", coalesce: true});
