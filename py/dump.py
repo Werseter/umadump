@@ -59,8 +59,8 @@ def extract_veteran_data():
         with open("veteran_extra_data.msgpack", "wb+") as f:
             f.write(data_parts["veteran_extra_data"])
 
-        veteran_data = msgpack.loads(data_parts["veteran_data"])
-        veteran_extra_data = msgpack.loads(data_parts["veteran_extra_data"])
+        veteran_data = msgpack.loads(data_parts.pop("veteran_data"))
+        veteran_extra_data = msgpack.loads(data_parts.pop("veteran_extra_data"))
 
         # Merge lists of dicts based on 'trained_chara_id'
         merged = []
@@ -87,8 +87,8 @@ def extract_parent_borrows_data():
         with open("parent_borrows_extra_data.msgpack", "wb+") as f:
             f.write(data_parts["parent_borrows_extra_data"])
 
-        parent_borrows_data = msgpack.loads(data_parts["parent_borrows_data"])
-        parent_borrows_extra_data = msgpack.loads(data_parts["parent_borrows_extra_data"])
+        parent_borrows_data = msgpack.loads(data_parts.pop("parent_borrows_data"))
+        parent_borrows_extra_data = msgpack.loads(data_parts.pop("parent_borrows_extra_data"))
 
         # Append username from extra using 'viewer_id'
         merged = []
