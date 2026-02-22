@@ -5,9 +5,10 @@
 #     "msgpack",
 # ]
 # ///
+import json
+
 import frida
 import msgpack
-import json
 
 session = frida.attach("UmamusumePrettyDerby.exe")
 
