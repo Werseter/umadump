@@ -151,8 +151,9 @@ function tryReadByteArray(address, size) {
     } catch (e) {
         // Output not really useful for non-developers
         warn(`tryReadByteArray failed at ${address} size ${size}`);
+        // Return null bytes to maintain proper region spacing
+        return new ArrayBuffer(size);
     }
-    return null;
 }
 
 function findPayload(startPattern, endPattern, tag) {
