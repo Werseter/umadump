@@ -121,6 +121,20 @@ const summaryUserInfoPattern =        'B7 73 75 6D 6D 61 72 79 5F 75 73 65 72 5F
 //                                    'B7 support_card_data_array'
 const supportCardDataPatten =         'B7 73 75 70 70 6F 72 74 5F 63 61 72 64 5F 64 61 74 61 5F 61 72 72 61 79';
 
+const VERBOSE_JS = false;
+
+function log(msg) {
+    if (VERBOSE_JS) {
+        console.log(msg);
+    }
+}
+
+function warn(msg) {
+    if (VERBOSE_JS) {
+        console.warn(msg);
+    }
+}
+
 function tryScanSync(address, size, pattern) {
     try {
         return Memory.scanSync(address, size, pattern);
@@ -136,7 +150,7 @@ function tryReadByteArray(address, size) {
         return address.readByteArray(size);
     } catch (e) {
         // Output not really useful for non-developers
-        // console.warn(`tryReadByteArray failed at ${address} size ${size}`);
+        warn(`tryReadByteArray failed at ${address} size ${size}`);
     }
     return null;
 }
@@ -144,6 +158,7 @@ function tryReadByteArray(address, size) {
 function findPayload(startPattern, endPattern, tag) {
     const ranges = Process.enumerateRanges({protection: "r--", coalesce: true});
     for (const range of ranges) {
+        log(`Scanning memory range: ${range.base}, size: ${range.size}`);
         const startResults = tryScanSync(range.base, range.size, startPattern);
         for (const startResult of startResults) {
             const startAddress = startResult.address.add(startResult.size);
@@ -153,6 +168,7 @@ function findPayload(startPattern, endPattern, tag) {
                 const endAddress = endResult.address;
                 const endDiff = endAddress - startAddress;
                 send(tag, tryReadByteArray(startAddress, endDiff));
+                log(`Found payload for ${tag} at ${startAddress} - ${endAddress} (size: ${endDiff})`);
                 return;
             }
         }
