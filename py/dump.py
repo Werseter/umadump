@@ -156,30 +156,51 @@ function tryReadByteArray(address, size) {
     }
 }
 
-function findPayload(startPattern, endPattern, tag) {
-    const ranges = Process.enumerateRanges({protection: "r--", coalesce: true});
+function scanRange(range, startPattern, endPattern, tag) {
+    const startResults = tryScanSync(range.base, range.size, startPattern);
+    for (const startResult of startResults) {
+        const startAddress = startResult.address.add(startResult.size);
+        const startDiff = startAddress - range.base;
+        const endResults = tryScanSync(startAddress, range.size - startDiff, endPattern);
+        for (const endResult of endResults) {
+            const endAddress = endResult.address;
+            const endDiff = endAddress - startAddress;
+            send(tag, tryReadByteArray(startAddress, endDiff));
+            log(`Found payload for ${tag} at ${startAddress} - ${endAddress} (size: ${endDiff})`);
+            return range;
+        }
+    }
+    return null;
+}
+
+function findPayload(startPattern, endPattern, tag, hintRange) {
+    // Try the hint range first (e.g. the range returned by a previous findPayload call).
+    if (hintRange) {
+        log(`Trying hint range: ${hintRange.base}, size: ${hintRange.size}`);
+        const result = scanRange(hintRange, startPattern, endPattern, tag);
+        if (result) return result;
+        log(`Hint range miss for ${tag}, falling back to full sweep.`);
+    }
+
+    const allRanges = Process.enumerateRanges({protection: "r--", coalesce: true});
+    // Filter and sort ranges: skip tiny (<100KB) and huge (>100MB) ranges.
+    // Sort by size descending - game data is likely in larger allocations.
+    // Skip the hint range since we already tried it.
+    const ranges = allRanges
+        .filter(r => r.size >= 100 * 1024 && r.size <= 100 * 1024 * 1024)
+        .filter(r => !hintRange || r.base.toInt32() != hintRange.base.toInt32())
+        .sort((a, b) => b.size - a.size);
     for (const range of ranges) {
         log(`Scanning memory range: ${range.base}, size: ${range.size}`);
-        const startResults = tryScanSync(range.base, range.size, startPattern);
-        for (const startResult of startResults) {
-            const startAddress = startResult.address.add(startResult.size);
-            const startDiff = startAddress - range.base;
-            const endResults = tryScanSync(startAddress, range.size - startDiff, endPattern);
-            for (const endResult of endResults) {
-                const endAddress = endResult.address;
-                const endDiff = endAddress - startAddress;
-                send(tag, tryReadByteArray(startAddress, endDiff));
-                log(`Found payload for ${tag} at ${startAddress} - ${endAddress} (size: ${endDiff})`);
-                return;
-            }
-        }
+        const result = scanRange(range, startPattern, endPattern, tag);
+        if (result) return result;
     }
 }
 
-findPayload(trainedCharaPattern, trainedCharaFavoritePattern, "veteran_data");
-findPayload(trainedCharaFavoritePattern, roomMatchEntryPattern, "veteran_extra_data");
-findPayload(successionTrainedCharaPattern, summaryUserInfoPattern, "parent_borrows_data");
-findPayload(summaryUserInfoPattern, supportCardDataPatten, "parent_borrows_extra_data");
+const veteranDataRange = findPayload(trainedCharaPattern, trainedCharaFavoritePattern, "veteran_data", null);
+const veteranExtraDataRange = findPayload(trainedCharaFavoritePattern, roomMatchEntryPattern, "veteran_extra_data", veteranDataRange);
+const parentBorrowsDataRange = findPayload(successionTrainedCharaPattern, summaryUserInfoPattern, "parent_borrows_data", veteranExtraDataRange);
+const parentBorrowsExtraDataRange = findPayload(summaryUserInfoPattern, supportCardDataPatten, "parent_borrows_extra_data", parentBorrowsDataRange);
 """)
 script.on("message", on_message)
 script.load()
