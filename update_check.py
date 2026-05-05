@@ -22,7 +22,7 @@ from typing import Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-CURRENT_VERSION = "2.0.0-beta"
+CURRENT_VERSION = "2.0.0-beta.2"
 GITHUB_REPOSITORY = "Werseter/umadump"
 RELEASES_API_URL = f"https://api.github.com/repos/{GITHUB_REPOSITORY}/releases?per_page=20"
 LATEST_RELEASE_PAGE_URL = f"https://github.com/{GITHUB_REPOSITORY}/releases/latest"
