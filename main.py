@@ -18,8 +18,8 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from ctypes_utils import C_Ptr
-from game_structs import (AcquiredSkillObject, FactorDataObject, FavoriteDataDictionaryEntry, GenericDictionary,
-                          RaceHistoryInfoObject, SuccessionCharaDataObject, SuccessionHistoryObject,
+from game_structs import (AcquiredSkillObject, CardDataDictionaryEntry, FactorDataObject, FavoriteDataDictionaryEntry,
+                          GenericDictionary, RaceHistoryInfoObject, SuccessionCharaDataObject, SuccessionHistoryObject,
                           SupportCardDataDictionaryEntry, TrainedCharaDataDictionaryEntry,
                           TrainedCharaSupportCardDataObject, WorkDataManagerObject,
                           WorkDataManagerSingletonStaticFields)
@@ -380,6 +380,55 @@ def decode_trained_chara_dictionary(wdm: WorkDataManagerObject) -> list[dict[str
 
 
 # ---------------------------------------------------------------------------
+# Chara/card extraction
+# ---------------------------------------------------------------------------
+
+
+def _card_data_entries_ptr_and_sizes(wdm: WorkDataManagerObject) \
+        -> Optional[GenericDictionary[CardDataDictionaryEntry]]:
+    """Resolve chara/card-data entries pointer and dictionary sizes."""
+    card_data_data_ptr = wdm.fields.cardData
+    if not card_data_data_ptr:
+        print("WorkDataManager.cardData is null")
+        return None
+
+    dictionary_ptr = card_data_data_ptr.contents.fields.dataDic
+    if not dictionary_ptr:
+        print("WorkCardData.dataDic is null")
+        return None
+
+    dictionary = dictionary_ptr.contents
+    return dictionary
+
+
+def _decode_card_data_entry(entry: CardDataDictionaryEntry) -> dict[str, Any]:
+    f = entry.value.contents.fields
+    return {
+        "card_id": f.cardId.value,
+        "talent_level": f.talentLevel.value,
+        "rarity": f.rarity.value,
+        "create_time": f.createTime.value
+    }
+
+
+def decode_card_data_dictionary(wdm: WorkDataManagerObject) -> list[dict[str, Any]]:
+    """Descend WorkDataManager -> WorkCardData -> Dictionary<int, CardData>."""
+    result: list[dict[str, Any]] = []
+
+    card_data_dict = _card_data_entries_ptr_and_sizes(wdm)
+    if card_data_dict is None:
+        return []
+
+    print(f"CardData dictionary: count={card_data_dict.fields.count}")
+
+    for entry in card_data_dict:
+        decoded = _decode_card_data_entry(entry)
+        result.append(decoded)
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Singleton resolution
 # ---------------------------------------------------------------------------
 
@@ -583,6 +632,13 @@ def _extract_trained_chara_data(wdm: WorkDataManagerObject) -> Any:
     return trained_charas
 
 
+def _extract_card_data(wdm: WorkDataManagerObject) -> Any:
+    cards = decode_card_data_dictionary(wdm)
+    # game calls the owned character data "card" data, making a distinction between alternate costume variants this way
+    print(f"Decoded {len(cards)} owned character entries")  # game
+    return cards
+
+
 WORKDATA_EXTRACTORS: tuple[WorkDataManagerExtractor, ...] = (
     WorkDataManagerExtractor(
             name="support_cards",
@@ -593,6 +649,11 @@ WORKDATA_EXTRACTORS: tuple[WorkDataManagerExtractor, ...] = (
             name="trained_chara_data",
             output_path=Path("trained_chara_data.json"),
             extract=_extract_trained_chara_data,
+    ),
+    WorkDataManagerExtractor(
+            name="card_data",
+            output_path=Path("card_data.json"),
+            extract=_extract_card_data,
     ),
 )
 

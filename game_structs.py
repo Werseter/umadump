@@ -210,6 +210,52 @@ class GenericDictionary[CDT: StructOrSimple](CStructureDataclass, RuntimeGeneric
 
 
 # ---------------------------------------------------------------------------
+# Gallop.WorkCardData.CardData
+# ---------------------------------------------------------------------------
+
+
+class CardDataFields(CStructureDataclass):
+    _ignored_1: ArrayType[C_UDeclPtr, L[3]]  # masterCard … masterChara / masterDataPtrs
+    cardId: ObscuredInt
+    talentLevel: ObscuredInt
+    rarity: ObscuredInt
+    _ignored_2: C_UDeclPtr  # hintLevelDic
+    _ignored_3: ObscuredInt  # changedModelDressId
+    createTime: ObscuredLong
+    _ignored_4: ArrayType[ObscuredInt, L[5]]  # speed … wiz
+    _ignored_5: ArrayType[C_UDeclPtr, L[2]]  # uniqueSkill, acquirableSkillArray
+
+
+@register_runtime_validatable('Gallop::WorkCardData.CardData')
+class CardDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: CardDataFields
+
+
+class CardDataDictionaryEntry(CStructureDataclass):
+    hashCode: C_Int[c_int32]
+    _ignored_1: c_int32  # next
+    key: C_Int[c_int32]
+    value: C_Ptr[CardDataObject]
+
+
+# ---------------------------------------------------------------------------
+# Gallop.WorkCardData
+# ---------------------------------------------------------------------------
+
+
+class WorkCardDataFields(CStructureDataclass):
+    dataDic: C_Ptr[GenericDictionary[CardDataDictionaryEntry]]
+    _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # releaseCardIdList, BackableStateStack
+
+
+@register_runtime_validatable('Gallop::WorkCardData')
+class WorkCardDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: WorkCardDataFields
+
+
+# ---------------------------------------------------------------------------
 # Gallop.WorkSupportCardData.SupportCardData
 # ---------------------------------------------------------------------------
 
@@ -497,7 +543,8 @@ class WorkTrainedCharaDataObject(CStructureDataclass):
 
 
 class WorkDataManagerFields(CStructureDataclass):
-    _ignored_1: ArrayType[C_UDeclPtr, L[3]]  # UserData, FriendData, CardData
+    _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # UserData, FriendData
+    cardData: C_Ptr[WorkCardDataObject]
     supportCardData: C_Ptr[WorkSupportCardDataObject]
     _ignored_2: ArrayType[C_UDeclPtr, L[4]]  # CharaData … WorkItemData
     trainedCharaData: C_Ptr[WorkTrainedCharaDataObject]
