@@ -28,6 +28,7 @@ from il2cpp_structs import (RuntimeIl2CppClass, RuntimeIl2CppGenericClass, Runti
 from il2cpp_utils import Il2CppResolutionManager, default_metadata_path_from_exe, parse_minimal_metadata
 from memory import MemoryReader, MinidumpMemory, POINTER_SIZE, ProcessMemory, TARGET_MODULE
 from schema_validation import validate_registered_classes
+from update_check import CURRENT_VERSION, notify_if_update_available
 
 
 # ---------------------------------------------------------------------------
@@ -563,8 +564,11 @@ def _parse_args() -> argparse.Namespace:
 
     parser = argparse.ArgumentParser(
             description="Resolve Gallop.WorkDataManager from a live process or an offline minidump")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {CURRENT_VERSION}")
     parser.add_argument("--minidump", help="Path to full-memory minidump (offline mode)")
     parser.add_argument("--metadata-path", help="global-metadata.dat path; required with --minidump")
+    parser.add_argument("--no-update-check", action="store_true",
+                        help="Skip the startup GitHub release check")
     parser.add_argument("--validate-only", action="store_true",
                         help="Only validate registered classes and exit")
     args = parser.parse_args()
@@ -687,6 +691,10 @@ def _resolve_and_dump_workdatamanager(resolver: Il2CppResolutionManager) -> None
 def main() -> None:
     args = _parse_args()
     t_start = time.perf_counter()
+
+    print(f"umadump {CURRENT_VERSION}")
+    if not args.no_update_check:
+        notify_if_update_available(CURRENT_VERSION)
 
     setup = _setup(args)
     print(f"Metadata path: {setup.metadata_path}")

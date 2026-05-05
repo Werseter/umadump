@@ -117,7 +117,25 @@ python main.py --minidump "D:\path\to\dump.dmp" --metadata-path "D:\path\to\glob
 
 # Run schema validation only, then exit
 python main.py --minidump "D:\path\to\dump.dmp" --validate-only
+
+# Skip the startup GitHub release lookup
+python main.py --no-update-check
 ```
+
+---
+
+## Versioning & update notifications
+
+- The current build version is embedded in `update_check.py` as `CURRENT_VERSION` and is
+  shown at startup.
+- On normal startup, `main.py` performs a short best-effort call to the GitHub Releases
+  API for [`Werseter/umadump`](https://github.com/Werseter/umadump/releases).
+- Stable builds check for newer stable releases. Prerelease builds (for example
+  `2.0.0-alpha`) also consider newer prerelease tags such as beta/rc builds and the final
+  stable release.
+- If a newer applicable release tag is available, the tool prints the release page link
+  and, for a bundled executable build, prefers a direct `.exe` asset link when one exists.
+- Network/API failures do **not** stop the dump process; the check is purely informative.
 
 ---
 
