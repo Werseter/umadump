@@ -14,6 +14,7 @@ import struct
 import time
 import traceback
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -143,15 +144,19 @@ def _decode_support_card_entry(entry: SupportCardDataDictionaryEntry) -> Optiona
         return None
     f = entry.value.contents.fields
     return {
-        "supportCardId": f.supportCardId.value,
-        "level": f.level.value,
-        "limitBreakCount": f.limitBreakCount.value,
-        "maxLevel": f.maxLevel.value,
-        "createTime": f.createTime.value,
+        "viewer_id": 0,
+        "support_card_id": f.supportCardId.value,
         "exp": f.exp.value,
+        "limit_break_count": f.limitBreakCount.value,
+        "favorite_flag": int(f.isFavoriteLock.value),
         "stock": f.stock.value,
-        "isFavoriteLock": f.isFavoriteLock.value,
-        "bestTraining": int(f.bestTraining),
+        "possess_time": 0,
+        "create_time": str(datetime.fromtimestamp(f.createTime.value, tz=UTC).replace(tzinfo=None)),
+        "extra_data": {
+            "level": f.level.value,
+            "max_level": f.maxLevel.value,
+            "best_training": int(f.bestTraining),
+        }
     }
 
 
@@ -413,9 +418,9 @@ def _decode_card_data_entry(entry: CardDataDictionaryEntry) -> dict[str, Any]:
     f = entry.value.contents.fields
     return {
         "card_id": f.cardId.value,
-        "talent_level": f.talentLevel.value,
         "rarity": f.rarity.value,
-        "create_time": f.createTime.value
+        "talent_level": f.talentLevel.value,
+        "create_time": str(datetime.fromtimestamp(f.createTime.value, tz=UTC).replace(tzinfo=None)),
         "skill_data_array": [
             _decode_hint_level_dictionary_entry(x) for x in f.hintLevelDic.contents
         ] if f.hintLevelDic else []
