@@ -150,6 +150,8 @@ class GenericList[CDT: StructOrSimple](CStructureDataclass, RuntimeGenericMixin[
     fields: GenericListFields[CDT]
 
     def span(self) -> Span[CDT]:
+        if self.fields.size == 0:
+            return Span(self.fields.items.inner_ptr, 0)  # type: ignore[arg-type]
         return self.fields.items.span()
 
     def __iter__(self) -> Iterator[CDT]:
@@ -193,6 +195,8 @@ class GenericDictionary[CDT: StructOrSimple](CStructureDataclass, RuntimeGeneric
     fields: GenericDictionaryFields[CDT]
 
     def span(self) -> Span[CDT]:
+        if self.fields.count == 0:
+            return Span(self.fields.entries.inner_ptr, 0)  # type: ignore[arg-type]
         return self.fields.entries.span()
 
     def __iter__(self) -> Iterator[CDT]:
