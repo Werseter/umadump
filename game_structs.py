@@ -217,17 +217,23 @@ class GenericDictionary[CDT: StructOrSimple](CStructureDataclass, RuntimeGeneric
 # Gallop.WorkCardData.CardData
 # ---------------------------------------------------------------------------
 
+class HintLevelDictionaryEntry(CStructureDataclass):
+    hashCode: C_Int[c_int32]
+    _ignored_1: c_int32  # next
+    key: ObscuredInt
+    value: ObscuredInt
+
 
 class CardDataFields(CStructureDataclass):
     _ignored_1: ArrayType[C_UDeclPtr, L[3]]  # masterCard … masterChara / masterDataPtrs
     cardId: ObscuredInt
     talentLevel: ObscuredInt
     rarity: ObscuredInt
-    _ignored_2: C_UDeclPtr  # hintLevelDic
-    _ignored_3: ObscuredInt  # changedModelDressId
+    hintLevelDic: C_Ptr[GenericDictionary[HintLevelDictionaryEntry]]
+    _ignored_2: ObscuredInt  # changedModelDressId
     createTime: ObscuredLong
-    _ignored_4: ArrayType[ObscuredInt, L[5]]  # speed … wiz
-    _ignored_5: ArrayType[C_UDeclPtr, L[2]]  # uniqueSkill, acquirableSkillArray
+    _ignored_3: ArrayType[ObscuredInt, L[5]]  # speed … wiz
+    _ignored_4: ArrayType[C_UDeclPtr, L[2]]  # uniqueSkill, acquirableSkillArray
 
 
 @register_runtime_validatable('Gallop::WorkCardData.CardData')

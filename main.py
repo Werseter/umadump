@@ -19,8 +19,8 @@ from typing import Any, Callable, Optional
 
 from ctypes_utils import C_Ptr
 from game_structs import (AcquiredSkillObject, CardDataDictionaryEntry, FactorDataObject, FavoriteDataDictionaryEntry,
-                          GenericDictionary, RaceHistoryInfoObject, SuccessionCharaDataObject, SuccessionHistoryObject,
-                          SupportCardDataDictionaryEntry, TrainedCharaDataDictionaryEntry,
+                          GenericDictionary, HintLevelDictionaryEntry, RaceHistoryInfoObject, SuccessionCharaDataObject,
+                          SuccessionHistoryObject, SupportCardDataDictionaryEntry, TrainedCharaDataDictionaryEntry,
                           TrainedCharaSupportCardDataObject, WorkDataManagerObject,
                           WorkDataManagerSingletonStaticFields)
 from il2cpp_structs import (RuntimeIl2CppClass, RuntimeIl2CppGenericClass, RuntimeIl2CppGenericInst,
@@ -402,6 +402,13 @@ def _card_data_entries_ptr_and_sizes(wdm: WorkDataManagerObject) \
     return dictionary
 
 
+def _decode_hint_level_dictionary_entry(entry: HintLevelDictionaryEntry) -> dict[str, int]:
+    return {
+        "skill_id": entry.key.value,
+        "level": entry.value.value,
+    }
+
+
 def _decode_card_data_entry(entry: CardDataDictionaryEntry) -> dict[str, Any]:
     f = entry.value.contents.fields
     return {
@@ -409,6 +416,9 @@ def _decode_card_data_entry(entry: CardDataDictionaryEntry) -> dict[str, Any]:
         "talent_level": f.talentLevel.value,
         "rarity": f.rarity.value,
         "create_time": f.createTime.value
+        "skill_data_array": [
+            _decode_hint_level_dictionary_entry(x) for x in f.hintLevelDic.contents
+        ] if f.hintLevelDic else []
     }
 
 
