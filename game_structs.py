@@ -53,6 +53,12 @@ class ObscuredBool(CStructureDataclass, ObscuredTypeMixin[bool]):
     _ignored_2: c_bool  # fakeValue
     _ignored_3: c_bool  # fakeValueActive
 
+    @property
+    def value(self) -> bool:
+        false_sentinel = 0xB5
+        decoded = int(self.currentCryptoKey) ^ int(self.hiddenValue)
+        return decoded != false_sentinel
+
 
 class ObscuredInt(CStructureDataclass, ObscuredTypeMixin[int]):
     currentCryptoKey: C_Int[c_int32]
