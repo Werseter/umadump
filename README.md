@@ -13,6 +13,7 @@ structured JSON data.
 - Before, the data extraction was based on catching a cached API network request, requiring specific timing and was
   prone to cache invalidation. We are now directly reading the game memory, which is more robust and works regardless of
   caching.
+
 - The new tool is built around a flexible schema validation system that cross-checks declared wrapper class layouts
   against the full inheritance chain in metadata, catching any discrepancies at startup. Additionally, runtime guards
   verify object types on every access, preventing stale pointer dereferences or wrong-type casts from causing silent
@@ -24,6 +25,9 @@ structured JSON data.
   more robust and maintainable foundation for future data extraction efforts.
 
   Besides, I don't think those missing data points are critical for the current use cases.
+
+- Additional data points in the exports that are not available through the API, will be exposed through "extra_data" 
+  fields in the JSON output, so they can be used by downstream tools without breaking existing fields.
 
 ## Why?
 
