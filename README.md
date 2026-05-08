@@ -6,7 +6,7 @@ Resolves live game objects from either a running process or a prepared full-memo
 minidump, validates wrapper class layouts against `global-metadata.dat`, and exports
 structured JSON data.
 
-> **Python requirement:** This project requires **Python 3.13+**.
+> **Python requirement:** This project requires **Python 3.14+**.
 
 ---
 
