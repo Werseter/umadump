@@ -38,10 +38,10 @@ Public function
 from __future__ import annotations
 
 import re
-from ctypes import CField, c_int32
+from ctypes import c_int32
 from typing import Any, Callable, ClassVar, Optional, Protocol
 
-from ctypes_utils import CStructureDataclass, C_Ptr
+from ctypes_utils import C_Ptr
 from il2cpp_structs import Il2CppFieldDefinition, RuntimeIl2CppClass, RuntimeIl2CppObject, RuntimeIl2CppType
 from il2cpp_utils import Il2CppResolutionManager
 from memory import MemoryReader
@@ -51,6 +51,21 @@ class RuntimeValidatableIl2CppClass(Protocol):
     """Protocol for Il2Cpp object wrappers that carry a live ``_il2cpp_obj`` pointer."""
 
     _il2cpp_obj: RuntimeIl2CppObject
+
+
+class CtypesFieldDescriptor(Protocol):
+    """Minimal descriptor shape used by ctypes field introspection."""
+
+    offset: int
+
+
+def _nested_fields_type(cls: type[Any]) -> type[Any] | None:
+    """Return the ctypes type declared for the conventional ``fields`` member."""
+
+    for field_name, field_type in getattr(cls, "_fields_", ()):
+        if field_name == "fields":
+            return field_type
+    return None
 
 
 class RuntimeValidatableIl2CppClassManager:
@@ -327,9 +342,9 @@ def _iter_expected_registered_fields(cls: type[Any]) -> list[tuple[str, int]]:
     expected: list[tuple[str, int]] = []
 
     # Object wrappers usually expose instance data through `fields`.
-    cls_fields: Optional[CField[CStructureDataclass, Any, Any]] = getattr(cls, "fields", None)
-    if cls_fields is not None:
-        nested_fields_type = cls_fields.type
+    cls_fields: Optional[CtypesFieldDescriptor] = getattr(cls, "fields", None)
+    nested_fields_type = _nested_fields_type(cls)
+    if cls_fields is not None and nested_fields_type is not None:
         for field_name, _field_type in getattr(nested_fields_type, "_fields_", ()):
             if field_name.startswith("_"):
                 continue
