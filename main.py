@@ -118,6 +118,15 @@ class Il2CppRegistrationResolver:
 
 
 # ---------------------------------------------------------------------------
+# Misc Utils
+# ---------------------------------------------------------------------------
+def _timestamp_to_str(timestamp: int) -> str:
+    if not timestamp:
+        return "0000-00-00 00:00:00"
+    return str(datetime.fromtimestamp(timestamp, tz=UTC).replace(tzinfo=None))
+
+
+# ---------------------------------------------------------------------------
 # Support card extraction
 # ---------------------------------------------------------------------------
 
@@ -151,7 +160,7 @@ def _decode_support_card_entry(entry: SupportCardDataDictionaryEntry) -> Optiona
         "favorite_flag": int(f.isFavoriteLock.value),
         "stock": f.stock.value,
         "possess_time": 0,
-        "create_time": str(datetime.fromtimestamp(f.createTime.value, tz=UTC).replace(tzinfo=None)),
+        "create_time": _timestamp_to_str(f.createTime.value),
         "extra_data": {
             "level": f.level.value,
             "max_level": f.maxLevel.value,
@@ -328,9 +337,8 @@ def _decode_trained_chara_entry(entry: TrainedCharaDataDictionaryEntry) -> dict[
         "running_style": f.runningStyle.value,
         "nickname_id": f.nickNameId.value,
         "wins": f.singleWinNum.value,
-        # "total_race_num": f.singleTotalRaceNum, - can add the extra later
-        "register_time": "",
-        "create_time": "",
+        "register_time": f.createTime.contents.value if f.createTime else "",
+        "create_time": f.createTime.contents.value if f.createTime else "",
         "skill_array": [
             _decode_acquired_skill_entry(x.contents) for x in f.acquiredSkillArray],
         "support_card_list": [
@@ -420,7 +428,7 @@ def _decode_card_data_entry(entry: CardDataDictionaryEntry) -> dict[str, Any]:
         "card_id": f.cardId.value,
         "rarity": f.rarity.value,
         "talent_level": f.talentLevel.value,
-        "create_time": str(datetime.fromtimestamp(f.createTime.value, tz=UTC).replace(tzinfo=None)),
+        "create_time": _timestamp_to_str(f.createTime.value),
         "skill_data_array": [
             _decode_hint_level_dictionary_entry(x) for x in f.hintLevelDic.contents
         ] if f.hintLevelDic else []
@@ -678,7 +686,7 @@ WORKDATA_EXTRACTORS: tuple[WorkDataManagerExtractor, ...] = (
 
 
 def _write_json_file(name: str, output_path: Path, payload: Any) -> None:
-    pretty_json = json.dumps(payload, indent=2)
+    pretty_json = json.dumps(payload, indent=2, ensure_ascii=False)
     output_path.write_text(pretty_json, encoding="utf-8")
     print(f"{name}: wrote JSON to {output_path}")
 

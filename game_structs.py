@@ -203,6 +203,26 @@ class ObscuredLong(CStructureDataclass):
         return int(self.currentCryptoKey) ^ int(self.hiddenValue)
 
 
+class ObscuredString(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    currentCryptoKey: SystemStringObjectPtr
+    hiddenValue: GenericArrayPtr[c_uint8]
+    _ignored_1: c_bool  # inited
+    _ignored_2: SystemStringObjectPtr  # fakeValue
+    _ignored_3: c_bool  # fakeValueActive
+
+    @property
+    def value(self) -> str:
+        key_str = self.currentCryptoKey.as_str()
+        key_len = len(key_str)
+        if key_len == 0:
+            return ''
+        raw_bytes = bytes(b.value for b in self.hiddenValue)
+        enc_str = raw_bytes.decode('utf-16le')
+        dec_str = ''.join(chr(ord(c) ^ ord(key_str[i % key_len])) for i, c in enumerate(enc_str))
+        return dec_str.rstrip('\x00')  # strip null terminator if present
+
+
 # ---------------------------------------------------------------------------
 # Gallop.WorkCardData.CardData
 # ---------------------------------------------------------------------------
@@ -483,7 +503,7 @@ class TrainedCharaDataFields(CStructureDataclass):
     properRunningStyleOikomi: ObscuredInt
     successionCount: ObscuredInt
     factorDataArray: GenericArrayPtr[C_Ptr[FactorDataObject]]
-    createTime: C_UDeclPtr  # C_Ptr[ObscuredString]
+    createTime: C_Ptr[ObscuredString]
     scenarioId: ObscuredInt
     talentLevel: ObscuredInt
     charaGrade: ObscuredInt
