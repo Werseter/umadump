@@ -10,7 +10,7 @@ Contains:
 from __future__ import annotations
 
 from ctypes import c_bool, c_int32, c_int64, c_uint16, c_uint64, c_uint8
-from typing import Any, Iterator, Literal as L, cast as type_cast, get_args, get_origin
+from typing import Iterator, Literal as L, cast as type_cast
 
 from ctypes_utils import (ArrayType, CStructureDataclass, C_Int, C_Ptr, C_UDeclPtr, C_VoidPtr, RuntimeGenericMixin,
                           Span, StructOrSimple)
@@ -22,31 +22,7 @@ from schema_validation import register_runtime_validatable
 # ObscuredTypes value-type structs
 # ---------------------------------------------------------------------------
 
-class ObscuredTypeMixin[T]:
-    """Decoder mixin for CodeStage ObscuredTypes that XOR ``hiddenValue`` with ``currentCryptoKey``."""
-
-    currentCryptoKey: int
-    hiddenValue: int
-    _value_type: type[Any]
-
-    def __init_subclass__(cls, **kwargs: Any) -> None:
-        super().__init_subclass__(**kwargs)
-        bases = getattr(cls, "__orig_bases__", ())
-        generic_base = next((b for b in bases if get_origin(b) is ObscuredTypeMixin), None)
-        if generic_base is None:
-            raise TypeError(f"{cls.__name__} must inherit ObscuredTypeMixin[T]")
-        args = get_args(generic_base)
-        if not args:
-            raise TypeError(f"{cls.__name__} missing ObscuredTypeMixin type argument")
-        cls._value_type = args[0]
-
-    @property
-    def value(self) -> T:
-        decoded = int(self.currentCryptoKey) ^ int(self.hiddenValue)
-        return type_cast(T, self._value_type(decoded))
-
-
-class ObscuredBool(CStructureDataclass, ObscuredTypeMixin[bool]):
+class ObscuredBool(CStructureDataclass):
     currentCryptoKey: C_Int[c_uint8]
     hiddenValue: C_Int[c_int32]
     _ignored_1: c_bool  # inited
@@ -60,20 +36,28 @@ class ObscuredBool(CStructureDataclass, ObscuredTypeMixin[bool]):
         return decoded != false_sentinel
 
 
-class ObscuredInt(CStructureDataclass, ObscuredTypeMixin[int]):
+class ObscuredInt(CStructureDataclass):
     currentCryptoKey: C_Int[c_int32]
     hiddenValue: C_Int[c_int32]
     _ignored_1: c_bool  # inited
     _ignored_2: c_int32  # fakeValue
     _ignored_3: c_bool  # fakeValueActive
 
+    @property
+    def value(self) -> int:
+        return int(self.currentCryptoKey) ^ int(self.hiddenValue)
 
-class ObscuredLong(CStructureDataclass, ObscuredTypeMixin[int]):
+
+class ObscuredLong(CStructureDataclass):
     currentCryptoKey: C_Int[c_int64]
     hiddenValue: C_Int[c_int64]
     _ignored_1: c_bool  # inited
     _ignored_2: c_int64  # fakeValue
     _ignored_3: c_bool  # fakeValueActive
+
+    @property
+    def value(self) -> int:
+        return int(self.currentCryptoKey) ^ int(self.hiddenValue)
 
 
 # ---------------------------------------------------------------------------
