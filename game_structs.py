@@ -19,48 +19,6 @@ from schema_validation import register_runtime_validatable
 
 
 # ---------------------------------------------------------------------------
-# ObscuredTypes value-type structs
-# ---------------------------------------------------------------------------
-
-class ObscuredBool(CStructureDataclass):
-    currentCryptoKey: C_Int[c_uint8]
-    hiddenValue: C_Int[c_int32]
-    _ignored_1: c_bool  # inited
-    _ignored_2: c_bool  # fakeValue
-    _ignored_3: c_bool  # fakeValueActive
-
-    @property
-    def value(self) -> bool:
-        false_sentinel = 0xB5
-        decoded = int(self.currentCryptoKey) ^ int(self.hiddenValue)
-        return decoded != false_sentinel
-
-
-class ObscuredInt(CStructureDataclass):
-    currentCryptoKey: C_Int[c_int32]
-    hiddenValue: C_Int[c_int32]
-    _ignored_1: c_bool  # inited
-    _ignored_2: c_int32  # fakeValue
-    _ignored_3: c_bool  # fakeValueActive
-
-    @property
-    def value(self) -> int:
-        return int(self.currentCryptoKey) ^ int(self.hiddenValue)
-
-
-class ObscuredLong(CStructureDataclass):
-    currentCryptoKey: C_Int[c_int64]
-    hiddenValue: C_Int[c_int64]
-    _ignored_1: c_bool  # inited
-    _ignored_2: c_int64  # fakeValue
-    _ignored_3: c_bool  # fakeValueActive
-
-    @property
-    def value(self) -> int:
-        return int(self.currentCryptoKey) ^ int(self.hiddenValue)
-
-
-# ---------------------------------------------------------------------------
 # System-namespace Miscellaneous Structs
 # ---------------------------------------------------------------------------
 
@@ -201,6 +159,48 @@ class GenericDictionary[CDT: StructOrSimple](CStructureDataclass, RuntimeGeneric
         if valid < self.fields.count:
             print(f"Warning: iterated over GenericDictionary with {self.fields.count} entries, "
                   f"but only {valid} have valid hash codes")
+
+
+# ---------------------------------------------------------------------------
+# ObscuredTypes value-type structs
+# ---------------------------------------------------------------------------
+
+class ObscuredBool(CStructureDataclass):
+    currentCryptoKey: C_Int[c_uint8]
+    hiddenValue: C_Int[c_int32]
+    _ignored_1: c_bool  # inited
+    _ignored_2: c_bool  # fakeValue
+    _ignored_3: c_bool  # fakeValueActive
+
+    @property
+    def value(self) -> bool:
+        false_sentinel = 0xB5
+        decoded = int(self.currentCryptoKey) ^ int(self.hiddenValue)
+        return decoded != false_sentinel
+
+
+class ObscuredInt(CStructureDataclass):
+    currentCryptoKey: C_Int[c_int32]
+    hiddenValue: C_Int[c_int32]
+    _ignored_1: c_bool  # inited
+    _ignored_2: c_int32  # fakeValue
+    _ignored_3: c_bool  # fakeValueActive
+
+    @property
+    def value(self) -> int:
+        return int(self.currentCryptoKey) ^ int(self.hiddenValue)
+
+
+class ObscuredLong(CStructureDataclass):
+    currentCryptoKey: C_Int[c_int64]
+    hiddenValue: C_Int[c_int64]
+    _ignored_1: c_bool  # inited
+    _ignored_2: c_int64  # fakeValue
+    _ignored_3: c_bool  # fakeValueActive
+
+    @property
+    def value(self) -> int:
+        return int(self.currentCryptoKey) ^ int(self.hiddenValue)
 
 
 # ---------------------------------------------------------------------------
