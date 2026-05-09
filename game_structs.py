@@ -203,6 +203,18 @@ class ObscuredLong(CStructureDataclass):
         return int(self.currentCryptoKey) ^ int(self.hiddenValue)
 
 
+class ObscuredULong(CStructureDataclass):
+    currentCryptoKey: C_Int[c_uint64]
+    hiddenValue: C_Int[c_uint64]
+    _ignored_1: c_bool  # inited
+    _ignored_2: c_uint64  # fakeValue
+    _ignored_3: c_bool  # fakeValueActive
+
+    @property
+    def value(self) -> int:
+        return int(self.currentCryptoKey) ^ int(self.hiddenValue)
+
+
 class ObscuredString(CStructureDataclass):
     _il2cpp_obj: RuntimeIl2CppObject
     currentCryptoKey: SystemStringObjectPtr
@@ -558,12 +570,64 @@ class WorkTrainedCharaDataObject(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
+# Gallop.WorkFriendData.FriendData
+# ---------------------------------------------------------------------------
+
+class FriendDataFields(CStructureDataclass):
+    viewerId: ObscuredLong
+    name: C_Ptr[ObscuredString]
+    friendState: ObscuredInt
+    honorId: ObscuredInt
+    lastLoginTime: C_Ptr[ObscuredString]
+    lastLoginUnixTime: ObscuredLong
+    followUnixTime: ObscuredLong
+    followerUnixTime: ObscuredLong
+    supportCardId: ObscuredInt
+    supportCardLimitBreakCount: ObscuredInt
+    supportCardExp: ObscuredInt
+    comment: C_Ptr[ObscuredString]
+    fan: ObscuredULong
+    isNewFollower: ObscuredBool
+    circleName: C_Ptr[ObscuredString]
+    circleId: ObscuredInt
+    circleMonthlyRank: ObscuredInt
+    virtualSupportCardData: C_Ptr[SupportCardDataObject]
+    virtualTrainedCharaData: C_Ptr[TrainedCharaDataObject]
+
+
+@register_runtime_validatable('Gallop::WorkFriendData.FriendData')
+class FriendDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: FriendDataFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.WorkFriendData
+# ---------------------------------------------------------------------------
+
+
+class WorkFriendDataFields(CStructureDataclass):
+    followList: C_Ptr[GenericList[C_Ptr[FriendDataObject]]]
+    followerList: C_Ptr[GenericList[C_Ptr[FriendDataObject]]]
+    recommendList: C_Ptr[GenericList[C_Ptr[FriendDataObject]]]
+    lastCheckedTime: ObscuredLong
+    followerNum: ObscuredInt
+
+
+@register_runtime_validatable('Gallop::WorkFriendData')
+class WorkFriendDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: WorkFriendDataFields
+
+
+# ---------------------------------------------------------------------------
 # Gallop.WorkDataManager object hierarchy
 # ---------------------------------------------------------------------------
 
 
 class WorkDataManagerFields(CStructureDataclass):
-    _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # UserData, FriendData
+    _ignored_1: C_UDeclPtr  # UserData
+    friendData: C_Ptr[WorkFriendDataObject]
     cardData: C_Ptr[WorkCardDataObject]
     supportCardData: C_Ptr[WorkSupportCardDataObject]
     _ignored_2: ArrayType[C_UDeclPtr, L[4]]  # CharaData … WorkItemData
