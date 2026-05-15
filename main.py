@@ -852,9 +852,9 @@ def _extract_card_data(wdm: WorkDataManagerObject) -> Any:
     return cards
 
 
-def _extract_friend_data(wdm: WorkDataManagerObject) -> Any:
+def _extract_friend_data(wdm: WorkDataManagerObject) -> dict[str, Any]:
     friends = decode_friend_data(wdm)
-    print(f"Decoded friend data with {len(friends.get("friend_list", []))} friend entries")
+    print(f"Decoded friend data with {len(friends.get('friend_list', []))} friend entries")
     return friends
 
 
