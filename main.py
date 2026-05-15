@@ -132,6 +132,10 @@ def _write_json_file(name: str, output_path: Path, payload: Any) -> None:
     print(f"{name}: wrote JSON to {output_path}")
 
 
+def _write_multi_output_json(output_folder: Path, key: str, payload: Any) -> None:
+    _write_json_file(f"{output_folder.name}[{key}]", output_folder / f"{key}.json", payload)
+
+
 # ---------------------------------------------------------------------------
 # Support card extraction
 # ---------------------------------------------------------------------------
@@ -792,10 +796,41 @@ def resolve_singleton[TSingletonObject: StructOrSimple](
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
-class WorkDataManagerExtractor:
+class Extractor[TExtractorInput, TMultiOutputPayload]:
+    """
+    Unified extractor definition.
+
+    Single-file mode:  set ``output_path``; the extracted payload is serialised directly.
+    Multi-file mode:   set ``output_folder``, ``key_fn`` (and optionally ``writer``);
+                       the payload is written to ``output_folder/<key>.json``.
+    """
     name: str
-    output_path: Path
-    extract: Callable[[WorkDataManagerObject], Any]
+    extract: Callable[[TExtractorInput], Any]
+    output_path: Optional[Path] = None
+    output_folder: Optional[Path] = None
+    key_fn: Optional[Callable[[TMultiOutputPayload], str]] = None
+    writer: Optional[Callable[[Path, str, TMultiOutputPayload], None]] = None
+
+
+def _run_extractors(extractors: tuple[Extractor[Any, Any], ...], data: Any) -> None:
+    """Run a sequence of extractors against *data*, writing output as configured."""
+    for extractor in extractors:
+        print(f"Running extractor: {extractor.name}")
+        try:
+            payload = extractor.extract(data)
+            if extractor.output_path is not None:
+                _write_json_file(extractor.name, extractor.output_path, payload)
+            elif extractor.output_folder is not None and extractor.key_fn is not None:
+                key = extractor.key_fn(payload)
+                if not key:
+                    continue
+                extractor.output_folder.mkdir(parents=True, exist_ok=True)
+                writer = extractor.writer or _write_multi_output_json
+                writer(extractor.output_folder, key, payload)
+        except Exception as e:
+            print(f"Error in extractor {extractor.name}: {e}")
+            print("Full traceback:")
+            print(traceback.format_exc())
 
 
 def _extract_support_cards(wdm: WorkDataManagerObject) -> Any:
@@ -823,23 +858,23 @@ def _extract_friend_data(wdm: WorkDataManagerObject) -> Any:
     return friends
 
 
-WORKDATA_EXTRACTORS: tuple[WorkDataManagerExtractor, ...] = (
-    WorkDataManagerExtractor(
+WORKDATA_EXTRACTORS: tuple[Extractor[Any, Any], ...] = (
+    Extractor(
             name="support_cards",
             output_path=Path("support_card_data.json"),
             extract=_extract_support_cards,
     ),
-    WorkDataManagerExtractor(
+    Extractor(
             name="trained_chara_data",
             output_path=Path("trained_chara_data.json"),
             extract=_extract_trained_chara_data,
     ),
-    WorkDataManagerExtractor(
+    Extractor(
             name="card_data",
             output_path=Path("card_data.json"),
             extract=_extract_card_data,
     ),
-    WorkDataManagerExtractor(
+    Extractor(
             name="friend_data",
             output_path=Path("friend_data.json"),
             extract=_extract_friend_data
@@ -857,16 +892,7 @@ def _resolve_and_dump_workdatamanager(resolver: Il2CppResolutionManager,
         print(f"{spec.target_type} not resolved")
         return
 
-    wdm = instance.contents
-    for extractor in WORKDATA_EXTRACTORS:
-        print(f"Running extractor: {extractor.name}")
-        try:
-            payload = extractor.extract(wdm)
-            _write_json_file(extractor.name, extractor.output_path, payload)
-        except Exception as e:
-            print(f"Error in extractor {extractor.name}: {e}")
-            print("Full traceback:")
-            print(traceback.format_exc())
+    _run_extractors(WORKDATA_EXTRACTORS, instance.contents)
 
 
 # ---------------------------------------------------------------------------
