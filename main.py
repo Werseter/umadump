@@ -126,6 +126,12 @@ def _timestamp_to_str(timestamp: int) -> str:
     return str(datetime.fromtimestamp(timestamp, tz=UTC).replace(tzinfo=None))
 
 
+def _write_json_file(name: str, output_path: Path, payload: Any) -> None:
+    pretty_json = json.dumps(payload, indent=2, ensure_ascii=False)
+    output_path.write_text(pretty_json, encoding="utf-8")
+    print(f"{name}: wrote JSON to {output_path}")
+
+
 # ---------------------------------------------------------------------------
 # Support card extraction
 # ---------------------------------------------------------------------------
@@ -891,12 +897,6 @@ WORKDATA_EXTRACTORS: tuple[WorkDataManagerExtractor, ...] = (
             extract=_extract_friend_data
     ),
 )
-
-
-def _write_json_file(name: str, output_path: Path, payload: Any) -> None:
-    pretty_json = json.dumps(payload, indent=2, ensure_ascii=False)
-    output_path.write_text(pretty_json, encoding="utf-8")
-    print(f"{name}: wrote JSON to {output_path}")
 
 
 def _resolve_and_dump_workdatamanager(resolver: Il2CppResolutionManager) -> None:
