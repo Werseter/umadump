@@ -288,8 +288,8 @@ def _decode_succession_history_entry(entry: SuccessionHistoryObject) -> dict[str
         "succession_card_id": f.succession_card_id,
         "date": f.date,
         "rental_viewer_id": 0,
-        "user_name": f.user_name.as_str(),
-        "circle_name": f.circle_name.as_str()
+        "user_name": f.user_name.value,
+        "circle_name": f.circle_name.value
     }
 
 
@@ -354,7 +354,7 @@ def _decode_trained_chara_entry(entry: TrainedCharaDataDictionaryEntry) -> dict[
         "succession_history_array": [
             _decode_succession_history_entry(x.contents) for x in f.successionHistoryList.contents],
         "icon_type": f.favoriteData.contents.fields.type if f.favoriteData else 0,
-        "memo": f.favoriteData.contents.fields.memo.as_str() if f.favoriteData else "",
+        "memo": f.favoriteData.contents.fields.memo.value if f.favoriteData else "",
     }
 
 
@@ -363,7 +363,7 @@ def _decode_favorite_entry(entry: FavoriteDataDictionaryEntry) -> dict[str, Any]
     return {
         "trained_chara_id": f.trainedCharaId,
         "type": f.type,
-        "memo": f.memo.as_str(),
+        "memo": f.memo.value,
     }
 
 

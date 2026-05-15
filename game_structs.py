@@ -37,7 +37,8 @@ class SystemStringObjectPtr(CStructureDataclass):
 
     inner_ptr: C_Ptr[SystemStringObject]
 
-    def as_str(self) -> str:
+    @property
+    def value(self) -> str:
         """Decode managed ``System.String`` contents into a Python ``str``."""
 
         if not self.inner_ptr.contents:
@@ -84,6 +85,10 @@ class GenericArrayPtr[CDT: StructOrSimple](CStructureDataclass, RuntimeGenericMi
     def __iter__(self) -> Iterator[CDT]:
         return iter(self.span())
 
+    @property
+    def value(self) -> list[CDT]:
+        return list(iter(self))
+
 
 class GenericListFields[CDT: StructOrSimple](CStructureDataclass, RuntimeGenericMixin[CDT]):
     items: GenericArrayPtr[CDT]
@@ -111,6 +116,10 @@ class GenericList[CDT: StructOrSimple](CStructureDataclass, RuntimeGenericMixin[
                 break
             yield entry
             cnt += 1
+
+    @property
+    def value(self) -> list[CDT]:
+        return list(iter(self))
 
 
 class GenericDictionaryEntry(CStructureDataclass):
@@ -159,6 +168,10 @@ class GenericDictionary[CDT: StructOrSimple](CStructureDataclass, RuntimeGeneric
         if valid < self.fields.count:
             print(f"Warning: iterated over GenericDictionary with {self.fields.count} entries, "
                   f"but only {valid} have valid hash codes")
+
+    @property
+    def value(self) -> list[CDT]:
+        return list(iter(self))
 
 
 # ---------------------------------------------------------------------------
@@ -225,7 +238,7 @@ class ObscuredString(CStructureDataclass):
 
     @property
     def value(self) -> str:
-        key_str = self.currentCryptoKey.as_str()
+        key_str = self.currentCryptoKey.value
         key_len = len(key_str)
         if key_len == 0:
             return ''
