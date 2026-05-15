@@ -788,67 +788,8 @@ def resolve_singleton[TSingletonObject: StructOrSimple](
 
 
 # ---------------------------------------------------------------------------
-# CLI
+# Extractor definitions
 # ---------------------------------------------------------------------------
-
-
-def _parse_args() -> argparse.Namespace:
-    """Parse CLI flags for live/minidump mode and optional validation-only run."""
-
-    parser = argparse.ArgumentParser(
-            description="Resolve Gallop.WorkDataManager from a live process or an offline minidump")
-    parser.add_argument("--version", action="version", version=f"%(prog)s {CURRENT_VERSION}")
-    parser.add_argument("--minidump", help="Path to full-memory minidump (offline mode)")
-    parser.add_argument("--metadata-path", help="global-metadata.dat path; required with --minidump")
-    parser.add_argument("--no-update-check", action="store_true",
-                        help="Skip the startup GitHub release check")
-    parser.add_argument("--validate-only", action="store_true",
-                        help="Only validate registered classes and exit")
-    args = parser.parse_args()
-    if args.minidump and not args.metadata_path:
-        parser.error("--metadata-path is required when using --minidump")
-    return args
-
-
-@dataclass(frozen=True)
-class SetupContext:
-    mem: MemoryReader
-    metadata_path: Path
-
-
-def _setup(args: argparse.Namespace) -> SetupContext:
-    """Build memory interface and metadata path from CLI args."""
-    mem: MemoryReader
-    if args.minidump:
-        print(f"Offline mode from minidump: {args.minidump}")
-        mem = MinidumpMemory(args.minidump)
-        metadata_path = Path(args.metadata_path)
-    else:
-        print("Live mode from process memory")
-        mem = ProcessMemory()
-        metadata_path = Path(args.metadata_path) if args.metadata_path else default_metadata_path_from_exe(
-                mem.exe_path())
-
-    return SetupContext(mem=mem, metadata_path=metadata_path)
-
-
-def _build_resolver(mem: MemoryReader, metadata_path: Path) -> Il2CppResolutionManager:
-    """Create ``Il2CppResolutionManager`` and run schema validation for registered wrappers."""
-
-    metadata = parse_minimal_metadata(metadata_path)
-    print(f"Parsed metadata: type_defs={len(metadata.type_defs)}")
-
-    base, size = mem.module_info(TARGET_MODULE)
-
-    reg_va = Il2CppRegistrationResolver(mem, base, size).find_metadata_registration(len(metadata.type_defs))
-    if reg_va is None:
-        raise RuntimeError("Could not locate Il2CppMetadataRegistration")
-    meta_reg = C_Ptr[RuntimeIl2CppMetadataRegistration](reg_va).contents
-
-    resolver = Il2CppResolutionManager(mem, metadata, meta_reg)
-    validate_registered_classes(resolver)
-    return resolver
-
 
 @dataclass(frozen=True)
 class WorkDataManagerExtractor:
@@ -926,6 +867,74 @@ def _resolve_and_dump_workdatamanager(resolver: Il2CppResolutionManager,
             print(f"Error in extractor {extractor.name}: {e}")
             print("Full traceback:")
             print(traceback.format_exc())
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+
+def _parse_args() -> argparse.Namespace:
+    """Parse CLI flags for live/minidump mode and optional validation-only run."""
+
+    parser = argparse.ArgumentParser(
+            description="Resolve Gallop.WorkDataManager from a live process or an offline minidump")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {CURRENT_VERSION}")
+    parser.add_argument("--minidump", help="Path to full-memory minidump (offline mode)")
+    parser.add_argument("--metadata-path", help="global-metadata.dat path; required with --minidump")
+    parser.add_argument("--no-update-check", action="store_true",
+                        help="Skip the startup GitHub release check")
+    parser.add_argument("--validate-only", action="store_true",
+                        help="Only validate registered classes and exit")
+    args = parser.parse_args()
+    if args.minidump and not args.metadata_path:
+        parser.error("--metadata-path is required when using --minidump")
+    return args
+
+
+@dataclass(frozen=True)
+class SetupContext:
+    mem: MemoryReader
+    metadata_path: Path
+
+
+def _setup(args: argparse.Namespace) -> SetupContext:
+    """Build memory interface and metadata path from CLI args."""
+    mem: MemoryReader
+    if args.minidump:
+        print(f"Offline mode from minidump: {args.minidump}")
+        mem = MinidumpMemory(args.minidump)
+        metadata_path = Path(args.metadata_path)
+    else:
+        print("Live mode from process memory")
+        mem = ProcessMemory()
+        metadata_path = Path(args.metadata_path) if args.metadata_path else default_metadata_path_from_exe(
+                mem.exe_path())
+
+    return SetupContext(mem=mem, metadata_path=metadata_path)
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+
+def _build_resolver(mem: MemoryReader, metadata_path: Path) -> Il2CppResolutionManager:
+    """Create ``Il2CppResolutionManager`` and run schema validation for registered wrappers."""
+
+    metadata = parse_minimal_metadata(metadata_path)
+    print(f"Parsed metadata: type_defs={len(metadata.type_defs)}")
+
+    base, size = mem.module_info(TARGET_MODULE)
+
+    reg_va = Il2CppRegistrationResolver(mem, base, size).find_metadata_registration(len(metadata.type_defs))
+    if reg_va is None:
+        raise RuntimeError("Could not locate Il2CppMetadataRegistration")
+    meta_reg = C_Ptr[RuntimeIl2CppMetadataRegistration](reg_va).contents
+
+    resolver = Il2CppResolutionManager(mem, metadata, meta_reg)
+    validate_registered_classes(resolver)
+    return resolver
 
 
 def main() -> None:
