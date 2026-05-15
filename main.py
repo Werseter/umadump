@@ -16,9 +16,9 @@ import traceback
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast as type_cast
 
-from ctypes_utils import C_Ptr
+from ctypes_utils import C_Ptr, StructOrSimple
 from game_structs import (AcquiredSkillObject, CardDataDictionaryEntry, FactorDataObject, FavoriteDataDictionaryEntry,
                           FriendDataObject, GenericDictionary, HintLevelDictionaryEntry, RaceHistoryInfoObject,
                           SuccessionCharaDataObject, SuccessionHistoryObject, SupportCardDataDictionaryEntry,
@@ -678,31 +678,55 @@ def _collect_generic_classes(meta_reg: RuntimeIl2CppMetadataRegistration) -> Gen
     return GenericClassCollection(ptrs=gc_ptrs, by_addr=gc_by_addr)
 
 
-def _filter_singleton_generic_candidates(gc_ptrs: list[C_Ptr[RuntimeIl2CppGenericClass]],
-                                         gc_by_addr: dict[int, RuntimeIl2CppGenericClass],
-                                         singleton_type_ptr: int) -> dict[int, RuntimeIl2CppGenericClass]:
-    """Keep only ``GenericClass`` entries whose generic definition is ``Gallop.Singleton`1``."""
+@dataclass(frozen=True)
+class SingletonGenericClassMatch:
+    seq: int
+    class_ptr: C_Ptr[RuntimeIl2CppClass]
 
-    candidates: dict[int, RuntimeIl2CppGenericClass] = {}
-    for seq, gc_ptr in enumerate(gc_ptrs):
+
+@dataclass(frozen=True)
+class SingletonSpec[TSingletonObject: StructOrSimple]:
+    name: str
+    target_type: str
+    static_fields_type: type[Any]
+    output_type: type[TSingletonObject]
+    namespace: str = "Gallop"
+    singleton_class: str = "Singleton`1"
+    singleton_namespace: str = "Gallop"
+
+
+WORKDATAMANAGER_SINGLETON_SPEC = SingletonSpec(
+        name="workdatamanager",
+        target_type="WorkDataManager",
+        static_fields_type=WorkDataManagerSingletonStaticFields,
+        output_type=WorkDataManagerObject,
+)
+
+SINGLETON_SPEC_REGISTRY: dict[str, SingletonSpec[Any]] = {
+    spec.name: spec for spec in (
+        WORKDATAMANAGER_SINGLETON_SPEC,
+    )
+}
+
+
+def _build_singleton_generic_index(meta_reg: RuntimeIl2CppMetadataRegistration) \
+        -> dict[tuple[int, int], SingletonGenericClassMatch]:
+    """Build ``(generic-definition-type-ptr, arg0-type-ptr) -> matched class`` index."""
+    generic_classes = _collect_generic_classes(meta_reg)
+
+    gc_by_seq: dict[int, RuntimeIl2CppGenericClass] = {}
+    inst_addrs: list[int] = []
+    for seq, gc_ptr in enumerate(generic_classes.ptrs):
         if not gc_ptr:
             continue
-        gc = gc_by_addr[gc_ptr.address]
-        if gc.type.address != singleton_type_ptr or not gc.context.class_inst:
+        gc = generic_classes.by_addr[gc_ptr.address]
+        if not gc.context.class_inst:
             continue
-        candidates[seq] = gc
-    return candidates
+        gc_by_seq[seq] = gc
+        inst_addrs.append(gc.context.class_inst.address)
 
-
-def _load_first_generic_arg_ptr_by_inst_addr(candidates: dict[int, RuntimeIl2CppGenericClass]) -> dict[int, int]:
-    """Resolve ``class_inst`` -> first generic type-argument runtime type pointer."""
-
-    inst_addrs = [gc.context.class_inst.address for gc in candidates.values()]
     inst_values = C_Ptr[RuntimeIl2CppGenericInst].deref_many_at(inst_addrs)
-    inst_by_addr = {
-        addr: inst
-        for addr, inst in zip(inst_addrs, inst_values)
-    }
+    inst_by_addr = {addr: inst for addr, inst in zip(inst_addrs, inst_values)}
 
     argv0_ptr_addrs: list[int] = []
     argv0_index_by_inst_addr: dict[int, int] = {}
@@ -713,71 +737,54 @@ def _load_first_generic_arg_ptr_by_inst_addr(candidates: dict[int, RuntimeIl2Cpp
         argv0_ptr_addrs.append(inst.type_argv.address)
 
     argv0_ptrs = C_Ptr[C_Ptr[RuntimeIl2CppType]].deref_many_at(argv0_ptr_addrs)
-    return {
+    argv0_type_ptr_by_inst_addr = {
         inst_addr: argv0_ptrs[idx].address
         for inst_addr, idx in argv0_index_by_inst_addr.items()
     }
 
-
-@dataclass(frozen=True)
-class SingletonGenericClassMatch:
-    """Matched generic-class index and resolved runtime class pointer."""
-
-    seq: int
-    class_ptr: C_Ptr[RuntimeIl2CppClass]
-
-
-def _match_singleton_workdatamanager_class(candidates: dict[int, RuntimeIl2CppGenericClass],
-                                           argv0_type_ptr_by_inst_addr: dict[int, int],
-                                           target_type_ptr: int) -> Optional[SingletonGenericClassMatch]:
-    """Find ``Singleton`1<WorkDataManager>`` among candidate generic classes."""
-
-    for seq, gc in candidates.items():
-        class_inst_addr = gc.context.class_inst.address
-        if argv0_type_ptr_by_inst_addr.get(class_inst_addr) != target_type_ptr:
+    by_key: dict[tuple[int, int], SingletonGenericClassMatch] = {}
+    for seq, gc in gc_by_seq.items():
+        arg0_type_ptr = argv0_type_ptr_by_inst_addr.get(gc.context.class_inst.address)
+        if arg0_type_ptr is None or not gc.cached_class or not gc.type:
             continue
-        if not gc.cached_class:
-            print("Matched generic class but cached_class is null (class not yet initialized)")
-            return None
-        return SingletonGenericClassMatch(seq=seq, class_ptr=gc.cached_class)
-    return None
+        generic_type_addr = gc.type.address
+        if generic_type_addr is None:
+            continue
+        if not isinstance(generic_type_addr, int) or not isinstance(arg0_type_ptr, int):
+            continue
+        key = (generic_type_addr, arg0_type_ptr)
+        by_key.setdefault(key, SingletonGenericClassMatch(seq=seq, class_ptr=gc.cached_class))
+    return by_key
 
 
-def resolve_workdatamanager_singleton(resolver: Il2CppResolutionManager) -> Optional[C_Ptr[WorkDataManagerObject]]:
-    """Walk Il2CppMetadataRegistration to find Gallop.Singleton<WorkDataManager>._instance."""
+def resolve_singleton[TSingletonObject: StructOrSimple](
+        resolver: Il2CppResolutionManager,
+        spec: SingletonSpec[TSingletonObject],
+        singleton_index: dict[tuple[int, int], SingletonGenericClassMatch]) -> Optional[C_Ptr[TSingletonObject]]:
     meta_reg = resolver.meta_reg
-    if not meta_reg.genericClasses or not meta_reg.fieldOffsets:
-        print("MetadataRegistration pointers are incomplete")
+    if not meta_reg.genericClasses:
+        print("MetadataRegistration genericClasses pointer is missing")
         return None
 
-    singleton_typedef = resolver.require_type_def_index(["Singleton`1"], "Gallop")
-    target_typedef = resolver.require_type_def_index(["WorkDataManager"], "Gallop")
+    singleton_typedef = resolver.require_type_def_index([spec.singleton_class], spec.singleton_namespace)
+    target_typedef = resolver.require_type_def_index([spec.target_type], spec.namespace)
     singleton_type_ptr = resolver.require_runtime_type_ptr_for_typedef(singleton_typedef)
     target_type_ptr = resolver.require_runtime_type_ptr_for_typedef(target_typedef)
     resolver.require_static_field_local_index(singleton_typedef, "_instance")
 
-    print(f"Scanning {meta_reg.genericClassesCount} generic class instantiations...")
-    generic_classes = _collect_generic_classes(meta_reg)
-    candidate_gc_by_seq = _filter_singleton_generic_candidates(
-            generic_classes.ptrs,
-            generic_classes.by_addr,
-            singleton_type_ptr,
-    )
-    argv0_type_ptr_by_inst_addr = _load_first_generic_arg_ptr_by_inst_addr(candidate_gc_by_seq)
-    matched = _match_singleton_workdatamanager_class(
-            candidate_gc_by_seq,
-            argv0_type_ptr_by_inst_addr,
-            target_type_ptr,
-    )
-
+    matched = singleton_index.get((singleton_type_ptr, target_type_ptr))
     if matched is None:
-        print("No Singleton`1[WorkDataManager] instantiation found")
+        type_string = f"{spec.singleton_namespace}::{spec.singleton_class}[{spec.namespace}{spec.target_type}]"
+        print(f"No {type_string} instantiation found")
         return None
 
     print(f"  … matched at index {matched.seq}")
-
-    static_fields_ptr = C_Ptr[WorkDataManagerSingletonStaticFields](int(matched.class_ptr.contents.static_fields))
-    return static_fields_ptr.contents._instance
+    static_fields_type = spec.static_fields_type
+    # noinspection PyTypeHints
+    static_fields_ptr_type = C_Ptr[static_fields_type]  # type: ignore[valid-type]
+    static_fields_ptr = static_fields_ptr_type(int(matched.class_ptr.contents.static_fields))
+    # noinspection PyTypeChecker
+    return type_cast(C_Ptr[TSingletonObject], static_fields_ptr.contents._instance)  # type: ignore[attr-defined]
 
 
 # ---------------------------------------------------------------------------
@@ -899,12 +906,14 @@ WORKDATA_EXTRACTORS: tuple[WorkDataManagerExtractor, ...] = (
 )
 
 
-def _resolve_and_dump_workdatamanager(resolver: Il2CppResolutionManager) -> None:
+def _resolve_and_dump_workdatamanager(resolver: Il2CppResolutionManager,
+                                      singleton_index: dict[tuple[int, int], SingletonGenericClassMatch]) -> None:
     """Resolve WorkDataManager singleton and run all configured extractors."""
 
-    instance = resolve_workdatamanager_singleton(resolver)
+    spec = SINGLETON_SPEC_REGISTRY["workdatamanager"]
+    instance = resolve_singleton(resolver, spec, singleton_index)
     if not instance:
-        print("WorkDataManager not resolved")
+        print(f"{spec.target_type} not resolved")
         return
 
     wdm = instance.contents
@@ -937,7 +946,9 @@ def main() -> None:
             if args.validate_only:
                 return
 
-            _resolve_and_dump_workdatamanager(resolver)
+            print(f"Scanning {resolver.meta_reg.genericClassesCount} generic class instantiations...")
+            singleton_index = _build_singleton_generic_index(resolver.meta_reg)
+            _resolve_and_dump_workdatamanager(resolver, singleton_index)
         finally:
             print(f"Total time: {time.perf_counter() - t_start:.2f}s")
     input("Press Enter to exit...")
