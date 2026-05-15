@@ -170,7 +170,7 @@ def _decode_support_card_entry(entry: SupportCardDataDictionaryEntry) -> Optiona
         "extra_data": {
             "level": f.level.value,
             "max_level": f.maxLevel.value,
-            "best_training": int(f.bestTraining),
+            "best_training": f.bestTraining,
         }
     }
 
@@ -311,7 +311,7 @@ def _decode_trained_chara_entry(entry: TrainedCharaDataDictionaryEntry) -> dict[
         "card_id": f.cardId.value,
         "succession_trained_chara_id_1": 0,
         "succession_trained_chara_id_2": 0,
-        "use_type": int(f.useType),
+        "use_type": f.useType,
         "speed": f.speed.value,
         "stamina": f.stamina.value,
         "power": f.power.value,
