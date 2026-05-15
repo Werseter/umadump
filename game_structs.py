@@ -650,8 +650,6 @@ class WorkDataManagerFields(CStructureDataclass):
 
 @register_runtime_validatable('Gallop::WorkDataManager')
 class WorkDataManagerObject(CStructureDataclass):
-    """Root game singleton payload used by all extractors in ``main.py``."""
-
     _il2cpp_obj: RuntimeIl2CppObject
     fields: WorkDataManagerFields
 
@@ -662,8 +660,342 @@ class WorkDataManagerSingletonStaticFields(CStructureDataclass):
 
 @register_runtime_validatable('Gallop::Singleton`1<Gallop::WorkDataManager>')
 class WorkDataManagerSingleton(CStructureDataclass):
-    """Marker wrapper for the singleton generic class used to resolve static fields."""
-
     _il2cpp_obj: RuntimeIl2CppObject
-    # we don't actually retrieve the object of this type at any point - it lives in app memory
-    # we only retrieve the inner klass from il2cpp owned memory
+
+
+# ---------------------------------------------------------------------------
+# Gallop.ChampionsRoomInfo
+# ---------------------------------------------------------------------------
+
+
+class ChampionsRoomInfoFields(CStructureDataclass):
+    room_id: C_Int[c_int64]
+    user_entry_num: C_Int[c_int32]
+    race_start_time: SystemStringObjectPtr
+    race_instance_id: C_Int[c_int32]
+    season: C_Int[c_int32]
+    weather: C_Int[c_int32]
+    ground_condition: C_Int[c_int32]
+    random_seed: C_Int[c_int32]
+    race_scenario: SystemStringObjectPtr
+
+
+@register_runtime_validatable('Gallop::ChampionsRoomInfo')
+class ChampionsRoomInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: ChampionsRoomInfoFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.ChampionsUserChara
+# ---------------------------------------------------------------------------
+
+
+class ChampionsUserCharaFields(CStructureDataclass):
+    chara_id: C_Int[c_int32]
+    race_cloth_id: C_Int[c_int32]
+    nick_name_id: C_Int[c_int32]
+    team_member_id: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::ChampionsUserChara')
+class ChampionsUserCharaObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: ChampionsUserCharaFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.ChampionsRoomUser
+# ---------------------------------------------------------------------------
+
+
+class ChampionsRoomUserFields(CStructureDataclass):
+    room_id: C_Int[c_int64]
+    viewer_id: C_Int[c_int64]
+    name: SystemStringObjectPtr
+    honor_id: C_Int[c_int32]
+    team_id: C_Int[c_int32]
+    entry_chara_array: GenericArrayPtr[C_Ptr[ChampionsUserCharaObject]]
+
+
+@register_runtime_validatable('Gallop::ChampionsRoomUser')
+class ChampionsRoomUserObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: ChampionsRoomUserFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SkillData
+# ---------------------------------------------------------------------------
+
+
+class SkillDataFields(CStructureDataclass):
+    skill_id: C_Int[c_int32]
+    level: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::SkillData')
+class SkillDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SkillDataFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.RaceHorseDataRaceResult
+# ---------------------------------------------------------------------------
+
+
+class RaceHorseDataRaceResultFields(CStructureDataclass):
+    turn: C_Int[c_int32]
+    program_id: C_Int[c_int32]
+    result_rank: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::RaceHorseDataRaceResult')
+class RaceHorseDataRaceResultObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: RaceHorseDataRaceResultFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.RaceHorseData
+# ---------------------------------------------------------------------------
+
+
+class RaceHorseDataFields(CStructureDataclass):
+    viewer_id: C_Int[c_int64]
+    owner_viewer_id: C_Int[c_int64]
+    trainer_name: SystemStringObjectPtr
+    owner_trainer_name: SystemStringObjectPtr
+    single_mode_chara_id: C_Int[c_int32]
+    trained_chara_id: C_Int[c_int32]
+    nickname_id: C_Int[c_int32]
+    card_id: C_Int[c_int32]
+    chara_id: C_Int[c_int32]
+    rarity: C_Int[c_int32]
+    talent_level: C_Int[c_int32]
+    frame_order: C_Int[c_int32]
+    skill_array: GenericArrayPtr[C_Ptr[SkillDataObject]]
+    stamina: C_Int[c_int32]
+    speed: C_Int[c_int32]
+    pow: C_Int[c_int32]
+    guts: C_Int[c_int32]
+    wiz: C_Int[c_int32]
+    running_style: C_Int[c_int32]
+    race_dress_id: C_Int[c_int32]
+    chara_color_type: C_Int[c_int32]
+    npc_type: C_Int[c_int32]
+    final_grade: C_Int[c_int32]
+    popularity: C_Int[c_int32]
+    popularity_mark_rank_array: GenericArrayPtr[c_int32]
+    proper_distance_short: C_Int[c_int32]
+    proper_distance_mile: C_Int[c_int32]
+    proper_distance_middle: C_Int[c_int32]
+    proper_distance_long: C_Int[c_int32]
+    proper_running_style_nige: C_Int[c_int32]
+    proper_running_style_senko: C_Int[c_int32]
+    proper_running_style_sashi: C_Int[c_int32]
+    proper_running_style_oikomi: C_Int[c_int32]
+    proper_ground_turf: C_Int[c_int32]
+    proper_ground_dirt: C_Int[c_int32]
+    motivation: C_Int[c_int32]
+    mob_id: C_Int[c_int32]
+    win_saddle_id_array: GenericArrayPtr[c_int32]
+    race_result_array: GenericArrayPtr[C_Ptr[RaceHorseDataRaceResultObject]]
+    team_id: C_Int[c_int32]
+    team_member_id: C_Int[c_int32]
+    item_id_array: GenericArrayPtr[c_int32]
+    motivation_change_flag: C_Int[c_int32]
+    frame_order_change_flag: C_Int[c_int32]
+    team_rank: C_Int[c_int32]
+    single_mode_win_count: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::RaceHorseData')
+class RaceHorseDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: RaceHorseDataFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.TrainedCharaSupportCardList
+# ---------------------------------------------------------------------------
+
+
+class TrainedCharaSupportCardListFields(CStructureDataclass):
+    position: C_Int[c_int32]
+    support_card_id: C_Int[c_int32]
+    exp: C_Int[c_int32]
+    limit_break_count: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::TrainedCharaSupportCardList')
+class TrainedCharaSupportCardListObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: TrainedCharaSupportCardListFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.TrainedCharaRaceResult
+# ---------------------------------------------------------------------------
+
+
+class TrainedCharaRaceResultFields(CStructureDataclass):
+    turn: C_Int[c_int32]
+    program_id: C_Int[c_int32]
+    weather: C_Int[c_int32]
+    ground_condition: C_Int[c_int32]
+    running_style: C_Int[c_int32]
+    result_rank: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::TrainedCharaRaceResult')
+class TrainedCharaRaceResultObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: TrainedCharaRaceResultFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SuccessionChara
+# ---------------------------------------------------------------------------
+
+
+class SuccessionCharaFields(CStructureDataclass):
+    position_id: C_Int[c_int32]
+    card_id: C_Int[c_int32]
+    rank: C_Int[c_int32]
+    rarity: C_Int[c_int32]
+    talent_level: C_Int[c_int32]
+    factor_id_array: GenericArrayPtr[c_int32]
+    _ignored_1: C_UDeclPtr  # factor_info_array / redundancy with factor_id_array
+    win_saddle_id_array: GenericArrayPtr[c_int32]
+    owner_viewer_id: C_Int[c_int64]
+    _ignored_2: C_UDeclPtr  # user_info_summary
+
+
+@register_runtime_validatable('Gallop::SuccessionChara')
+class SuccessionCharaObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SuccessionCharaFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.TrainedChara
+# ---------------------------------------------------------------------------
+
+
+class TrainedCharaFields(CStructureDataclass):
+    viewer_id: C_Int[c_int64]
+    trained_chara_id: C_Int[c_int32]
+    owner_viewer_id: C_Int[c_int64]
+    use_type: C_Int[c_int32]
+    card_id: C_Int[c_int32]
+    name: SystemStringObjectPtr
+    stamina: C_Int[c_int32]
+    speed: C_Int[c_int32]
+    power: C_Int[c_int32]
+    guts: C_Int[c_int32]
+    wiz: C_Int[c_int32]
+    fans: C_Int[c_int32]
+    rank_score: C_Int[c_int32]
+    rank: C_Int[c_int32]
+    proper_distance_short: C_Int[c_int32]
+    proper_distance_mile: C_Int[c_int32]
+    proper_distance_middle: C_Int[c_int32]
+    proper_distance_long: C_Int[c_int32]
+    proper_running_style_nige: C_Int[c_int32]
+    proper_running_style_senko: C_Int[c_int32]
+    proper_running_style_sashi: C_Int[c_int32]
+    proper_running_style_oikomi: C_Int[c_int32]
+    proper_ground_turf: C_Int[c_int32]
+    proper_ground_dirt: C_Int[c_int32]
+    succession_num: C_Int[c_int32]
+    is_locked: C_Int[c_int32]
+    rarity: C_Int[c_int32]
+    talent_level: C_Int[c_int32]
+    chara_grade: C_Int[c_int32]
+    running_style: C_Int[c_int32]
+    nickname_id: C_Int[c_int32]
+    wins: C_Int[c_int32]
+    skill_array: GenericArrayPtr[C_Ptr[SkillDataObject]]
+    support_card_list: GenericArrayPtr[C_Ptr[TrainedCharaSupportCardListObject]]
+    is_saved: C_Int[c_int32]
+    race_result_list: GenericArrayPtr[C_Ptr[TrainedCharaRaceResultObject]]
+    win_saddle_id_array: GenericArrayPtr[c_int32]
+    nickname_id_array: GenericArrayPtr[c_int32]
+    factor_id_array: GenericArrayPtr[c_int32]
+    _ignored_1: C_UDeclPtr  # factor_info_array / redundancy with factor_id_array
+    succession_chara_array: GenericArrayPtr[C_Ptr[SuccessionCharaObject]]
+    succession_history_array: GenericArrayPtr[C_Ptr[SuccessionHistoryObject]]
+    scenario_id: C_Int[c_int32]
+    create_time: SystemStringObjectPtr
+
+
+@register_runtime_validatable('Gallop::TrainedChara')
+class TrainedCharaObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: TrainedCharaFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.TempData.ChampionsRaceInfo
+# ---------------------------------------------------------------------------
+
+
+class ChampionsRaceInfoFields(CStructureDataclass):
+    isSet: C_Int[c_bool]
+    raceNum: C_Int[c_int32]
+    roomInfo: C_Ptr[ChampionsRoomInfoObject]
+    roomUserArray: GenericArrayPtr[C_Ptr[ChampionsRoomUserObject]]
+    raceHorseDataArray: GenericArrayPtr[C_Ptr[RaceHorseDataObject]]
+    trainedCharaArray: GenericArrayPtr[C_Ptr[TrainedCharaObject]]
+
+
+@register_runtime_validatable('Gallop::TempData.ChampionsRaceInfo')
+class ChampionsRaceInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: ChampionsRaceInfoFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.TempData.ChampionsTempData
+# ---------------------------------------------------------------------------
+
+
+class ChampionsTempDataFields(CStructureDataclass):
+    isReplay: C_Int[c_bool]
+    raceInfo: C_Ptr[ChampionsRaceInfoObject]
+    _ignored_1: ArrayType[c_int32, L[2]]  # raceTitleResourceId, raceSubTitleResourceId
+    _ignored_2: c_bool  # isOpenScheduleChangeErrorDialog
+
+
+@register_runtime_validatable('Gallop::TempData.ChampionsTempData')
+class ChampionsTempDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: ChampionsTempDataFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.TempData object hierarchy
+# ---------------------------------------------------------------------------
+
+
+class TempDataFields(CStructureDataclass):
+    _ignored_1: C_UDeclPtr  # championsClearMissionIdList
+    championsData: C_Ptr[ChampionsTempDataObject]
+    _ignored_2: ArrayType[C_UDeclPtr, L[1]]  # TODO: precise mapping
+
+
+@register_runtime_validatable('Gallop::TempData')
+class TempDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: TempDataFields
+
+
+class TempDataSingletonStaticFields(CStructureDataclass):
+    _instance: C_Ptr[TempDataObject]
+
+
+@register_runtime_validatable('Gallop::Singleton`1<Gallop::TempData>')
+class TempDataSingleton(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject

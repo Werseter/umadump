@@ -19,11 +19,16 @@ from pathlib import Path
 from typing import Any, Callable, Optional, cast as type_cast
 
 from ctypes_utils import C_Ptr, StructOrSimple
-from game_structs import (AcquiredSkillObject, CardDataDictionaryEntry, FactorDataObject, FavoriteDataDictionaryEntry,
-                          FriendDataObject, GenericDictionary, HintLevelDictionaryEntry, RaceHistoryInfoObject,
-                          SuccessionCharaDataObject, SuccessionHistoryObject, SupportCardDataDictionaryEntry,
-                          TrainedCharaDataDictionaryEntry, TrainedCharaDataObject, TrainedCharaSupportCardDataObject,
-                          WorkDataManagerObject, WorkDataManagerSingletonStaticFields, WorkFriendDataObject)
+from game_structs import (AcquiredSkillObject, CardDataDictionaryEntry, ChampionsRaceInfoObject,
+                          ChampionsRoomInfoObject, ChampionsRoomUserObject, ChampionsUserCharaObject,
+                          FactorDataObject, FavoriteDataDictionaryEntry, FriendDataObject, GenericDictionary,
+                          HintLevelDictionaryEntry, RaceHistoryInfoObject, RaceHorseDataObject,
+                          RaceHorseDataRaceResultObject, SkillDataObject, SuccessionCharaDataObject,
+                          SuccessionCharaObject, SuccessionHistoryObject, SupportCardDataDictionaryEntry,
+                          TempDataObject, TempDataSingletonStaticFields, TrainedCharaDataDictionaryEntry,
+                          TrainedCharaDataObject, TrainedCharaObject, TrainedCharaRaceResultObject,
+                          TrainedCharaSupportCardDataObject, TrainedCharaSupportCardListObject, WorkDataManagerObject,
+                          WorkDataManagerSingletonStaticFields, WorkFriendDataObject)
 from il2cpp_structs import (RuntimeIl2CppClass, RuntimeIl2CppGenericClass, RuntimeIl2CppGenericInst,
                             RuntimeIl2CppMetadataRegistration, RuntimeIl2CppType)
 from il2cpp_utils import Il2CppResolutionManager, default_metadata_path_from_exe, parse_minimal_metadata
@@ -660,6 +665,298 @@ def decode_friend_data(wdm: WorkDataManagerObject) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Champions Meeting race extraction
+# ---------------------------------------------------------------------------
+
+
+def _resolve_champions_race_info(temp_data: TempDataObject) -> Optional[ChampionsRaceInfoObject]:
+    champions_data = temp_data.fields.championsData
+    if not champions_data:
+        print("TempData.championsData is null")
+        return None
+
+    race_info = champions_data.contents.fields.raceInfo
+    if not race_info:
+        print("TempData.ChampionsTempData.raceInfo is null")
+        return None
+
+    return race_info.contents
+
+
+def _decode_champions_room_info(room: ChampionsRoomInfoObject) -> dict[str, Any]:
+    f = room.fields
+    return {
+        "room_id": f.room_id,
+        "user_entry_num": f.user_entry_num,
+        "race_instance_id": f.race_instance_id,
+        "season": f.season,
+        "weather": f.weather,
+        "ground_condition": f.ground_condition,
+        "random_seed": f.random_seed,
+        "race_scenario": f.race_scenario.value,
+    }
+
+
+def _decode_champions_user_chara_entry(entry: ChampionsUserCharaObject) -> dict[str, int]:
+    f = entry.fields
+    return {
+        "team_member_id": f.team_member_id,
+        "race_cloth_id": f.race_cloth_id,
+        "nickname_id": f.nick_name_id,
+        "chara_id": f.chara_id,
+    }
+
+
+def _decode_champions_room_user_entry(entry: ChampionsRoomUserObject) -> dict[str, Any]:
+    f = entry.fields
+    return {
+        "room_id": f.room_id,
+        "viewer_id": f.viewer_id,
+        "name": f.name.value,
+        "honor_id": f.honor_id,
+        "team_id": f.team_id,
+        "entry_chara_array": [_decode_champions_user_chara_entry(x.contents) for x in f.entry_chara_array],
+    }
+
+
+def _decode_skill_data_entry(entry: SkillDataObject) -> dict[str, int]:
+    f = entry.fields
+    return {
+        "skill_id": f.skill_id,
+        "level": f.level,
+    }
+
+
+def _decode_race_horse_result_entry(entry: RaceHorseDataRaceResultObject) -> dict[str, int]:
+    f = entry.fields
+    return {
+        "turn": f.turn,
+        "program_id": f.program_id,
+        "weather": 0,
+        "ground_condition": 0,
+        "running_style": 0,
+        "popularity": 0,
+        "result_rank": f.result_rank,
+        "result_time": 0,
+        "prize_money": 0,
+    }
+
+
+def _decode_race_horse_data_entry(entry: RaceHorseDataObject) -> dict[str, Any]:
+    f = entry.fields
+    return {
+        "frame_order": f.frame_order,
+        "viewer_id": f.viewer_id,
+        "trainer_name": f.trainer_name.value,
+        "owner_viewer_id": f.owner_viewer_id,
+        "owner_trainer_name": f.owner_trainer_name.value,
+        "single_mode_chara_id": f.single_mode_chara_id,
+        "trained_chara_id": f.trained_chara_id,
+        "nickname_id": f.nickname_id,
+        "chara_id": f.chara_id,
+        "card_id": f.card_id,
+        "mob_id": f.mob_id,
+        "rarity": f.rarity,
+        "talent_level": f.talent_level,
+        "skill_array": [_decode_skill_data_entry(x.contents) for x in f.skill_array],
+        "stamina": f.stamina,
+        "speed": f.speed,
+        "pow": f.pow,
+        "guts": f.guts,
+        "wiz": f.wiz,
+        "running_style": f.running_style,
+        "race_dress_id": f.race_dress_id,
+        "chara_color_type": f.chara_color_type,
+        "npc_type": f.npc_type,
+        "final_grade": f.final_grade,
+        "popularity": f.popularity,
+        "popularity_mark_rank_array": [x.value for x in f.popularity_mark_rank_array],
+        "proper_distance_short": f.proper_distance_short,
+        "proper_distance_mile": f.proper_distance_mile,
+        "proper_distance_middle": f.proper_distance_middle,
+        "proper_distance_long": f.proper_distance_long,
+        "proper_running_style_nige": f.proper_running_style_nige,
+        "proper_running_style_senko": f.proper_running_style_senko,
+        "proper_running_style_sashi": f.proper_running_style_sashi,
+        "proper_running_style_oikomi": f.proper_running_style_oikomi,
+        "proper_ground_turf": f.proper_ground_turf,
+        "proper_ground_dirt": f.proper_ground_dirt,
+        "motivation": f.motivation,
+        "win_saddle_id_array": [x.value for x in f.win_saddle_id_array],
+        "race_result_array": [_decode_race_horse_result_entry(x.contents) for x in f.race_result_array],
+        "team_id": f.team_id,
+        "team_member_id": f.team_member_id,
+        "team_rank": f.team_rank,
+        "single_mode_win_count": f.single_mode_win_count,
+        "item_id_array": [x.value for x in f.item_id_array],
+        "motivation_change_flag": f.motivation_change_flag,
+        "frame_order_change_flag": f.frame_order_change_flag,
+    }
+
+
+def _decode_trained_chara_support_card_list_entry(entry: TrainedCharaSupportCardListObject) -> dict[str, int]:
+    f = entry.fields
+    return {
+        "position": f.position,
+        "support_card_id": f.support_card_id,
+        "exp": f.exp,
+        "limit_break_count": f.limit_break_count,
+    }
+
+
+def _decode_trained_chara_race_result_entry(entry: TrainedCharaRaceResultObject) -> dict[str, int]:
+    f = entry.fields
+    return {
+        "turn": f.turn,
+        "program_id": f.program_id,
+        "weather": f.weather,
+        "ground_condition": f.ground_condition,
+        "running_style": f.running_style,
+        "popularity": 0,
+        "result_rank": f.result_rank,
+        "result_time": 0,
+        "prize_money": 0,
+    }
+
+
+def _decode_succession_chara_temp_entry(entry: SuccessionCharaObject) -> dict[str, Any]:
+    f = entry.fields
+    factor_ids = [x.value for x in f.factor_id_array]
+    return {
+        "position_id": f.position_id,
+        "card_id": f.card_id,
+        "rank": f.rank,
+        "rarity": f.rarity,
+        "talent_level": f.talent_level,
+        "owner_viewer_id": f.owner_viewer_id,
+        "factor_id_array": factor_ids,
+        "factor_info_array": [{"factor_id": factor_id, "level": 0} for factor_id in factor_ids],
+        "win_saddle_id_array": [x.value for x in f.win_saddle_id_array],
+    }
+
+
+def _decode_champions_trained_chara_entry(entry: TrainedCharaObject,
+                                          race_horse_by_trained_id: dict[int, dict[str, Any]]) -> dict[str, Any]:
+    f = entry.fields
+    trained_chara_id = f.trained_chara_id
+    race_horse = race_horse_by_trained_id.get(trained_chara_id, {})
+    factor_ids = [x.value for x in f.factor_id_array]
+    return {
+        "viewer_id": f.viewer_id,
+        "trained_chara_id": trained_chara_id,
+        "owner_viewer_id": f.owner_viewer_id,
+        "owner_trained_chara_id": 0,
+        "single_mode_chara_id": 0,
+        "card_id": f.card_id,
+        "speed": f.speed,
+        "stamina": f.stamina,
+        "power": f.power,
+        "wiz": f.wiz,
+        "guts": f.guts,
+        "fans": f.fans,
+        "rank_score": f.rank_score,
+        "rank": f.rank,
+        "proper_ground_turf": f.proper_ground_turf,
+        "proper_ground_dirt": f.proper_ground_dirt,
+        "proper_running_style_nige": f.proper_running_style_nige,
+        "proper_running_style_senko": f.proper_running_style_senko,
+        "proper_running_style_sashi": f.proper_running_style_sashi,
+        "proper_running_style_oikomi": f.proper_running_style_oikomi,
+        "proper_distance_short": f.proper_distance_short,
+        "proper_distance_mile": f.proper_distance_mile,
+        "proper_distance_middle": f.proper_distance_middle,
+        "proper_distance_long": f.proper_distance_long,
+        "succession_num": f.succession_num,
+        "rarity": f.rarity,
+        "is_saved": f.is_saved,
+        "is_locked": f.is_locked,
+        "talent_level": f.talent_level,
+        "race_cloth_id": race_horse.get("race_dress_id", 0),
+        "running_style": f.running_style,
+        "nickname_id": f.nickname_id,
+        "wins": f.wins,
+        "create_time": f.create_time.value,
+        "skill_array": [_decode_skill_data_entry(x.contents) for x in f.skill_array],
+        "support_card_list": [
+            _decode_trained_chara_support_card_list_entry(x.contents) for x in f.support_card_list],
+        "race_result_list": [_decode_trained_chara_race_result_entry(x.contents) for x in f.race_result_list],
+        "win_saddle_id_array": [x.value for x in f.win_saddle_id_array],
+        "factor_id_array": factor_ids,
+        "factor_info_array": [{"factor_id": factor_id, "level": 0} for factor_id in factor_ids],
+        "succession_history_array": [_decode_succession_history_entry(x.contents) for x in f.succession_history_array],
+        "succession_chara_array": [_decode_succession_chara_temp_entry(x.contents) for x in f.succession_chara_array],
+        "nickname_id_array": [x.value for x in f.nickname_id_array],
+        "team_member_id": race_horse.get("team_member_id", 0),
+        "race_running_style": race_horse.get("running_style", f.running_style),
+        "scenario_id": f.scenario_id,
+    }
+
+
+def order_champions_race_horses(room_user_array: list[dict[str, Any]],
+                                race_horse_data_array: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Order horse rows to match room-user ordering and each user's entry sequence."""
+    room_user_order = {user["viewer_id"]: idx for idx, user in enumerate(room_user_array)}
+    room_user_team_order: dict[tuple[int, int], int] = {}
+    for user in room_user_array:
+        viewer_id = user["viewer_id"]
+        for team_idx, chara in enumerate(user.get("entry_chara_array", [])):
+            team_member_id = chara.get("team_member_id", 0)
+            room_user_team_order[(viewer_id, team_member_id)] = team_idx
+
+    return sorted(
+            race_horse_data_array,
+            key=lambda horse: (
+                room_user_order.get(horse.get("viewer_id", 0), len(room_user_order)),
+                room_user_team_order.get(
+                        (horse.get("viewer_id", 0), horse.get("team_member_id", 0)),
+                        horse.get("team_member_id", 0),
+                ),
+                horse.get("frame_order", 0),
+            )
+    )
+
+
+def decode_champions_meeting_race_data(temp_data: TempDataObject) -> dict[str, Any]:
+    """Descend TempData -> ChampionsTempData -> ChampionsRaceInfo and normalize the data payload."""
+    race_info_obj = _resolve_champions_race_info(temp_data)
+    if race_info_obj is None:
+        return {}
+
+    race_info = race_info_obj.fields
+    if not race_info.isSet:
+        print("TempData.ChampionsTempData.raceInfo is not set")
+        return {}
+
+    room_info: dict[str, Any] = {}
+    if race_info.roomInfo:
+        room_info = _decode_champions_room_info(race_info.roomInfo.contents)
+
+    room_user_array = [_decode_champions_room_user_entry(x.contents) for x in race_info.roomUserArray]
+    race_horse_data_array = [_decode_race_horse_data_entry(x.contents) for x in race_info.raceHorseDataArray]
+    race_horse_data_array = order_champions_race_horses(room_user_array, race_horse_data_array)
+
+    race_horse_by_trained_id: dict[int, dict[str, Any]] = {
+        x.get("trained_chara_id", 0): x for x in race_horse_data_array if x.get("trained_chara_id", 0) > 0
+    }
+    trained_chara_array = [
+        _decode_champions_trained_chara_entry(x.contents, race_horse_by_trained_id) for x in race_info.trainedCharaArray
+    ]
+
+    return {
+        "room_info": room_info,
+        "room_user_array": room_user_array,
+        "race_horse_data_array": race_horse_data_array,
+        "trained_chara_array": trained_chara_array,
+    }
+
+
+def decode_champions_meeting_race(temp_data: TempDataObject) -> dict[str, Any]:
+    """Public wrapper preserving the existing API payload shape."""
+    data = decode_champions_meeting_race_data(temp_data)
+    return {"data": data} if data else {}
+
+
+# ---------------------------------------------------------------------------
 # Singleton resolution
 # ---------------------------------------------------------------------------
 
@@ -706,9 +1003,17 @@ WORKDATAMANAGER_SINGLETON_SPEC = SingletonSpec(
         output_type=WorkDataManagerObject,
 )
 
+TEMPDATA_SINGLETON_SPEC = SingletonSpec(
+        name="tempdata",
+        target_type="TempData",
+        static_fields_type=TempDataSingletonStaticFields,
+        output_type=TempDataObject,
+)
+
 SINGLETON_SPEC_REGISTRY: dict[str, SingletonSpec[Any]] = {
     spec.name: spec for spec in (
         WORKDATAMANAGER_SINGLETON_SPEC,
+        TEMPDATA_SINGLETON_SPEC,
     )
 }
 
@@ -895,6 +1200,38 @@ def _resolve_and_dump_workdatamanager(resolver: Il2CppResolutionManager,
     _run_extractors(WORKDATA_EXTRACTORS, instance.contents)
 
 
+def _champions_meeting_race_room_id(payload: dict[str, Any]) -> str:
+    room_id = payload.get("data", {}).get("room_info", {}).get("room_id", 0)
+    if not room_id:
+        print("Warning: champions meeting race has no room_id, skipping folder extraction")
+        return ""
+    return str(room_id)
+
+
+TEMPDATA_EXTRACTORS: tuple[Extractor[Any, Any], ...] = (
+    Extractor(
+            name="champions_meeting_race_folder",
+            output_folder=Path("champions_meeting_race"),
+            extract=decode_champions_meeting_race,
+            key_fn=_champions_meeting_race_room_id,
+            writer=_write_multi_output_json,
+    ),
+)
+
+
+def _resolve_and_dump_tempdata(resolver: Il2CppResolutionManager,
+                               singleton_index: dict[tuple[int, int], SingletonGenericClassMatch]) -> None:
+    """Resolve TempData singleton and run all configured extractors."""
+
+    spec = SINGLETON_SPEC_REGISTRY["tempdata"]
+    instance = resolve_singleton(resolver, spec, singleton_index)
+    if not instance:
+        print(f"{spec.target_type} not resolved")
+        return
+
+    _run_extractors(TEMPDATA_EXTRACTORS, instance.contents)
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -984,6 +1321,7 @@ def main() -> None:
             print(f"Scanning {resolver.meta_reg.genericClassesCount} generic class instantiations...")
             singleton_index = _build_singleton_generic_index(resolver.meta_reg)
             _resolve_and_dump_workdatamanager(resolver, singleton_index)
+            _resolve_and_dump_tempdata(resolver, singleton_index)
         finally:
             print(f"Total time: {time.perf_counter() - t_start:.2f}s")
     input("Press Enter to exit...")
