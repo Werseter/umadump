@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import struct
 import time
@@ -32,9 +33,17 @@ from game_structs import (AcquiredSkillObject, CardDataDictionaryEntry, Champion
 from il2cpp_structs import (RuntimeIl2CppClass, RuntimeIl2CppGenericClass, RuntimeIl2CppGenericInst,
                             RuntimeIl2CppMetadataRegistration, RuntimeIl2CppType)
 from il2cpp_utils import Il2CppResolutionManager, default_metadata_path_from_exe, parse_minimal_metadata
-from memory import MemoryReader, MinidumpMemory, POINTER_SIZE, ProcessMemory, TARGET_MODULE
+from memory import MemoryReader, MinidumpMemory, POINTER_SIZE, TARGET_MODULE
 from schema_validation import validate_registered_classes
 from update_check import CURRENT_VERSION, notify_if_update_available
+
+ProcessMemory: type[MemoryReader]
+if os.name == "nt":
+    # noinspection PyTypeChecker
+    from memory import WindowsProcessMemory as ProcessMemory
+else:
+    # noinspection PyTypeChecker
+    from memory import LinuxProcessMemory as ProcessMemory
 
 
 # ---------------------------------------------------------------------------

@@ -5,19 +5,22 @@ Unified memory reader infrastructure.
 Contains:
   - Target process / module constants
   - MemoryReader Protocol
-  - ProcessMemory — live process reader via Win32/ntdll
+  - WindowsProcessMemory — live process reader via Win32/ntdll
+  - LinuxProcessMemory — live process reader via /proc and process_vm_readv
   - MinidumpMemory — offline reader backed by a full-memory minidump
 """
 from __future__ import annotations
 
+import os
 import re
 import struct
 from bisect import bisect_right
 from contextlib import contextmanager
-from ctypes import (Array, POINTER as _POINTER, WINFUNCTYPE, WinDLL, byref as _byref, c_char, c_long, c_size_t,
-                    c_void_p, create_string_buffer, create_unicode_buffer, get_last_error, sizeof)
+from ctypes import (Array, POINTER as _POINTER, byref as _byref, c_char, c_int, c_long, c_size_t, c_ssize_t, c_ulong,
+                    c_void_p, cast, create_string_buffer, create_unicode_buffer, sizeof)
 from ctypes.wintypes import BOOL, DWORD, HANDLE, HMODULE, INT, LPWSTR, WCHAR
 from dataclasses import dataclass
+from pathlib import Path
 from typing import (Any, Callable, Iterable, Iterator, Literal as L, Optional, Protocol, Self, TYPE_CHECKING, TypeAlias,
                     TypeVar, cast as type_cast)
 
@@ -323,8 +326,9 @@ class MinidumpMemory(_RegionChunkScanMixin):
 
 
 # ---------------------------------------------------------------------------
-# ProcessMemory (Windows / ntdll)
+# WindowsProcessMemory
 # ---------------------------------------------------------------------------
+
 PROCESS_VM_READ = 0x0010
 PROCESS_QUERY_INFORMATION = 0x0400
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
@@ -383,6 +387,31 @@ class _MODULEENTRY32W(CStructureDataclass):
     hModule: HMODULE
     szModule: StrArrayType[WCHAR, L[256]]
     szExePath: StrArrayType[WCHAR, L[260]]
+
+
+# -----------------------------------------------------------------------------
+# process_vm_readv
+# -----------------------------------------------------------------------------
+
+class IOVec(CStructureDataclass):
+    iov_base: c_void_p
+    iov_len: c_size_t
+
+
+@dataclass(slots=True, frozen=True)
+class MemoryRegion:
+    start: int
+    end: int
+    perms: str
+    pathname: str
+
+    @property
+    def size(self) -> int:
+        return self.end - self.start
+
+    @property
+    def readable(self) -> bool:
+        return "r" in self.perms
 
 
 if TYPE_CHECKING:
@@ -516,8 +545,41 @@ class _NtdllApi:
         return int(self._nt_close(Handle))
 
 
-_kernel32 = _Kernel32Api()
-_ntdll = _NtdllApi()
+class _LibCAPI:
+    """Typed libc wrapper with named forwarding stubs."""
+
+    def __init__(self) -> None:
+        dll = CDLL("libc.so.6", use_errno=True)
+        self._process_vm_readv = CFUNCTYPE(
+                c_ssize_t, c_int, _POINTER(IOVec), c_ulong, _POINTER(IOVec), c_ulong, c_ulong, use_errno=True
+        )(("process_vm_readv", dll))
+
+    def process_vm_readv(self, pid: int, local_iov: POINTER[IOVec], liovcnt: int, remote_iov: POINTER[IOVec],
+                         riovcnt: int, flags: int) -> int:
+        return int(self._process_vm_readv(
+                c_int(pid),
+                local_iov,
+                c_ulong(liovcnt),
+                remote_iov,
+                c_ulong(riovcnt),
+                c_ulong(flags)
+        ))
+
+
+if TYPE_CHECKING:
+    _kernel32: _Kernel32Api
+    _ntdll: _NtdllApi
+    _libc: _LibCAPI
+
+if os.name == "nt":
+    from ctypes import WINFUNCTYPE, WinDLL, get_last_error
+
+    _kernel32 = _Kernel32Api()
+    _ntdll = _NtdllApi()
+else:
+    from ctypes import CFUNCTYPE, CDLL, get_errno
+
+    _libc = _LibCAPI()
 
 
 # ---------------------------------------------------------------------------
@@ -552,7 +614,7 @@ def _iter_snapshot[_SnapshotEntryT: CStructureDataclass](
         ok = next_fn(snap, entry)
 
 
-class ProcessMemory(_RegionChunkScanMixin):
+class WindowsProcessMemory(_RegionChunkScanMixin):
     """Live process memory backend using Windows ntdll APIs through ctypes.
 
     Each readable VM region is fetched in full via a single ``NtReadVirtualMemory``
@@ -754,3 +816,214 @@ class ProcessMemory(_RegionChunkScanMixin):
         for seg_start, seg_end, mbi in self._iter_regions(base, size):
             if seg_start < seg_end and self._is_region_readable(mbi):
                 yield seg_start, seg_end, mbi
+
+
+# -----------------------------------------------------------------------------
+# Linux ProcessMemory
+# -----------------------------------------------------------------------------
+
+class LinuxProcessMemory(_RegionChunkScanMixin):
+    """
+    Linux live process reader using:
+
+      - /proc/<pid>/maps
+      - process_vm_readv()
+
+    Region caching semantics match the Windows implementation.
+    """
+
+    def __init__(self, process_name: str = TARGET_PROCESS) -> None:
+        process_name = process_name[:15]
+        self._process_name = process_name
+        self._pid = self._find_pid_by_name(process_name)
+
+        self._cache = _ReadCache()
+
+        self._register()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *_: Any) -> None:
+        self.close()
+
+    def _register(self) -> None:
+        set_pointer_reader(self.read)
+
+    def _deregister(self) -> None:
+        set_pointer_reader(None)
+
+    def close(self) -> None:
+        self._deregister()
+
+    def exe_path(self) -> str:
+        module_path = self._mapped_module_path(TARGET_MODULE)
+        exe_path = module_path.parent / TARGET_PROCESS
+        if exe_path.exists():
+            return str(exe_path)
+
+        for region in self._iter_maps():
+            if not region.pathname:
+                continue
+            path = Path(region.pathname)
+            if path.parent == module_path.parent and path.suffix.lower() == ".exe":
+                return str(path)
+
+        return str(exe_path)
+
+    def module_info(self, module_name: str) -> tuple[int, int]:
+        module_name = module_name.lower()
+
+        regions = [r for r in self._iter_maps() if r.pathname and os.path.basename(r.pathname).lower() == module_name]
+
+        if not regions:
+            raise RuntimeError(f"Module not found: {module_name}")
+
+        base = min(r.start for r in regions)
+        end = max(r.end for r in regions)
+
+        return base, end - base
+
+    def _mapped_module_path(self, module_name: str) -> Path:
+        module_name = module_name.lower()
+
+        for region in self._iter_maps():
+            if region.pathname and os.path.basename(region.pathname).lower() == module_name:
+                return Path(region.pathname)
+
+        raise RuntimeError(f"Module not found: {module_name}")
+
+    def read(self, address: int, size: int) -> bytes:
+        if size < 0:
+            raise ValueError(f"size must be non-negative, got {size}")
+
+        if size == 0:
+            return b""
+
+        cached = self._cache.read(address, size)
+        if cached is not None:
+            return cached
+
+        out = bytearray()
+        cursor = address
+        end_addr = address + size
+
+        while cursor < end_addr:
+            if self._cache.lookup(cursor) is None:
+                self._fetch_region_into_cache(cursor)
+
+            block = self._cache.lookup(cursor)
+            if block is None:
+                raise RuntimeError(f"Address 0x{cursor:X} not readable")
+
+            block_start, block_end, block_data = block
+            take = min(end_addr - cursor, block_end - cursor)
+            offset = cursor - block_start
+            out.extend(block_data[offset: offset + take])
+            cursor += take
+
+        return bytes(out)
+
+    def _read_remote(self, address: int, size: int) -> bytes:
+        buf = create_string_buffer(size)
+        local_iov = IOVec()
+        local_iov.iov_base = cast(buf, c_void_p)
+        local_iov.iov_len = c_size_t(size)
+        remote_iov = IOVec()
+        remote_iov.iov_base = c_void_p(address)
+        remote_iov.iov_len = c_size_t(size)
+
+        nread = _libc.process_vm_readv(self._pid, byref(local_iov), 1, byref(remote_iov), 1, 0)
+
+        if nread < 0:
+            err = get_errno()
+
+            raise RuntimeError(
+                    f"process_vm_readv("
+                    f"pid={self._pid}, "
+                    f"addr=0x{address:X}, "
+                    f"size={size}"
+                    f") failed: "
+                    f"{os.strerror(err)} "
+                    f"(errno={err})"
+            )
+
+        return bytes(buf.raw[:nread])
+
+    def _fetch_region_into_cache(self, address: int) -> None:
+        region = self._region_containing(address)
+
+        if region is None:
+            raise RuntimeError(f"Address 0x{address:X} is unmapped")
+
+        if not region.readable:
+            raise RuntimeError(f"Address 0x{address:X} is not readable")
+
+        data = self._read_remote(region.start, region.size)
+        if not data:
+            raise RuntimeError(f"Failed reading region 0x{region.start:X}-0x{region.end:X}")
+
+        self._cache.insert(region.start, region.start + len(data), data)
+
+    def _iter_scan_regions(self, start: int, end: int) -> Iterable[ScanRegion]:
+        for seg_start, seg_end, region in self._iter_readable_regions(start, end - start):
+            yield ScanRegion(start=seg_start, end=seg_end, read=self.read)
+
+    def _iter_maps(self) -> Iterator[MemoryRegion]:
+        with open(f"/proc/{self._pid}/maps") as f:
+            for line in f:
+                parts = line.rstrip().split(maxsplit=5)
+
+                addr_range = parts[0]
+                perms = parts[1]
+                pathname = (parts[5] if len(parts) >= 6 else "")
+                start_s, end_s = addr_range.split("-")
+
+                yield MemoryRegion(start=int(start_s, 16), end=int(end_s, 16), perms=perms, pathname=pathname)
+
+    def _region_containing(self, address: int) -> MemoryRegion | None:
+        for region in self._iter_maps():
+            if region.start <= address < region.end:
+                return region
+
+        return None
+
+    def _iter_regions(self, base: int, size: int) -> Iterator[tuple[int, int, MemoryRegion]]:
+        end = base + size
+
+        for region in self._iter_maps():
+            if region.end <= base:
+                continue
+
+            if region.start >= end:
+                break
+
+            yield max(base, region.start), min(end, region.end), region
+
+    def _iter_readable_regions(self, base: int, size: int) -> Iterator[tuple[int, int, MemoryRegion]]:
+        for seg_start, seg_end, region in self._iter_regions(base, size):
+            if region.readable and seg_start < seg_end:
+                yield seg_start, seg_end, region
+
+    @staticmethod
+    def _find_pid_by_name(process_name: str) -> int:
+        process_name = process_name.lower()
+
+        for pid in os.listdir("/proc"):
+            if not pid.isdigit():
+                continue
+
+            try:
+                with open(f"/proc/{pid}/comm") as f:
+                    name = f.read().strip().lower()
+
+                if name == process_name:
+                    return int(pid)
+
+            except OSError:
+                continue
+
+        raise RuntimeError(f"Target process not found: {process_name}")
+
+
+ProcessMemory = WindowsProcessMemory if os.name == "nt" else LinuxProcessMemory
