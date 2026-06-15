@@ -141,13 +141,15 @@ def _timestamp_to_str(timestamp: int) -> str:
 
 
 def _write_json_file(name: str, output_path: Path, payload: Any) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     pretty_json = json.dumps(payload, indent=2, ensure_ascii=False)
     output_path.write_text(pretty_json, encoding="utf-8")
     print(f"{name}: wrote JSON to {output_path}")
 
 
 def _write_multi_output_json(output_folder: Path, key: str, payload: Any) -> None:
-    _write_json_file(f"{output_folder.name}[{key}]", output_folder / f"{key}.json", payload)
+    output_path = output_folder / f"{key}.json"
+    _write_json_file(f"{output_folder.name}[{key}]", output_path, payload)
 
 
 # ---------------------------------------------------------------------------
@@ -1127,12 +1129,14 @@ def _run_extractors(extractors: tuple[Extractor[Any, Any], ...], data: Any) -> N
             if extractor.output_path is not None:
                 _write_json_file(extractor.name, extractor.output_path, payload)
             elif extractor.output_folder is not None and extractor.key_fn is not None:
-                key = extractor.key_fn(payload)
-                if not key:
-                    continue
                 extractor.output_folder.mkdir(parents=True, exist_ok=True)
                 writer = extractor.writer or _write_multi_output_json
-                writer(extractor.output_folder, key, payload)
+                payloads = payload if isinstance(payload, list) else [payload]
+                for item in payloads:
+                    key = extractor.key_fn(item)
+                    if not key:
+                        continue
+                    writer(extractor.output_folder, key, item)
         except Exception as e:
             print(f"Error in extractor {extractor.name}: {e}")
             print("Full traceback:")
