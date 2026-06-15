@@ -170,7 +170,7 @@ def _normalize_field_name(raw_name: str) -> str:
     if not name:
         return ""
 
-    backing_match = re.match(r"^<(?P<prop>[^>]+)>k__BackingField$", name)
+    backing_match = re.match(r"^<_?(?P<prop>[^>]+)>k__BackingField$", name)
     if backing_match is not None:
         name = backing_match.group("prop")
 
