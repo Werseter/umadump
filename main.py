@@ -12,6 +12,7 @@ import json
 import os
 import re
 import struct
+import sys
 import time
 import traceback
 from dataclasses import dataclass
@@ -1329,7 +1330,11 @@ def main() -> None:
             _resolve_and_dump_tempdata(resolver, singleton_index)
         finally:
             print(f"Total time: {time.perf_counter() - t_start:.2f}s")
-    input("Press Enter to exit...")
+    if sys.stdin.isatty():
+        try:
+            input("Press Enter to exit...")
+        except EOFError:
+            pass
 
 
 if __name__ == "__main__":
