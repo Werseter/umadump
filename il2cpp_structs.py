@@ -8,10 +8,10 @@ Contains:
 """
 from __future__ import annotations
 
-from ctypes import c_char, c_int32, c_uint16, c_uint32, c_uint64, c_uint8
+from ctypes import c_int32, c_uint16, c_uint32, c_uint64, c_uint8
 from typing import Literal as L
 
-from ctypes_utils import ArrayType, CStructureDataclass, C_Int, C_Ptr, C_UDeclPtr, C_VoidPtr
+from ctypes_utils import ArrayType, CStructureDataclass, C_CharPtr, C_Int, C_Ptr, C_UDeclPtr, C_VoidPtr
 
 
 # ---------------------------------------------------------------------------
@@ -90,7 +90,7 @@ class RuntimeIl2CppGenericContext(CStructureDataclass):
 
 
 class FieldInfo(CStructureDataclass):
-    name: C_Ptr[c_char]
+    name: C_CharPtr
     type: C_Ptr[RuntimeIl2CppType]
     _ignored_1: C_Ptr['RuntimeIl2CppClass']  # parent
     offset: C_Int[c_int32]
@@ -103,8 +103,8 @@ class VirtualInvokeData(CStructureDataclass):
 
 class RuntimeIl2CppClass(CStructureDataclass):
     _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # image, gc_desc
-    name: C_Ptr[c_char]
-    namespaze: C_Ptr[c_char]
+    name: C_CharPtr
+    namespaze: C_CharPtr
     _ignored_2: ArrayType[RuntimeIl2CppType, L[2]]  # byval_arg, this_arg  (each 16 bytes)
     _ignored_3: ArrayType[C_UDeclPtr, L[5]]  # element_class … generic_klass
     typeMetadataHandle: C_Ptr[Il2CppTypeDefinition]

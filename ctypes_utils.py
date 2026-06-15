@@ -12,7 +12,7 @@ both il2cpp_structs (struct definitions) and il2cpp_utils (resolution logic):
 from __future__ import annotations
 
 import ctypes
-from ctypes import Array, Structure, c_uint64, c_void_p, sizeof
+from ctypes import Array, Structure, c_char, c_uint64, c_void_p, sizeof
 from dataclasses import dataclass, fields
 from typing import (Any, Callable, ClassVar, Generic, Iterator, Literal as L, Optional, Sequence, TYPE_CHECKING,
                     TypeAlias,
@@ -369,6 +369,18 @@ class Span[TSpan: StructOrSimple]:
 # noinspection PyTypeChecker, PyPep8Naming
 class C_Ptr[CDT: Optional[StructOrSimple]](RemappablePointerValue[CDT]):  # type: ignore[type-var]
     pass
+
+
+# noinspection PyPep8Naming
+class C_CharPtr(C_Ptr[c_char]):
+    @property
+    def as_string(self) -> str:
+        if self.address == 0:
+            return ""
+        count = 0
+        while self[count].value != b"\x00":
+            count += 1
+        return b"".join(char.value for char in self.as_span(count)).decode("utf-8", errors="replace")
 
 
 # Alias for void* pointers (type known to be exactly void*)

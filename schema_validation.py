@@ -458,8 +458,8 @@ def _runtime_class_full_name(mem: MemoryReader,
     if not runtime_class.name:
         return None
 
-    class_name = mem.read_cstring(int(runtime_class.name))
-    namespace = mem.read_cstring(int(runtime_class.namespaze)) if runtime_class.namespaze else ""
+    class_name = runtime_class.name.as_string
+    namespace = runtime_class.namespaze.as_string
     full_name = f"{namespace}.{class_name}" if namespace else class_name
     return full_name, runtime_class
 

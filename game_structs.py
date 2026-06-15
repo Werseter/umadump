@@ -41,7 +41,7 @@ class SystemStringObjectPtr(CStructureDataclass):
     def value(self) -> str:
         """Decode managed ``System.String`` contents into a Python ``str``."""
 
-        if not self.inner_ptr.contents:
+        if not self.inner_ptr:
             raise ValueError("Cannot get string from null SystemStringObject pointer")
         length = self.inner_ptr.contents.fields.stringLength
         if length <= 0:
@@ -246,6 +246,18 @@ class ObscuredString(CStructureDataclass):
         enc_str = raw_bytes.decode('utf-16le')
         dec_str = ''.join(chr(ord(c) ^ ord(key_str[i % key_len])) for i, c in enumerate(enc_str))
         return dec_str.rstrip('\x00')  # strip null terminator if present
+
+
+class ObscuredStringPtr(CStructureDataclass):
+    """Pointer wrapper for ``ObscuredString`` with integrated null check"""
+
+    inner_ptr: C_Ptr[ObscuredString]
+
+    @property
+    def value(self) -> str:
+        if not self.inner_ptr:
+            raise ValueError("Cannot get string from null ObscuredString pointer")
+        return self.inner_ptr.contents.value
 
 
 # ---------------------------------------------------------------------------
@@ -528,7 +540,7 @@ class TrainedCharaDataFields(CStructureDataclass):
     properRunningStyleOikomi: ObscuredInt
     successionCount: ObscuredInt
     factorDataArray: GenericArrayPtr[C_Ptr[FactorDataObject]]
-    createTime: C_Ptr[ObscuredString]
+    createTime: ObscuredStringPtr
     scenarioId: ObscuredInt
     talentLevel: ObscuredInt
     charaGrade: ObscuredInt
@@ -588,20 +600,20 @@ class WorkTrainedCharaDataObject(CStructureDataclass):
 
 class FriendDataFields(CStructureDataclass):
     viewerId: ObscuredLong
-    name: C_Ptr[ObscuredString]
+    name: ObscuredStringPtr
     friendState: ObscuredInt
     honorId: ObscuredInt
-    lastLoginTime: C_Ptr[ObscuredString]
+    lastLoginTime: ObscuredStringPtr
     lastLoginUnixTime: ObscuredLong
     followUnixTime: ObscuredLong
     followerUnixTime: ObscuredLong
     supportCardId: ObscuredInt
     supportCardLimitBreakCount: ObscuredInt
     supportCardExp: ObscuredInt
-    comment: C_Ptr[ObscuredString]
+    comment: ObscuredStringPtr
     fan: ObscuredULong
     isNewFollower: ObscuredBool
-    circleName: C_Ptr[ObscuredString]
+    circleName: ObscuredStringPtr
     circleId: ObscuredInt
     circleMonthlyRank: ObscuredInt
     virtualSupportCardData: C_Ptr[SupportCardDataObject]

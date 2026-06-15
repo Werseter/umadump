@@ -361,8 +361,8 @@ def _decode_trained_chara_entry(entry: TrainedCharaDataDictionaryEntry) -> dict[
         "running_style": f.runningStyle.value,
         "nickname_id": f.nickNameId.value,
         "wins": f.singleWinNum.value,
-        "register_time": f.createTime.contents.value if f.createTime else "",
-        "create_time": f.createTime.contents.value if f.createTime else "",
+        "register_time": f.createTime.value,
+        "create_time": f.createTime.value,
         "skill_array": [
             _decode_acquired_skill_entry(x.contents) for x in f.acquiredSkillArray],
         "support_card_list": [
@@ -557,7 +557,7 @@ def _decode_friend_trained_chara_entry(entry: TrainedCharaDataObject) -> dict[st
         "proper_distance_long": f.properDistanceLong.value,
         "rarity": f.rarity.value,
         "talent_level": f.talentLevel.value,
-        "register_time": f.createTime.contents.value if f.createTime else "",
+        "register_time": f.createTime.value,
         "factor_id_array": [x.contents.fields.factorId.value for x in f.factorDataArray],
         "factor_info_array": [_decode_factor_entry(x.contents) for x in f.factorDataArray],
         "skill_count": len(list(f.acquiredSkillArray))
@@ -566,11 +566,7 @@ def _decode_friend_trained_chara_entry(entry: TrainedCharaDataObject) -> dict[st
 
 def _decode_user_info_summary_list_entry(entry: FriendDataObject) -> dict[str, Any]:
     f = entry.fields
-    last_login_time = ""
-    if f.lastLoginTime:
-        last_login_time = f.lastLoginTime.contents.value
-    if not last_login_time:
-        last_login_time = _timestamp_to_str(f.lastLoginUnixTime.value)
+    last_login_time = f.lastLoginTime.value or _timestamp_to_str(f.lastLoginUnixTime.value)
 
     user_trained_chara = None
     if f.virtualTrainedCharaData:
@@ -578,14 +574,14 @@ def _decode_user_info_summary_list_entry(entry: FriendDataObject) -> dict[str, A
 
     return {
         "viewer_id": f.viewerId.value,
-        "name": f.name.contents.value if f.name else "",
+        "name": f.name.value,
         "honor_id": f.honorId.value,
         "last_login_time": last_login_time,
         "leader_chara_id": 0,
         "leader_chara_dress_id": 0,
         "support_card_id": f.supportCardId.value,
         "partner_chara_id": 0,
-        "comment": f.comment.contents.value if f.comment else "",
+        "comment": f.comment.value,
         "fan": f.fan.value,
         "rank_score": 0,
         "team_stadium_win_count": 0,
@@ -599,7 +595,7 @@ def _decode_user_info_summary_list_entry(entry: FriendDataObject) -> dict[str, A
         "user_trained_chara": user_trained_chara,
         "circle_info": {
             "circle_id": f.circleId.value,
-            "name": f.circleName.contents.value if f.circleName else ""
+            "name": f.circleName.value
         } if f.circleId.value else None,
         "circle_user": {
             "viewer_id": f.viewerId.value,
@@ -617,16 +613,12 @@ def _decode_user_info_summary_list_entry(entry: FriendDataObject) -> dict[str, A
 
 def _decode_follower_info_summary_list_entry(entry: FriendDataObject) -> dict[str, Any]:
     f = entry.fields
-    last_login_time = ""
-    if f.lastLoginTime:
-        last_login_time = f.lastLoginTime.contents.value
-    if not last_login_time:
-        last_login_time = _timestamp_to_str(f.lastLoginUnixTime.value)
+    last_login_time = f.lastLoginTime.value or _timestamp_to_str(f.lastLoginUnixTime.value)
 
     return {
         "viewer_id": f.viewerId.value,
         "honor_id": f.honorId.value,
-        "name": f.name.contents.value if f.name else "",
+        "name": f.name.value,
         "last_login_time": last_login_time,
         "support_card_id": f.supportCardId.value,
         "user_support_card": {
