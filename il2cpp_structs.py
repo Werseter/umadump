@@ -106,26 +106,32 @@ class RuntimeIl2CppClass(CStructureDataclass):
     name: C_CharPtr
     namespaze: C_CharPtr
     _ignored_2: ArrayType[RuntimeIl2CppType, L[2]]  # byval_arg, this_arg  (each 16 bytes)
-    _ignored_3: ArrayType[C_UDeclPtr, L[5]]  # element_class … generic_klass
+    _ignored_3: ArrayType[C_UDeclPtr, L[3]]  # element_class, castClass, declaringType
+    _parent: C_VoidPtr
+    _ignored_4: C_UDeclPtr  # generic_class
     typeMetadataHandle: C_Ptr[Il2CppTypeDefinition]
-    _ignored_4: ArrayType[C_UDeclPtr, L[2]]  # interopData, klass
+    _ignored_5: ArrayType[C_UDeclPtr, L[2]]  # interopData, klass
     fields: C_Ptr[FieldInfo]
-    _ignored_5: ArrayType[C_UDeclPtr, L[6]]  # events … interfaceOffsets
+    _ignored_6: ArrayType[C_UDeclPtr, L[6]]  # events … interfaceOffsets
     static_fields: C_VoidPtr
-    _ignored_6: ArrayType[C_UDeclPtr, L[4]]  # rgctx_data … initializationExceptionGCHandle
-    _ignored_7: ArrayType[c_uint32, L[2]]  # cctor_started, cctor_finished_or_no_cctor
-    _ignored_8: c_uint64  # cctor_thread
-    _ignored_9: C_UDeclPtr  # genericContainerHandle
-    _ignored_10: ArrayType[c_uint32, L[4]]  # instance_size … element_size
-    _ignored_11: c_int32  # native_size
-    _ignored_12: ArrayType[c_uint32, L[2]]  # static_fields_size, thread_static_fields_size
-    _ignored_13: c_int32  # thread_static_fields_offset
-    _ignored_14: ArrayType[c_uint32, L[2]]  # flags, token
-    _ignored_15: ArrayType[c_uint16, L[2]]  # method_count, property_count
+    _ignored_7: ArrayType[C_UDeclPtr, L[4]]  # rgctx_data … initializationExceptionGCHandle
+    _ignored_8: ArrayType[c_uint32, L[2]]  # cctor_started, cctor_finished_or_no_cctor
+    _ignored_9: c_uint64  # cctor_thread
+    _ignored_10: C_UDeclPtr  # genericContainerHandle
+    _ignored_11: ArrayType[c_uint32, L[4]]  # instance_size … element_size
+    _ignored_12: c_int32  # native_size
+    _ignored_13: ArrayType[c_uint32, L[2]]  # static_fields_size, thread_static_fields_size
+    _ignored_14: c_int32  # thread_static_fields_offset
+    _ignored_15: ArrayType[c_uint32, L[2]]  # flags, token
+    _ignored_16: ArrayType[c_uint16, L[2]]  # method_count, property_count
     field_count: C_Int[c_uint16]
-    _ignored_16: ArrayType[c_uint16, L[5]]  # event_count … interface_offsets_count
-    _ignored_17: ArrayType[c_uint8, L[7]]  # typeHierarchyDepth … bitflags2
-    _ignored_18: ArrayType[VirtualInvokeData, L[0]]  # vtable (flexible array member)
+    _ignored_17: ArrayType[c_uint16, L[5]]  # event_count … interface_offsets_count
+    _ignored_18: ArrayType[c_uint8, L[7]]  # typeHierarchyDepth … bitflags2
+    _ignored_19: ArrayType[VirtualInvokeData, L[0]]  # vtable (flexible array member)
+
+    @property
+    def parent(self) -> C_Ptr[RuntimeIl2CppClass]:
+        return C_Ptr[RuntimeIl2CppClass](int(self._parent))
 
 
 class RuntimeIl2CppGenericClass(CStructureDataclass):

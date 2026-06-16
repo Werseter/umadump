@@ -66,6 +66,7 @@ class RuntimeValidatableIl2CppClassManager:
     _registered_schema_classes: ClassVar[dict[str, type[Any]]] = dict()
     _runtime_validatable_class_names: ClassVar[set[str]] = set()
     _expected_type_metadata_handle_by_class: ClassVar[dict[type[Any], int]] = dict()
+    _subtype_match_cache: ClassVar[dict[tuple[int, int], bool]] = dict()
 
     @classmethod
     def register_schema_validatable(cls, il2cpp_name: str, wrapper_cls: type[Any]) -> None:
@@ -90,12 +91,21 @@ class RuntimeValidatableIl2CppClassManager:
     def get_expected_type_metadata_handle(cls, wrapper_cls: type[Any]) -> int | None:
         return cls._expected_type_metadata_handle_by_class.get(wrapper_cls)
 
+    @classmethod
+    def get_cached_subtype_match(cls, expected_handle: int, actual_handle: int) -> bool | None:
+        return cls._subtype_match_cache.get((int(expected_handle), int(actual_handle)))
+
+    @classmethod
+    def set_cached_subtype_match(cls, expected_handle: int, actual_handle: int, is_match: bool) -> None:
+        cls._subtype_match_cache[(int(expected_handle), int(actual_handle))] = is_match
+
 
 def _runtime_validate_type_metadata_handle_access(instance: RuntimeValidatableIl2CppClass, attr_name: str) -> None:
     inst_type = type(instance)
     if not instance._il2cpp_obj.klass:
         raise RuntimeError(f"{inst_type.__name__} has null _il2cpp_obj.klass while accessing '{attr_name}'")
-    runtime_type_metadata_handle = instance._il2cpp_obj.klass.contents.typeMetadataHandle.address
+    runtime_class_ptr = instance._il2cpp_obj.klass
+    runtime_type_metadata_handle = runtime_class_ptr.contents.typeMetadataHandle.address
     if runtime_type_metadata_handle == 0:
         raise RuntimeError(
                 f"{inst_type.__name__} has null _il2cpp_obj.klass.typeMetadataHandle "
@@ -103,10 +113,40 @@ def _runtime_validate_type_metadata_handle_access(instance: RuntimeValidatableIl
         )
     expected_type_metadata_handle = RuntimeValidatableIl2CppClassManager.get_expected_type_metadata_handle(inst_type)
     if expected_type_metadata_handle is not None and runtime_type_metadata_handle != expected_type_metadata_handle:
-        raise RuntimeError(
-                f"{inst_type.__name__} typeMetadataHandle mismatch while accessing '{attr_name}': "
-                f"expected=0x{expected_type_metadata_handle:X}, actual=0x{runtime_type_metadata_handle:X}"
-        )
+        if not _runtime_class_is_or_inherits_from(runtime_class_ptr, expected_type_metadata_handle):
+            raise RuntimeError(
+                    f"{inst_type.__name__} typeMetadataHandle mismatch while accessing '{attr_name}': "
+                    f"expected=0x{expected_type_metadata_handle:X}, actual=0x{runtime_type_metadata_handle:X}"
+            )
+
+
+def _runtime_class_is_or_inherits_from(klass_ptr: C_Ptr[RuntimeIl2CppClass], expected_handle: int) -> bool:
+    """Return whether runtime class *klass_ptr* is *expected_handle* or derives from it.
+
+    This is intentionally resolved lazily on first access mismatch. Most runtime
+    objects match exactly; only derived instances pay for walking the parent chain.
+    """
+    if not klass_ptr:
+        return False
+
+    expected_handle = int(expected_handle)
+    actual_handle = int(klass_ptr.contents.typeMetadataHandle.address)
+    cached = RuntimeValidatableIl2CppClassManager.get_cached_subtype_match(expected_handle, actual_handle)
+    if cached is not None:
+        return cached
+
+    current = klass_ptr
+    while current:
+        current_class = current.contents
+        current_handle = int(current_class.typeMetadataHandle.address)
+        if current_handle == expected_handle:
+            RuntimeValidatableIl2CppClassManager.set_cached_subtype_match(expected_handle, actual_handle, True)
+            return True
+
+        current = current_class.parent
+
+    RuntimeValidatableIl2CppClassManager.set_cached_subtype_match(expected_handle, actual_handle, False)
+    return False
 
 
 def _should_validate_attr_access(name: str) -> bool:
