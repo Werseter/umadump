@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """IL2CPP metadata parsing and runtime type-resolution helpers.
 
 This module bridges static ``global-metadata.dat`` type information with live
