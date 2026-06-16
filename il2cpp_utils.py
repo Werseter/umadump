@@ -14,6 +14,7 @@ from typing import Optional, TypeAlias
 
 from il2cpp_structs import (Il2CppFieldDefinition, Il2CppGlobalMetadataHeader, Il2CppMetadataRange,
                             Il2CppTypeDefinition, RuntimeIl2CppMetadataRegistration)
+from logger import logger
 from memory import MemoryReader, POINTER_SIZE
 
 TypeLookupKey: TypeAlias = tuple[str, tuple[str, ...]]
@@ -51,7 +52,7 @@ class Il2CppResolutionManager:
         return tuple(ptr for (ptr,) in iter_unpack("<Q", blob))
 
     def _build_resolve_context(self, type_ptrs: tuple[int, ...]) -> RuntimeTypeResolveContext:
-        print("Building runtime type resolution context from metadata registration info...")
+        logger.debug("Building runtime type resolution context from metadata registration info...")
         type_index_to_typedef: list[int] = [-1] * len(type_ptrs)
         runtime_type_ptr_by_typedef: list[int] = [0] * len(self.metadata.type_defs)
         for typedef_idx, type_def in enumerate(self.metadata.type_defs):
@@ -90,7 +91,7 @@ class Il2CppResolutionManager:
                 runtime_type_ptr_by_typedef=tuple(runtime_type_ptr_by_typedef),
         )
         resolved_ptrs = sum(1 for ptr in ctx.runtime_type_ptr_by_typedef if ptr)
-        print(f"Built runtime type resolution context with {resolved_ptrs} typedef runtime type pointers")
+        logger.debug("Built runtime type resolution context with %d typedef runtime type pointers", resolved_ptrs)
         return ctx
 
     def find_type_def_index(self, class_chain: list[str], namespace: str) -> Optional[int]:
@@ -200,7 +201,7 @@ def parse_minimal_metadata(metadata_path: Path) -> MinimalMetadata:
     if header.sanity != 0xFAB11BAF:
         raise ValueError("Invalid metadata header sanity value (expected 0xFAB11BAF)")
     if header.version != 31:
-        print(f"Warning: unexpected metadata version {header.version} (expected 31)")
+        logger.warning("Unexpected metadata version %d (expected 31)", header.version)
 
     strings = _parse_cstrings(data, header.stringOffset, header.stringSize)
     type_defs = _parse_type_defs(data, header.typeDefinitionsOffset, header.typeDefinitionsSize)

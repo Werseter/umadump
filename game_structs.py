@@ -15,6 +15,7 @@ from typing import Iterator, Literal as L, cast as type_cast
 from ctypes_utils import (ArrayType, CStructureDataclass, C_Int, C_Ptr, C_UDeclPtr, C_VoidPtr, RuntimeGenericMixin,
                           Span, StructOrSimple)
 from il2cpp_structs import RuntimeIl2CppObject
+from logger import logger
 from schema_validation import register_runtime_validatable
 
 
@@ -166,8 +167,8 @@ class GenericDictionary[CDT: StructOrSimple](CStructureDataclass, RuntimeGeneric
                 valid += 1
                 yield entry
         if valid < self.fields.count:
-            print(f"Warning: iterated over GenericDictionary with {self.fields.count} entries, "
-                  f"but only {valid} have valid hash codes")
+            logger.warning("Iterated over GenericDictionary with %d entries, but only %d have valid hash codes",
+                           self.fields.count, valid)
 
     @property
     def value(self) -> list[CDT]:

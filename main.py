@@ -14,7 +14,6 @@ import re
 import struct
 import sys
 import time
-import traceback
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -34,6 +33,7 @@ from game_structs import (AcquiredSkillObject, CardDataDictionaryEntry, Champion
 from il2cpp_structs import (RuntimeIl2CppClass, RuntimeIl2CppGenericClass, RuntimeIl2CppGenericInst,
                             RuntimeIl2CppMetadataRegistration, RuntimeIl2CppType)
 from il2cpp_utils import Il2CppResolutionManager, default_metadata_path_from_exe, parse_minimal_metadata
+from logger import configure_logging, logger
 from memory import MemoryReader, MinidumpMemory, POINTER_SIZE, TARGET_MODULE
 from schema_validation import validate_registered_classes
 from update_check import CURRENT_VERSION, notify_if_update_available
@@ -73,7 +73,7 @@ class Il2CppRegistrationResolver:
     def _find_registration(self, pattern_re: re.Pattern[bytes], overlap: int,
                            array_ptr_offset: int, array_count: int,
                            name: str, offset_adjustment: int) -> Optional[int]:
-        print(f"Scanning for {name}")
+        logger.info("Scanning for %s", name)
         for match_va in self.mem.scan(self.module_base, self.module_size, pattern_re, overlap):
             array_ptr_va = self.mem.read_pointer(match_va + array_ptr_offset)
             if not self._in_module(array_ptr_va):
@@ -84,10 +84,10 @@ class Il2CppRegistrationResolver:
                 continue
 
             result = match_va + offset_adjustment
-            print(f"Found {name}")
+            logger.info("Found %s", name)
             return result
 
-        print(f"{name} was not found in the module scan range")
+        logger.warning("%s was not found in the module scan range", name)
         return None
 
     def find_metadata_registration(self, type_def_count: int) -> Optional[int]:
@@ -145,7 +145,7 @@ def _write_json_file(name: str, output_path: Path, payload: Any) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     pretty_json = json.dumps(payload, indent=2, ensure_ascii=False)
     output_path.write_text(pretty_json, encoding="utf-8")
-    print(f"{name}: wrote JSON to {output_path}")
+    logger.info("%s: wrote JSON to %s", name, output_path)
 
 
 def _write_multi_output_json(output_folder: Path, key: str, payload: Any) -> None:
@@ -163,12 +163,12 @@ def _support_card_entries_ptr_and_sizes(wdm: WorkDataManagerObject) \
     """Resolve support-card entries pointer and dictionary sizes."""
     support_card_data_ptr = wdm.fields.supportCardData
     if not support_card_data_ptr:
-        print("WorkDataManager.SupportCardData is null")
+        logger.warning("WorkDataManager.SupportCardData is null")
         return None
 
     dictionary_ptr = support_card_data_ptr.contents.fields.dataDic
     if not dictionary_ptr:
-        print("WorkSupportCardData.dataDic is null")
+        logger.warning("WorkSupportCardData.dataDic is null")
         return None
 
     dictionary = dictionary_ptr.contents
@@ -204,7 +204,7 @@ def decode_support_card_dictionary(wdm: WorkDataManagerObject) -> list[dict[str,
     if support_card_data_dict is None:
         return result
 
-    print(f"SupportCard dictionary: count={support_card_data_dict.fields.count}")
+    logger.debug("SupportCard dictionary: count=%d", support_card_data_dict.fields.count)
 
     for entry in support_card_data_dict:
         decoded = _decode_support_card_entry(entry)
@@ -230,17 +230,17 @@ def _trained_chara_entries_ptr_and_sizes(wdm: WorkDataManagerObject) -> Optional
     """Resolve trained-chara entries pointer and dictionary sizes."""
     trained_chara_data_ptr = wdm.fields.trainedCharaData
     if not trained_chara_data_ptr:
-        print("WorkDataManager.trainedCharaData is null")
+        logger.warning("WorkDataManager.trainedCharaData is null")
         return None
 
     dictionary_ptr = trained_chara_data_ptr.contents.fields.dataDic
     if not dictionary_ptr:
-        print("WorkTrainedCharaData.dataDic is null")
+        logger.warning("WorkTrainedCharaData.dataDic is null")
         return None
 
     fav_dictionary_ptr = trained_chara_data_ptr.contents.fields.favoriteDataDict
     if not fav_dictionary_ptr:
-        print("WorkTrainedCharaData.favoriteDataDict is null")
+        logger.warning("WorkTrainedCharaData.favoriteDataDict is null")
         return None
 
     dictionary = dictionary_ptr.contents
@@ -402,8 +402,8 @@ def decode_trained_chara_dictionary(wdm: WorkDataManagerObject) -> list[dict[str
     if entries_info is None:
         return []
 
-    print(f"TrainedChara dictionary: "
-          f"count={entries_info.entries.fields.count}, favorite_count={entries_info.favorite_entries.fields.count}")
+    logger.debug("TrainedChara dictionary: count=%d, favorite_count=%d",
+                 entries_info.entries.fields.count, entries_info.favorite_entries.fields.count)
 
     for entry in entries_info.entries:
         decoded = _decode_trained_chara_entry(entry)
@@ -430,12 +430,12 @@ def _card_data_entries_ptr_and_sizes(wdm: WorkDataManagerObject) \
     """Resolve chara/card-data entries pointer and dictionary sizes."""
     card_data_data_ptr = wdm.fields.cardData
     if not card_data_data_ptr:
-        print("WorkDataManager.cardData is null")
+        logger.warning("WorkDataManager.cardData is null")
         return None
 
     dictionary_ptr = card_data_data_ptr.contents.fields.dataDic
     if not dictionary_ptr:
-        print("WorkCardData.dataDic is null")
+        logger.warning("WorkCardData.dataDic is null")
         return None
 
     dictionary = dictionary_ptr.contents
@@ -470,7 +470,7 @@ def decode_card_data_dictionary(wdm: WorkDataManagerObject) -> list[dict[str, An
     if card_data_dict is None:
         return []
 
-    print(f"CardData dictionary: count={card_data_dict.fields.count}")
+    logger.debug("CardData dictionary: count=%d", card_data_dict.fields.count)
 
     for entry in card_data_dict:
         decoded = _decode_card_data_entry(entry)
@@ -488,21 +488,21 @@ def _resolve_work_friend_data_ptr(wdm: WorkDataManagerObject) -> Optional[WorkFr
     """Resolve friend data pointer"""
     friend_data_data_ptr = wdm.fields.friendData
     if not friend_data_data_ptr:
-        print("WorkDataManager.friendData is null")
+        logger.warning("WorkDataManager.friendData is null")
         return None
 
     data = friend_data_data_ptr.contents
 
     if not data.fields.followList:
-        print("WorkFriendData.followList is null")
+        logger.warning("WorkFriendData.followList is null")
         return None
 
     if not data.fields.followerList:
-        print("WorkFriendData.followerList is null")
+        logger.warning("WorkFriendData.followerList is null")
         return None
 
     if not data.fields.recommendList:
-        print("WorkFriendData.recommendList is null")
+        logger.warning("WorkFriendData.recommendList is null")
         return None
 
     return data
@@ -661,8 +661,9 @@ def decode_friend_data(wdm: WorkDataManagerObject) -> dict[str, Any]:
     if friend_data is None:
         return {}
 
-    print(f"FriendData: follows={friend_data.fields.followList.contents.fields.size}, "
-          f"followers={friend_data.fields.followerList.contents.fields.size}")
+    logger.debug("FriendData: follows=%d, followers=%d",
+                 friend_data.fields.followList.contents.fields.size,
+                 friend_data.fields.followerList.contents.fields.size)
 
     result = _decode_work_friend_data(friend_data)
     return result
@@ -676,12 +677,12 @@ def decode_friend_data(wdm: WorkDataManagerObject) -> dict[str, Any]:
 def _resolve_champions_race_info(temp_data: TempDataObject) -> Optional[ChampionsRaceInfoObject]:
     champions_data = temp_data.fields.championsData
     if not champions_data:
-        print("TempData.championsData is null")
+        logger.warning("TempData.championsData is null")
         return None
 
     race_info = champions_data.contents.fields.raceInfo
     if not race_info:
-        print("TempData.ChampionsTempData.raceInfo is null")
+        logger.warning("TempData.ChampionsTempData.raceInfo is null")
         return None
 
     return race_info.contents
@@ -928,7 +929,7 @@ def decode_champions_meeting_race_data(temp_data: TempDataObject) -> dict[str, A
 
     race_info = race_info_obj.fields
     if not race_info.isSet:
-        print("TempData.ChampionsTempData.raceInfo is not set")
+        logger.info("No Champions Meeting race replay available for extraction")
         return {}
 
     room_info: dict[str, Any] = {}
@@ -1076,7 +1077,7 @@ def resolve_singleton[TSingletonObject: StructOrSimple](
         singleton_index: dict[tuple[int, int], SingletonGenericClassMatch]) -> Optional[C_Ptr[TSingletonObject]]:
     meta_reg = resolver.meta_reg
     if not meta_reg.genericClasses:
-        print("MetadataRegistration genericClasses pointer is missing")
+        logger.warning("MetadataRegistration genericClasses pointer is missing")
         return None
 
     singleton_typedef = resolver.require_type_def_index([spec.singleton_class], spec.singleton_namespace)
@@ -1088,10 +1089,10 @@ def resolve_singleton[TSingletonObject: StructOrSimple](
     matched = singleton_index.get((singleton_type_ptr, target_type_ptr))
     if matched is None:
         type_string = f"{spec.singleton_namespace}::{spec.singleton_class}[{spec.namespace}{spec.target_type}]"
-        print(f"No {type_string} instantiation found")
+        logger.warning("No %s instantiation found", type_string)
         return None
 
-    print(f"  … matched at index {matched.seq}")
+    logger.debug("Matched singleton generic instantiation at index %d", matched.seq)
     static_fields_type = spec.static_fields_type
     # noinspection PyTypeHints
     static_fields_ptr_type = C_Ptr[static_fields_type]  # type: ignore[valid-type]
@@ -1124,7 +1125,7 @@ class Extractor[TExtractorInput, TMultiOutputPayload]:
 def _run_extractors(extractors: tuple[Extractor[Any, Any], ...], data: Any) -> None:
     """Run a sequence of extractors against *data*, writing output as configured."""
     for extractor in extractors:
-        print(f"Running extractor: {extractor.name}")
+        logger.info("Running extractor: %s", extractor.name)
         try:
             payload = extractor.extract(data)
             if extractor.output_path is not None:
@@ -1138,34 +1139,32 @@ def _run_extractors(extractors: tuple[Extractor[Any, Any], ...], data: Any) -> N
                     if not key:
                         continue
                     writer(extractor.output_folder, key, item)
-        except Exception as e:
-            print(f"Error in extractor {extractor.name}: {e}")
-            print("Full traceback:")
-            print(traceback.format_exc())
+        except Exception:
+            logger.exception("Error in extractor %s", extractor.name)
 
 
 def _extract_support_cards(wdm: WorkDataManagerObject) -> Any:
     support_cards = decode_support_card_dictionary(wdm)
-    print(f"Decoded {len(support_cards)} support cards")
+    logger.info("Decoded %d support cards", len(support_cards))
     return support_cards
 
 
 def _extract_trained_chara_data(wdm: WorkDataManagerObject) -> Any:
     trained_charas = decode_trained_chara_dictionary(wdm)
-    print(f"Decoded {len(trained_charas)} trained chara entries")
+    logger.info("Decoded %d trained chara entries", len(trained_charas))
     return trained_charas
 
 
 def _extract_card_data(wdm: WorkDataManagerObject) -> Any:
     cards = decode_card_data_dictionary(wdm)
     # game calls the owned character data "card" data, making a distinction between alternate costume variants this way
-    print(f"Decoded {len(cards)} owned character entries")  # game
+    logger.info("Decoded %d owned character entries", len(cards))
     return cards
 
 
 def _extract_friend_data(wdm: WorkDataManagerObject) -> dict[str, Any]:
     friends = decode_friend_data(wdm)
-    print(f"Decoded friend data with {len(friends.get('friend_list', []))} friend entries")
+    logger.info("Decoded friend data with %d friend entries", len(friends.get('friend_list', [])))
     return friends
 
 
@@ -1200,7 +1199,7 @@ def _resolve_and_dump_workdatamanager(resolver: Il2CppResolutionManager,
     spec = SINGLETON_SPEC_REGISTRY["workdatamanager"]
     instance = resolve_singleton(resolver, spec, singleton_index)
     if not instance:
-        print(f"{spec.target_type} not resolved")
+        logger.warning("%s not resolved", spec.target_type)
         return
 
     _run_extractors(WORKDATA_EXTRACTORS, instance.contents)
@@ -1209,7 +1208,7 @@ def _resolve_and_dump_workdatamanager(resolver: Il2CppResolutionManager,
 def _champions_meeting_race_room_id(payload: dict[str, Any]) -> str:
     room_id = payload.get("data", {}).get("room_info", {}).get("room_id", 0)
     if not room_id:
-        print("Warning: champions meeting race has no room_id, skipping folder extraction")
+        logger.debug("Champions meeting race has no room_id, skipping folder extraction")
         return ""
     return str(room_id)
 
@@ -1232,7 +1231,7 @@ def _resolve_and_dump_tempdata(resolver: Il2CppResolutionManager,
     spec = SINGLETON_SPEC_REGISTRY["tempdata"]
     instance = resolve_singleton(resolver, spec, singleton_index)
     if not instance:
-        print(f"{spec.target_type} not resolved")
+        logger.warning("%s not resolved", spec.target_type)
         return
 
     _run_extractors(TEMPDATA_EXTRACTORS, instance.contents)
@@ -1255,6 +1254,8 @@ def _parse_args() -> argparse.Namespace:
                         help="Skip the startup GitHub release check")
     parser.add_argument("--validate-only", action="store_true",
                         help="Only validate registered classes and exit")
+    parser.add_argument("-v", "--verbose", action="store_true",
+                        help="Enable debug logging")
     args = parser.parse_args()
     if args.minidump and not args.metadata_path:
         parser.error("--metadata-path is required when using --minidump")
@@ -1271,11 +1272,11 @@ def _setup(args: argparse.Namespace) -> SetupContext:
     """Build memory interface and metadata path from CLI args."""
     mem: MemoryReader
     if args.minidump:
-        print(f"Offline mode from minidump: {args.minidump}")
+        logger.info("Offline mode from minidump: %s", args.minidump)
         mem = MinidumpMemory(args.minidump)
         metadata_path = Path(args.metadata_path)
     else:
-        print("Live mode from process memory")
+        logger.info("Live mode from process memory")
         mem = ProcessMemory()
         metadata_path = Path(args.metadata_path) if args.metadata_path else default_metadata_path_from_exe(
                 mem.exe_path())
@@ -1292,7 +1293,7 @@ def _build_resolver(mem: MemoryReader, metadata_path: Path) -> Il2CppResolutionM
     """Create ``Il2CppResolutionManager`` and run schema validation for registered wrappers."""
 
     metadata = parse_minimal_metadata(metadata_path)
-    print(f"Parsed metadata: type_defs={len(metadata.type_defs)}")
+    logger.info("Parsed metadata: type_defs=%d", len(metadata.type_defs))
 
     base, size = mem.module_info(TARGET_MODULE)
 
@@ -1308,14 +1309,15 @@ def _build_resolver(mem: MemoryReader, metadata_path: Path) -> Il2CppResolutionM
 
 def main() -> None:
     args = _parse_args()
+    configure_logging(args.verbose)
     t_start = time.perf_counter()
 
-    print(f"umadump {CURRENT_VERSION}")
+    logger.info("umadump %s", CURRENT_VERSION)
     if not args.no_update_check:
         notify_if_update_available(CURRENT_VERSION)
 
     setup = _setup(args)
-    print(f"Metadata path: {setup.metadata_path}")
+    logger.info("Metadata path: %s", setup.metadata_path)
 
     with setup.mem:
         try:
@@ -1324,12 +1326,12 @@ def main() -> None:
             if args.validate_only:
                 return
 
-            print(f"Scanning {resolver.meta_reg.genericClassesCount} generic class instantiations...")
+            logger.info("Scanning %d generic class instantiations...", resolver.meta_reg.genericClassesCount)
             singleton_index = _build_singleton_generic_index(resolver.meta_reg)
             _resolve_and_dump_workdatamanager(resolver, singleton_index)
             _resolve_and_dump_tempdata(resolver, singleton_index)
         finally:
-            print(f"Total time: {time.perf_counter() - t_start:.2f}s")
+            logger.info("Total time: %.2fs", time.perf_counter() - t_start)
     if sys.stdin.isatty():
         try:
             input("Press Enter to exit...")

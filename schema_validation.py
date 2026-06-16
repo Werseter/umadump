@@ -44,6 +44,7 @@ from typing import Any, Callable, ClassVar, Optional, Protocol
 from ctypes_utils import CStructureDataclass, C_Ptr
 from il2cpp_structs import Il2CppFieldDefinition, RuntimeIl2CppClass, RuntimeIl2CppObject, RuntimeIl2CppType
 from il2cpp_utils import Il2CppResolutionManager
+from logger import logger
 from memory import MemoryReader
 
 
@@ -159,7 +160,7 @@ def _install_runtime_validating_getattribute(cls: type[RuntimeValidatableIl2CppC
 
     existing = cls.__dict__.get("__getattribute__")
     if existing is not None and existing is not object.__getattribute__:
-        print(f"Warning: class {cls.__name__} already has custom __getattribute__, skipping validation wrapper")
+        logger.warning("Class %s already has custom __getattribute__, skipping validation wrapper", cls.__name__)
         return
 
     original_getattribute = cls.__getattribute__
@@ -230,7 +231,7 @@ def _is_instance_field_from_metadata(resolver: Il2CppResolutionManager, field_de
     type_index = int(field_def.typeIndex)
     runtime_type_ptr = resolver.runtime_type_ptr_for_type_index(type_index)
     if runtime_type_ptr == 0:
-        print(f"Warning: could not resolve runtime type pointer for field type index {type_index}")
+        logger.warning("Could not resolve runtime type pointer for field type index %d", type_index)
         # Keep validation permissive when runtime type resolution is unavailable.
         return True
     field_type = C_Ptr[RuntimeIl2CppType](runtime_type_ptr).contents
@@ -405,10 +406,10 @@ def _validate_registered_class(resolver: Il2CppResolutionManager, typedef_index:
 
     metadata_fields_by_offset = _read_metadata_instance_fields_by_offset(resolver, typedef_index)
     if metadata_fields_by_offset is None:
-        print(f"Warning: could not read field-offset table for {full_name}")
+        logger.warning("Could not read field-offset table for %s", full_name)
         return
     if not metadata_fields_by_offset:
-        print(f"Warning: registered class {full_name} has no instance fields in metadata")
+        logger.warning("Registered class %s has no instance fields in metadata", full_name)
         return
 
     checked_public = 0
@@ -418,10 +419,10 @@ def _validate_registered_class(resolver: Il2CppResolutionManager, typedef_index:
         metadata_names = metadata_fields_by_offset.get(field_offset, set())
         if normalized_py_name not in metadata_names:
             metadata_hint = ", ".join(sorted(metadata_names)) if metadata_names else "<none>"
-            print(f"Warning: {full_name} field '{field_name}' (offset={field_offset}) "
-                  f"not found in metadata at same offset (metadata={metadata_hint})")
+            logger.warning("%s field '%s' (offset=%d) not found in metadata at same offset (metadata=%s)",
+                           full_name, field_name, field_offset, metadata_hint)
 
-    print(f"Validated registered class in metadata: {full_name} (public fields checked={checked_public})")
+    logger.debug("Validated registered class in metadata: %s (public fields checked=%d)", full_name, checked_public)
 
 
 def _update_expected_runtime_type_metadata_handle(resolver: Il2CppResolutionManager,
@@ -437,13 +438,13 @@ def _update_expected_runtime_type_metadata_handle(resolver: Il2CppResolutionMana
     try:
         runtime_type_ptr = resolver.require_runtime_type_ptr_for_typedef(typedef_index)
     except RuntimeError as exc:
-        print(f"Warning: could not resolve runtime type pointer for {full_name}: {exc}")
+        logger.warning("Could not resolve runtime type pointer for %s: %s", full_name, exc)
         return
 
     runtime_type = C_Ptr[RuntimeIl2CppType](runtime_type_ptr).contents
     type_metadata_handle = int(runtime_type.data)
     if type_metadata_handle == 0:
-        print(f"Warning: runtime type data pointer is null for {full_name}")
+        logger.warning("Runtime type data pointer is null for %s", full_name)
         return
 
     RuntimeValidatableIl2CppClassManager.set_expected_type_metadata_handle(cls, type_metadata_handle)
@@ -471,13 +472,13 @@ def validate_registered_classes(resolver: Il2CppResolutionManager) -> None:
     )
     for full_name, cls in RuntimeValidatableIl2CppClassManager._registered_schema_classes.items():
         if (match := name_pattern.match(full_name)) is None:
-            print(f"Warning: invalid class name format for registered class: {full_name}")
+            logger.warning("Invalid class name format for registered class: %s", full_name)
             continue
         namespace, raw_class_chain, generics = match.groups(default="")
         class_chain = raw_class_chain.split(".")
         typedef_index = resolver.find_type_def_index(class_chain, namespace)
         if typedef_index is None:
-            print(f"Warning: registered class {full_name} not found in metadata")
+            logger.warning("Registered class %s not found in metadata", full_name)
             continue
         if RuntimeValidatableIl2CppClassManager.is_runtime_validatable_name(full_name):
             _update_expected_runtime_type_metadata_handle(resolver, typedef_index, full_name, cls)
@@ -508,20 +509,20 @@ def _validate_runtime_class_layout(mem: MemoryReader, instance_ptr: int, expecte
     runtime_obj = C_Ptr[RuntimeIl2CppObject](instance_ptr).contents
     runtime_info = _runtime_class_full_name(mem, runtime_obj.klass)
     if runtime_info is None:
-        print("Warning: could not resolve runtime class metadata for singleton instance")
+        logger.warning("Could not resolve runtime class metadata for singleton instance")
         return
 
     runtime_full_name, runtime_class = runtime_info
     if runtime_full_name != expected_full_name:
-        print(f"Warning: runtime class-name mismatch: expected {expected_full_name}, got {runtime_full_name}")
+        logger.warning("Runtime class-name mismatch: expected %s, got %s", expected_full_name, runtime_full_name)
         return
 
     registered_cls = RuntimeValidatableIl2CppClassManager._registered_schema_classes.get(expected_full_name)
     if registered_cls is None:
-        print(f"Warning: class {expected_full_name} is not registered for validation")
+        logger.warning("Class %s is not registered for validation", expected_full_name)
         return
 
-    print(f"Validated runtime class name: {expected_full_name}")
+    logger.debug("Validated runtime class name: %s", expected_full_name)
 
     fields_layout = None
     for field_name, field_type in getattr(registered_cls, "_fields_", ()):  # object wrapper layout
@@ -534,9 +535,7 @@ def _validate_runtime_class_layout(mem: MemoryReader, instance_ptr: int, expecte
     expected_field_count = len(getattr(fields_layout, "_fields_", ()))
     actual_field_count = int(runtime_class.field_count)
     if expected_field_count != actual_field_count:
-        print(
-                f"Warning: field-count mismatch for {expected_full_name}: "
-                f"runtime={actual_field_count}, registered={expected_field_count}"
-        )
+        logger.warning("Field-count mismatch for %s: runtime=%d, registered=%d",
+                       expected_full_name, actual_field_count, expected_field_count)
         return
-    print(f"Validated field count for {expected_full_name}: {actual_field_count}")
+    logger.debug("Validated field count for %s: %d", expected_full_name, actual_field_count)
