@@ -8,6 +8,7 @@ Walks Il2CppMetadataRegistration to locate Gallop.Singleton<WorkDataManager>._in
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -21,15 +22,17 @@ from typing import Any, Callable, Optional, cast as type_cast
 
 from ctypes_utils import C_Ptr, StructOrSimple
 from game_structs import (AcquiredSkillObject, CardDataDictionaryEntry, ChampionsRaceInfoObject,
-                          ChampionsRoomInfoObject, ChampionsRoomUserObject, ChampionsUserCharaObject,
-                          FactorDataObject, FavoriteDataDictionaryEntry, FriendDataObject, GenericDictionary,
-                          HintLevelDictionaryEntry, RaceHistoryInfoObject, RaceHorseDataObject,
-                          RaceHorseDataRaceResultObject, SkillDataObject, SuccessionCharaDataObject,
-                          SuccessionCharaObject, SuccessionHistoryObject, SupportCardDataDictionaryEntry,
+                          ChampionsRoomInfoObject, ChampionsRoomUserObject, ChampionsUserCharaObject, FactorDataObject,
+                          FavoriteDataDictionaryEntry, FriendDataObject, GenericDictionary, HintLevelDictionaryEntry,
+                          RaceHistoryInfoObject, RaceHorseDataObject, RaceHorseDataRaceResultObject, SkillDataObject,
+                          SuccessionCharaDataObject, SuccessionCharaObject, SuccessionHistoryObject,
+                          SupportCardDataDictionaryEntry, TeamStadiumRaceCharaResultObject, TeamStadiumRaceResultObject,
+                          TeamStadiumResultBonusDataObject, TeamStadiumResultObject, TeamStadiumResultScoreDataObject,
                           TempDataObject, TempDataSingletonStaticFields, TrainedCharaDataDictionaryEntry,
                           TrainedCharaDataObject, TrainedCharaObject, TrainedCharaRaceResultObject,
                           TrainedCharaSupportCardDataObject, TrainedCharaSupportCardListObject, WorkDataManagerObject,
-                          WorkDataManagerSingletonStaticFields, WorkFriendDataObject)
+                          WorkDataManagerSingletonStaticFields, WorkFriendDataObject, WorkTeamStadiumDataObject,
+                          WorkTeamStadiumOpponentDataObject)
 from il2cpp_structs import (RuntimeIl2CppClass, RuntimeIl2CppGenericClass, RuntimeIl2CppGenericInst,
                             RuntimeIl2CppMetadataRegistration, RuntimeIl2CppType)
 from il2cpp_utils import Il2CppResolutionManager, default_metadata_path_from_exe, parse_minimal_metadata
@@ -670,6 +673,166 @@ def decode_friend_data(wdm: WorkDataManagerObject) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Race replay extraction
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class RaceReplayOutput:
+    key: str
+    payload: dict[str, Any]
+
+
+def _team_stadium_match_key(race_result_array: list[dict[str, Any]]) -> str:
+    race_scenario_digest_source = "|".join(race_result["race_scenario"] for race_result in race_result_array)
+    race_scenario_digest = hashlib.sha1(race_scenario_digest_source.encode("utf-8")).hexdigest()[:12]
+    return f"team_stadium/{race_scenario_digest}"
+
+
+def _decode_team_stadium_result_bonus_data(entry: TeamStadiumResultBonusDataObject) -> dict[str, int]:
+    f = entry.fields
+    return {
+        "score_bonus_id": f.score_bonus_id,
+        "bonus_score": f.bonus_score,
+        "condition_type": f.condition_type,
+        "condition_value_1": f.condition_value_1,
+        "condition_value_2": f.condition_value_2,
+        "score_rate": f.score_rate,
+    }
+
+
+def _decode_team_stadium_result_score_data(entry: TeamStadiumResultScoreDataObject) -> dict[str, Any]:
+    f = entry.fields
+    bonus_array = [_decode_team_stadium_result_bonus_data(x.contents) for x in f.bonus_array]
+
+    return {
+        "raw_score_id": f.raw_score_id,
+        "num": f.num,
+        "score": f.score,
+        "bonus_num": sum(1 for bonus in bonus_array if bonus["condition_type"] != 4),
+        "bonus_array": bonus_array,
+    }
+
+
+def _decode_team_stadium_race_chara_result(entry: TeamStadiumRaceCharaResultObject) -> dict[str, Any]:
+    f = entry.fields
+
+    return {
+        "frame_order": f.frame_order,
+        "viewer_id": f.viewer_id,
+        "trained_chara_id": f.trained_chara_id,
+        "team_id": f.team_id,
+        "finish_order": f.finish_order,
+        "finish_time": f.finish_time,
+        "score_array": [_decode_team_stadium_result_score_data(x.contents) for x in f.score_array]
+    }
+
+
+def _decode_team_stadium_race_result(race_result_obj: TeamStadiumRaceResultObject,
+                                     *,
+                                     self_evaluate: int,
+                                     opponent_evaluate: int) -> Optional[tuple[dict[str, Any], dict[str, Any]]]:
+    f = race_result_obj.fields
+    race_horse_data_array = [_decode_race_horse_data_entry(x.contents) for x in f.raceHorseDataArray]
+    race_horse_data_array.sort(key=lambda x: (x["mob_id"], x["team_id"], x["team_member_id"]))
+
+    race_start_params = {
+        "round": f.round.value,
+        "race_instance_id": f.raceInstanceId.value,
+        "season": f.season.value,
+        "weather": f.weather.value,
+        "ground_condition": f.groundCondition.value,
+        "random_seed": f.randomSeed.value,
+        "race_horse_data_array": race_horse_data_array,
+        "self_evaluate": self_evaluate,
+        "opponent_evaluate": opponent_evaluate,
+    }
+    race_result = {
+        "distance_type": f.raceNum.value,
+        "race_scenario": f.raceScenario.value,
+        "round": f.round.value,
+        "team_total_score": f.teamTotalScore.value,
+        "team_score_array": [_decode_team_stadium_result_score_data(x.contents) for x in f.teamScoreArray],
+        "win_type": f.roundResult,
+        "current_consecutive_win_count": f.currentConsecutiveWinCount.value,
+        "bonus_rate_by_next_win": f.bonusRateByNextWin.value,
+        "chara_result_array": [_decode_team_stadium_race_chara_result(x.contents) for x in f.charaResultArray],
+    }
+
+    return race_start_params, race_result
+
+
+def _decode_team_stadium_replays(
+        team_stadium_data: WorkTeamStadiumDataObject,
+        team_stadium_opponent_data: WorkTeamStadiumOpponentDataObject,
+        team_stadium_result: TeamStadiumResultObject) -> list[RaceReplayOutput]:
+    support_card_bonus = 0
+    if support_card_bonus_info_ptr := team_stadium_data.fields.teamStadiumSupportCardBonusInfo:
+        support_card_bonus = support_card_bonus_info_ptr.contents.fields.totalSupportCardBonus
+
+    race_start_params_array: list[dict[str, Any]] = []
+    race_result_array: list[dict[str, Any]] = []
+    for race_result_ptr in team_stadium_result.fields.raceResultArray:
+        if not race_result_ptr:
+            continue
+        decoded = _decode_team_stadium_race_result(
+                race_result_ptr.contents,
+                self_evaluate=0,  # weighed sum of each team member's evaluationPoint, but not stored in WorkDataManager
+                opponent_evaluate=team_stadium_opponent_data.fields.evaluationPoint.value,
+        )
+        if decoded is not None:
+            race_start_params, race_result = decoded
+            race_start_params_array.append(race_start_params)
+            race_result_array.append(race_result)
+
+    if not race_start_params_array:
+        return []
+
+    match_payload = {
+        "use_item_id_array": [x.value for x in team_stadium_result.fields.useItemIdArray],
+        "race_start_params_array": race_start_params_array,
+        "race_result_array": race_result_array,
+        "rp_info": {},
+        "item_info_array": [],
+        "is_include_unsupported_race": bool(team_stadium_result.fields.isIncludeUnsupportedRace),
+        "winning_reward_info_array": [],
+        "winning_reward_guarantee_status": team_stadium_opponent_data.fields.winningRewardGuaranteeStatus.value,
+        "last_checked_round": 0,
+        "support_card_bonus": support_card_bonus,
+        "user_team_data_array_copy": [],
+        "user_trained_chara_array_copy": [],
+        "opponent_info_copy": {},
+        "opponent_chara_info_array_latest_copy": [],
+    }
+    return [RaceReplayOutput(
+            key=_team_stadium_match_key(race_result_array),
+            # payload={"data": match_payload}, -- envelope skipped for TT races
+            payload=match_payload,
+    )]
+
+
+def decode_race_replays(wdm: WorkDataManagerObject) -> list[RaceReplayOutput]:
+    """Collect API-like race replay payloads from known WorkDataManager sub-structures."""
+    if not (team_stadium_data_ptr := wdm.fields.teamStadiumData):
+        return []
+    team_stadium_data = team_stadium_data_ptr.contents
+
+    if not (team_stadium_status_ptr := team_stadium_data.fields.teamStadiumStatus):
+        return []
+    team_stadium_status = team_stadium_status_ptr.contents
+
+    if not (team_stadium_opponent_data_ptr := team_stadium_status.fields.opponentData):
+        return []
+    team_stadium_opponent_data = team_stadium_opponent_data_ptr.contents
+
+    if not (team_stadium_result_ptr := team_stadium_status_ptr.contents.fields.result):
+        return []
+    team_stadium_result = team_stadium_result_ptr.contents
+
+    return _decode_team_stadium_replays(team_stadium_data, team_stadium_opponent_data, team_stadium_result)
+
+
+# ---------------------------------------------------------------------------
 # Champions Meeting race extraction
 # ---------------------------------------------------------------------------
 
@@ -752,9 +915,9 @@ def _decode_race_horse_data_entry(entry: RaceHorseDataObject) -> dict[str, Any]:
     return {
         "frame_order": f.frame_order,
         "viewer_id": f.viewer_id,
-        "trainer_name": f.trainer_name.value,
+        "trainer_name": f.trainer_name.value if f.viewer_id else None,
         "owner_viewer_id": f.owner_viewer_id,
-        "owner_trainer_name": f.owner_trainer_name.value,
+        "owner_trainer_name": f.owner_trainer_name.value if f.owner_viewer_id else "",
         "single_mode_chara_id": f.single_mode_chara_id,
         "trained_chara_id": f.trained_chara_id,
         "nickname_id": f.nickname_id,
@@ -1168,6 +1331,21 @@ def _extract_friend_data(wdm: WorkDataManagerObject) -> dict[str, Any]:
     return friends
 
 
+def _extract_race_replays(wdm: WorkDataManagerObject) -> list[RaceReplayOutput]:
+    replays = decode_race_replays(wdm)
+    logger.info("Decoded %d race replay payloads", len(replays))
+    return replays
+
+
+def _race_replay_key(replay: RaceReplayOutput) -> str:
+    return replay.key
+
+
+def _write_race_replay_json(output_folder: Path, key: str, replay: RaceReplayOutput) -> None:
+    output_path = output_folder / f"{key}.json"
+    _write_json_file(f"{output_folder.name}[{key}]", output_path, replay.payload)
+
+
 WORKDATA_EXTRACTORS: tuple[Extractor[Any, Any], ...] = (
     Extractor(
             name="support_cards",
@@ -1188,6 +1366,13 @@ WORKDATA_EXTRACTORS: tuple[Extractor[Any, Any], ...] = (
             name="friend_data",
             output_path=Path("friend_data.json"),
             extract=_extract_friend_data
+    ),
+    Extractor(
+            name="race_replays",
+            output_folder=Path("race_replays"),
+            extract=_extract_race_replays,
+            key_fn=_race_replay_key,
+            writer=_write_race_replay_json,
     ),
 )
 
