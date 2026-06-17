@@ -48,6 +48,10 @@ class MemoryReader(Protocol):
 
     def close(self) -> None: ...
 
+    def clear_cache(self) -> None: ...
+
+    def is_alive(self) -> bool: ...
+
     def exe_path(self) -> str: ...
 
     def module_info(self, module_name: str) -> tuple[int, int]: ...
@@ -119,6 +123,11 @@ class _ReadCache:
         idx = bisect_right(self._starts, start)
         self._starts.insert(idx, start)
         self._entries[start] = (end, data)
+
+    def clear(self) -> None:
+        """Drop all cached memory blocks."""
+        self._starts.clear()
+        self._entries.clear()
 
     def read(self, address: int, size: int) -> Optional[bytes]:
         """Serve *size* bytes from *address* if fully covered by one cached block."""
@@ -252,6 +261,12 @@ class MinidumpMemory(_RegionChunkScanMixin):
         self._deregister()
         self._fh.close()
 
+    def clear_cache(self) -> None:
+        self._cache.clear()
+
+    def is_alive(self) -> bool:
+        return True
+
     def exe_path(self) -> str:
         raise NotImplementedError("MinidumpMemory does not expose the original exe path")
 
@@ -337,6 +352,7 @@ TH32CS_SNAPPROCESS = 0x00000002
 TH32CS_SNAPMODULE = 0x00000008
 TH32CS_SNAPMODULE32 = 0x00000010
 INVALID_HANDLE_VALUE = c_void_p(-1).value
+STILL_ACTIVE = 259
 
 MEM_COMMIT = 0x1000
 MEM_IMAGE = 0x1000000
@@ -462,6 +478,9 @@ class _Kernel32Api:
         self._query_full_process_image_name_w = WINFUNCTYPE(
                 BOOL, HANDLE, DWORD, LPWSTR, POINTER[DWORD], use_last_error=True
         )(("QueryFullProcessImageNameW", dll))
+        self._get_exit_code_process = WINFUNCTYPE(
+                BOOL, HANDLE, POINTER[DWORD], use_last_error=True
+        )(("GetExitCodeProcess", dll))
         self._close_handle = WINFUNCTYPE(BOOL, HANDLE, use_last_error=True)(("CloseHandle", dll))
 
     def OpenProcess(self, dwDesiredAccess: int, bInheritHandle: bool, dwProcessId: int) -> HANDLE:
@@ -498,6 +517,11 @@ class _Kernel32Api:
         return type_cast(
                 BOOL,
                 self._query_full_process_image_name_w(hProcess, DWORD(dwFlags), lpExeName, lpdwSize))
+
+    def GetExitCodeProcess(self, hProcess: HANDLE, lpExitCode: Any) -> BOOL:
+        return type_cast(
+                BOOL,
+                self._get_exit_code_process(hProcess, lpExitCode))
 
     def CloseHandle(self, hObject: HANDLE) -> BOOL:
         return type_cast(
@@ -657,6 +681,16 @@ class WindowsProcessMemory(_RegionChunkScanMixin):
         if process:
             _ntdll.NtClose(process)
             self._process = HANDLE()
+
+    def clear_cache(self) -> None:
+        self._cache.clear()
+
+    def is_alive(self) -> bool:
+        if not self._process:
+            return False
+        exit_code = DWORD(0)
+        ok = _kernel32.GetExitCodeProcess(self._process, byref(exit_code))
+        return bool(ok) and int(exit_code.value) == STILL_ACTIVE
 
     def exe_path(self) -> str:
         cap = DWORD(32768)
@@ -855,6 +889,12 @@ class LinuxProcessMemory(_RegionChunkScanMixin):
 
     def close(self) -> None:
         self._deregister()
+
+    def clear_cache(self) -> None:
+        self._cache.clear()
+
+    def is_alive(self) -> bool:
+        return Path(f"/proc/{self._pid}").exists()
 
     def exe_path(self) -> str:
         module_path = self._mapped_module_path(TARGET_MODULE)

@@ -1377,19 +1377,6 @@ WORKDATA_EXTRACTORS: tuple[Extractor[Any, Any], ...] = (
 )
 
 
-def _resolve_and_dump_workdatamanager(resolver: Il2CppResolutionManager,
-                                      singleton_index: dict[tuple[int, int], SingletonGenericClassMatch]) -> None:
-    """Resolve WorkDataManager singleton and run all configured extractors."""
-
-    spec = SINGLETON_SPEC_REGISTRY["workdatamanager"]
-    instance = resolve_singleton(resolver, spec, singleton_index)
-    if not instance:
-        logger.warning("%s not resolved", spec.target_type)
-        return
-
-    _run_extractors(WORKDATA_EXTRACTORS, instance.contents)
-
-
 def _champions_meeting_race_room_id(payload: dict[str, Any]) -> str:
     room_id = payload.get("data", {}).get("room_info", {}).get("room_id", 0)
     if not room_id:
@@ -1409,17 +1396,50 @@ TEMPDATA_EXTRACTORS: tuple[Extractor[Any, Any], ...] = (
 )
 
 
-def _resolve_and_dump_tempdata(resolver: Il2CppResolutionManager,
-                               singleton_index: dict[tuple[int, int], SingletonGenericClassMatch]) -> None:
-    """Resolve TempData singleton and run all configured extractors."""
+@dataclass(frozen=True)
+class SingletonExtractorSet:
+    """A singleton root plus the extractors that consume it."""
 
-    spec = SINGLETON_SPEC_REGISTRY["tempdata"]
-    instance = resolve_singleton(resolver, spec, singleton_index)
+    spec: SingletonSpec[Any]
+    extractors: tuple[Extractor[Any, Any], ...]
+
+
+SINGLETON_EXTRACTOR_SETS: tuple[SingletonExtractorSet, ...] = (
+    SingletonExtractorSet(WORKDATAMANAGER_SINGLETON_SPEC, WORKDATA_EXTRACTORS),
+    SingletonExtractorSet(TEMPDATA_SINGLETON_SPEC, TEMPDATA_EXTRACTORS),
+)
+
+
+ResolvedSingletonRoots = dict[str, Optional[C_Ptr[Any]]]
+
+
+def _resolve_singleton_roots(
+        resolver: Il2CppResolutionManager,
+        singleton_index: dict[tuple[int, int], SingletonGenericClassMatch]) -> ResolvedSingletonRoots:
+    """Resolve singleton roots once so reload passes can skip the metadata/generic scan."""
+    roots: ResolvedSingletonRoots = {}
+    for extractor_set in SINGLETON_EXTRACTOR_SETS:
+        spec = extractor_set.spec
+        roots[spec.name] = resolve_singleton(resolver, spec, singleton_index)
+    return roots
+
+
+def _dump_singleton_root(extractor_set: SingletonExtractorSet, instance: Optional[C_Ptr[Any]]) -> None:
+    """Run configured extractors from an already-resolved singleton root."""
+    spec = extractor_set.spec
     if not instance:
         logger.warning("%s not resolved", spec.target_type)
         return
 
-    _run_extractors(TEMPDATA_EXTRACTORS, instance.contents)
+    _run_extractors(extractor_set.extractors, instance.contents)
+
+
+def _dump_from_singleton_roots(roots: ResolvedSingletonRoots) -> float:
+    """Run all extractors from already-resolved singleton roots and return elapsed seconds."""
+    t_start = time.perf_counter()
+    for extractor_set in SINGLETON_EXTRACTOR_SETS:
+        _dump_singleton_root(extractor_set, roots.get(extractor_set.spec.name))
+    return time.perf_counter() - t_start
 
 
 # ---------------------------------------------------------------------------
@@ -1492,6 +1512,33 @@ def _build_resolver(mem: MemoryReader, metadata_path: Path) -> Il2CppResolutionM
     return resolver
 
 
+def _run_live_reload_loop(mem: MemoryReader, roots: ResolvedSingletonRoots) -> None:
+    """Repeatedly rerun extractors using fixed singleton roots and fresh memory reads."""
+    pass_num = 1
+    while True:
+        if not mem.is_alive():
+            logger.info("Target process has exited; stopping live reload")
+            return
+
+        if pass_num > 1:
+            logger.info("Clearing memory cache before reload pass %d", pass_num)
+            mem.clear_cache()
+
+        logger.info("Reload extractor pass %d", pass_num)
+        elapsed = _dump_from_singleton_roots(roots)
+        logger.info("Reload extractor pass %d completed in %.2fs", pass_num, elapsed)
+
+        try:
+            response = input("Press Enter to rescan, or type q then Enter to exit...")
+        except EOFError:
+            return
+
+        if response.strip().lower() in {"q", "quit", "exit"}:
+            return
+
+        pass_num += 1
+
+
 def main() -> None:
     args = _parse_args()
     configure_logging(args.verbose)
@@ -1513,11 +1560,15 @@ def main() -> None:
 
             logger.info("Scanning %d generic class instantiations...", resolver.meta_reg.genericClassesCount)
             singleton_index = _build_singleton_generic_index(resolver.meta_reg)
-            _resolve_and_dump_workdatamanager(resolver, singleton_index)
-            _resolve_and_dump_tempdata(resolver, singleton_index)
+            roots = _resolve_singleton_roots(resolver, singleton_index)
+            if not args.minidump:
+                _run_live_reload_loop(setup.mem, roots)
+            else:
+                elapsed = _dump_from_singleton_roots(roots)
+                logger.info("Extractor pass completed in %.2fs", elapsed)
         finally:
             logger.info("Total time: %.2fs", time.perf_counter() - t_start)
-    if sys.stdin.isatty():
+    if args.minidump and sys.stdin.isatty():
         try:
             input("Press Enter to exit...")
         except EOFError:
