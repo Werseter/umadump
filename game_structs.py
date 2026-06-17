@@ -301,7 +301,6 @@ class CardDataDictionaryEntry(CStructureDataclass):
 # Gallop.WorkCardData
 # ---------------------------------------------------------------------------
 
-
 class WorkCardDataFields(CStructureDataclass):
     dataDic: C_Ptr[GenericDictionary[CardDataDictionaryEntry]]
     _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # releaseCardIdList, BackableStateStack
@@ -316,7 +315,6 @@ class WorkCardDataObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 # Gallop.WorkSupportCardData.SupportCardData
 # ---------------------------------------------------------------------------
-
 
 class SupportCardDataFields(CStructureDataclass):
     _ignored_1: ArrayType[C_UDeclPtr, L[6]]  # masterSupportCard … masterUniqueEffect
@@ -349,7 +347,6 @@ class SupportCardDataDictionaryEntry(CStructureDataclass):
 # Gallop.WorkSupportCardData
 # ---------------------------------------------------------------------------
 
-
 class WorkSupportCardDataFields(CStructureDataclass):
     dataDic: C_Ptr[GenericDictionary[SupportCardDataDictionaryEntry]]
     _ignored_1: C_UDeclPtr  # BackableStateStack
@@ -365,7 +362,6 @@ class WorkSupportCardDataObject(CStructureDataclass):
 # Gallop.WorkTrainedCharaData.TrainedCharaData.SuccessionCharaData.FactorData
 # ---------------------------------------------------------------------------
 
-
 class FactorDataFields(CStructureDataclass):
     factorId: ObscuredInt
     factorLv: ObscuredInt
@@ -380,7 +376,6 @@ class FactorDataObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 # Gallop.WorkTrainedCharaData.FavoriteData
 # ---------------------------------------------------------------------------
-
 
 class FavoriteDataFields(CStructureDataclass):
     trainedCharaId: C_Int[c_int32]
@@ -404,7 +399,6 @@ class FavoriteDataDictionaryEntry(CStructureDataclass):
 # ---------------------------------------------------------------------------
 # Gallop.WorkTrainedCharaData.TrainedCharaData.SuccessionCharaData
 # ---------------------------------------------------------------------------
-
 
 class SuccessionCharaDataFields(CStructureDataclass):
     positionId: ObscuredInt
@@ -430,7 +424,6 @@ class SuccessionCharaDataObject(CStructureDataclass):
 # Gallop.SuccessionHistory
 # ---------------------------------------------------------------------------
 
-
 class SuccessionHistoryFields(CStructureDataclass):
     id: C_Int[c_int32]
     viewer_id: C_Int[c_int64]
@@ -452,7 +445,6 @@ class SuccessionHistoryObject(CStructureDataclass):
 # Gallop.WorkSkillData.AcquiredSkill
 # ---------------------------------------------------------------------------
 
-
 class AcquiredSkillFields(CStructureDataclass):
     masterId: ObscuredInt
     level: ObscuredInt
@@ -468,7 +460,6 @@ class AcquiredSkillObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 # Gallop.WorkTrainedCharaData.SupportCardData
 # ---------------------------------------------------------------------------
-
 
 class TrainedCharaSupportCardDataFields(CStructureDataclass):
     position: ObscuredInt
@@ -486,7 +477,6 @@ class TrainedCharaSupportCardDataObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 # Gallop.SingleModeUtils.RaceHistoryInfo
 # ---------------------------------------------------------------------------
-
 
 class RaceHistoryInfoFields(CStructureDataclass):
     turn: ObscuredInt
@@ -509,7 +499,6 @@ class RaceHistoryInfoObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 # Gallop.WorkTrainedCharaData.TrainedCharaData
 # ---------------------------------------------------------------------------
-
 
 class TrainedCharaDataFields(CStructureDataclass):
     id: ObscuredInt
@@ -581,7 +570,6 @@ class TrainedCharaDataDictionaryEntry(CStructureDataclass):
 # Gallop.WorkTrainedCharaData
 # ---------------------------------------------------------------------------
 
-
 class WorkTrainedCharaDataFields(CStructureDataclass):
     dataDic: C_Ptr[GenericDictionary[TrainedCharaDataDictionaryEntry]]
     allDataDic: C_Ptr[GenericDictionary[TrainedCharaDataDictionaryEntry]]
@@ -631,7 +619,6 @@ class FriendDataObject(CStructureDataclass):
 # Gallop.WorkFriendData
 # ---------------------------------------------------------------------------
 
-
 class WorkFriendDataFields(CStructureDataclass):
     followList: C_Ptr[GenericList[C_Ptr[FriendDataObject]]]
     followerList: C_Ptr[GenericList[C_Ptr[FriendDataObject]]]
@@ -650,7 +637,6 @@ class WorkFriendDataObject(CStructureDataclass):
 # Gallop.SkillData
 # ---------------------------------------------------------------------------
 
-
 class SkillDataFields(CStructureDataclass):
     skill_id: C_Int[c_int32]
     level: C_Int[c_int32]
@@ -665,7 +651,6 @@ class SkillDataObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 # Gallop.RaceHorseDataRaceResult
 # ---------------------------------------------------------------------------
-
 
 class RaceHorseDataRaceResultFields(CStructureDataclass):
     turn: C_Int[c_int32]
@@ -682,7 +667,6 @@ class RaceHorseDataRaceResultObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 # Gallop.RaceHorseData
 # ---------------------------------------------------------------------------
-
 
 class RaceHorseDataFields(CStructureDataclass):
     viewer_id: C_Int[c_int64]
@@ -742,7 +726,6 @@ class RaceHorseDataObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 # Gallop.TeamStadiumResultBonusData
 # ---------------------------------------------------------------------------
-
 
 class TeamStadiumResultBonusDataFields(CStructureDataclass):
     score_bonus_id: C_Int[c_int32]
@@ -916,7 +899,6 @@ class WorkTeamStadiumDataObject(CStructureDataclass):
 # Gallop.WorkDataManager object hierarchy
 # ---------------------------------------------------------------------------
 
-
 class WorkDataManagerFields(CStructureDataclass):
     _ignored_1: C_UDeclPtr  # UserData
     friendData: C_Ptr[WorkFriendDataObject]
@@ -948,7 +930,6 @@ class WorkDataManagerSingleton(CStructureDataclass):
 # Gallop.ChampionsRoomInfo
 # ---------------------------------------------------------------------------
 
-
 class ChampionsRoomInfoFields(CStructureDataclass):
     room_id: C_Int[c_int64]
     user_entry_num: C_Int[c_int32]
@@ -971,7 +952,6 @@ class ChampionsRoomInfoObject(CStructureDataclass):
 # Gallop.ChampionsUserChara
 # ---------------------------------------------------------------------------
 
-
 class ChampionsUserCharaFields(CStructureDataclass):
     chara_id: C_Int[c_int32]
     race_cloth_id: C_Int[c_int32]
@@ -988,7 +968,6 @@ class ChampionsUserCharaObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 # Gallop.ChampionsRoomUser
 # ---------------------------------------------------------------------------
-
 
 class ChampionsRoomUserFields(CStructureDataclass):
     room_id: C_Int[c_int64]
@@ -1009,7 +988,6 @@ class ChampionsRoomUserObject(CStructureDataclass):
 # Gallop.TrainedCharaSupportCardList
 # ---------------------------------------------------------------------------
 
-
 class TrainedCharaSupportCardListFields(CStructureDataclass):
     position: C_Int[c_int32]
     support_card_id: C_Int[c_int32]
@@ -1026,7 +1004,6 @@ class TrainedCharaSupportCardListObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 # Gallop.TrainedCharaRaceResult
 # ---------------------------------------------------------------------------
-
 
 class TrainedCharaRaceResultFields(CStructureDataclass):
     turn: C_Int[c_int32]
@@ -1046,7 +1023,6 @@ class TrainedCharaRaceResultObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 # Gallop.SuccessionChara
 # ---------------------------------------------------------------------------
-
 
 class SuccessionCharaFields(CStructureDataclass):
     position_id: C_Int[c_int32]
@@ -1070,7 +1046,6 @@ class SuccessionCharaObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 # Gallop.TrainedChara
 # ---------------------------------------------------------------------------
-
 
 class TrainedCharaFields(CStructureDataclass):
     viewer_id: C_Int[c_int64]
@@ -1129,7 +1104,6 @@ class TrainedCharaObject(CStructureDataclass):
 # Gallop.TempData.ChampionsRaceInfo
 # ---------------------------------------------------------------------------
 
-
 class ChampionsRaceInfoFields(CStructureDataclass):
     isSet: C_Int[c_bool]
     raceNum: C_Int[c_int32]
@@ -1149,7 +1123,6 @@ class ChampionsRaceInfoObject(CStructureDataclass):
 # Gallop.TempData.ChampionsTempData
 # ---------------------------------------------------------------------------
 
-
 class ChampionsTempDataFields(CStructureDataclass):
     isReplay: C_Int[c_bool]
     raceInfo: C_Ptr[ChampionsRaceInfoObject]
@@ -1166,7 +1139,6 @@ class ChampionsTempDataObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 # Gallop.TempData object hierarchy
 # ---------------------------------------------------------------------------
-
 
 class TempDataFields(CStructureDataclass):
     _ignored_1: C_UDeclPtr  # championsClearMissionIdList
