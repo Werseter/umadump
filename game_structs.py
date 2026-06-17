@@ -647,97 +647,6 @@ class WorkFriendDataObject(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
-# Gallop.WorkDataManager object hierarchy
-# ---------------------------------------------------------------------------
-
-
-class WorkDataManagerFields(CStructureDataclass):
-    _ignored_1: C_UDeclPtr  # UserData
-    friendData: C_Ptr[WorkFriendDataObject]
-    cardData: C_Ptr[WorkCardDataObject]
-    supportCardData: C_Ptr[WorkSupportCardDataObject]
-    _ignored_2: ArrayType[C_UDeclPtr, L[4]]  # CharaData … WorkItemData
-    trainedCharaData: C_Ptr[WorkTrainedCharaDataObject]
-    _ignored_3: ArrayType[C_UDeclPtr, L[39]]  # WorkSingleModeData … TeamBuildingData
-
-
-@register_runtime_validatable('Gallop::WorkDataManager')
-class WorkDataManagerObject(CStructureDataclass):
-    _il2cpp_obj: RuntimeIl2CppObject
-    fields: WorkDataManagerFields
-
-
-class WorkDataManagerSingletonStaticFields(CStructureDataclass):
-    _instance: C_Ptr[WorkDataManagerObject]
-
-
-@register_runtime_validatable('Gallop::Singleton`1<Gallop::WorkDataManager>')
-class WorkDataManagerSingleton(CStructureDataclass):
-    _il2cpp_obj: RuntimeIl2CppObject
-
-
-# ---------------------------------------------------------------------------
-# Gallop.ChampionsRoomInfo
-# ---------------------------------------------------------------------------
-
-
-class ChampionsRoomInfoFields(CStructureDataclass):
-    room_id: C_Int[c_int64]
-    user_entry_num: C_Int[c_int32]
-    race_start_time: SystemStringObjectPtr
-    race_instance_id: C_Int[c_int32]
-    season: C_Int[c_int32]
-    weather: C_Int[c_int32]
-    ground_condition: C_Int[c_int32]
-    random_seed: C_Int[c_int32]
-    race_scenario: SystemStringObjectPtr
-
-
-@register_runtime_validatable('Gallop::ChampionsRoomInfo')
-class ChampionsRoomInfoObject(CStructureDataclass):
-    _il2cpp_obj: RuntimeIl2CppObject
-    fields: ChampionsRoomInfoFields
-
-
-# ---------------------------------------------------------------------------
-# Gallop.ChampionsUserChara
-# ---------------------------------------------------------------------------
-
-
-class ChampionsUserCharaFields(CStructureDataclass):
-    chara_id: C_Int[c_int32]
-    race_cloth_id: C_Int[c_int32]
-    nick_name_id: C_Int[c_int32]
-    team_member_id: C_Int[c_int32]
-
-
-@register_runtime_validatable('Gallop::ChampionsUserChara')
-class ChampionsUserCharaObject(CStructureDataclass):
-    _il2cpp_obj: RuntimeIl2CppObject
-    fields: ChampionsUserCharaFields
-
-
-# ---------------------------------------------------------------------------
-# Gallop.ChampionsRoomUser
-# ---------------------------------------------------------------------------
-
-
-class ChampionsRoomUserFields(CStructureDataclass):
-    room_id: C_Int[c_int64]
-    viewer_id: C_Int[c_int64]
-    name: SystemStringObjectPtr
-    honor_id: C_Int[c_int32]
-    team_id: C_Int[c_int32]
-    entry_chara_array: GenericArrayPtr[C_Ptr[ChampionsUserCharaObject]]
-
-
-@register_runtime_validatable('Gallop::ChampionsRoomUser')
-class ChampionsRoomUserObject(CStructureDataclass):
-    _il2cpp_obj: RuntimeIl2CppObject
-    fields: ChampionsRoomUserFields
-
-
-# ---------------------------------------------------------------------------
 # Gallop.SkillData
 # ---------------------------------------------------------------------------
 
@@ -828,6 +737,97 @@ class RaceHorseDataFields(CStructureDataclass):
 class RaceHorseDataObject(CStructureDataclass):
     _il2cpp_obj: RuntimeIl2CppObject
     fields: RaceHorseDataFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.WorkDataManager object hierarchy
+# ---------------------------------------------------------------------------
+
+
+class WorkDataManagerFields(CStructureDataclass):
+    _ignored_1: C_UDeclPtr  # UserData
+    friendData: C_Ptr[WorkFriendDataObject]
+    cardData: C_Ptr[WorkCardDataObject]
+    supportCardData: C_Ptr[WorkSupportCardDataObject]
+    _ignored_2: ArrayType[C_UDeclPtr, L[4]]  # CharaData … WorkItemData
+    trainedCharaData: C_Ptr[WorkTrainedCharaDataObject]
+    _ignored_3: ArrayType[C_UDeclPtr, L[39]]  # WorkSingleModeData … TeamBuildingData
+
+
+@register_runtime_validatable('Gallop::WorkDataManager')
+class WorkDataManagerObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: WorkDataManagerFields
+
+
+class WorkDataManagerSingletonStaticFields(CStructureDataclass):
+    _instance: C_Ptr[WorkDataManagerObject]
+
+
+@register_runtime_validatable('Gallop::Singleton`1<Gallop::WorkDataManager>')
+class WorkDataManagerSingleton(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+
+
+# ---------------------------------------------------------------------------
+# Gallop.ChampionsRoomInfo
+# ---------------------------------------------------------------------------
+
+
+class ChampionsRoomInfoFields(CStructureDataclass):
+    room_id: C_Int[c_int64]
+    user_entry_num: C_Int[c_int32]
+    race_start_time: SystemStringObjectPtr
+    race_instance_id: C_Int[c_int32]
+    season: C_Int[c_int32]
+    weather: C_Int[c_int32]
+    ground_condition: C_Int[c_int32]
+    random_seed: C_Int[c_int32]
+    race_scenario: SystemStringObjectPtr
+
+
+@register_runtime_validatable('Gallop::ChampionsRoomInfo')
+class ChampionsRoomInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: ChampionsRoomInfoFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.ChampionsUserChara
+# ---------------------------------------------------------------------------
+
+
+class ChampionsUserCharaFields(CStructureDataclass):
+    chara_id: C_Int[c_int32]
+    race_cloth_id: C_Int[c_int32]
+    nick_name_id: C_Int[c_int32]
+    team_member_id: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::ChampionsUserChara')
+class ChampionsUserCharaObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: ChampionsUserCharaFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.ChampionsRoomUser
+# ---------------------------------------------------------------------------
+
+
+class ChampionsRoomUserFields(CStructureDataclass):
+    room_id: C_Int[c_int64]
+    viewer_id: C_Int[c_int64]
+    name: SystemStringObjectPtr
+    honor_id: C_Int[c_int32]
+    team_id: C_Int[c_int32]
+    entry_chara_array: GenericArrayPtr[C_Ptr[ChampionsUserCharaObject]]
+
+
+@register_runtime_validatable('Gallop::ChampionsRoomUser')
+class ChampionsRoomUserObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: ChampionsRoomUserFields
 
 
 # ---------------------------------------------------------------------------
