@@ -199,7 +199,6 @@ def register_runtime_validatable[TValidatable: type[RuntimeValidatableIl2CppClas
 # Schema validation
 # ---------------------------------------------------------------------------
 
-
 def _normalize_field_name(raw_name: str) -> str:
     """
     Canonicalise an Il2Cpp field name to camelCase for comparison with Python wrapper names.

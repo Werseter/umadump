@@ -160,7 +160,6 @@ def _write_multi_output_json(output_folder: Path, key: str, payload: Any) -> Non
 # Support card extraction
 # ---------------------------------------------------------------------------
 
-
 def _support_card_entries_ptr_and_sizes(wdm: WorkDataManagerObject) \
         -> Optional[GenericDictionary[SupportCardDataDictionaryEntry]]:
     """Resolve support-card entries pointer and dictionary sizes."""
@@ -221,7 +220,6 @@ def decode_support_card_dictionary(wdm: WorkDataManagerObject) -> list[dict[str,
 # ---------------------------------------------------------------------------
 # Trained Chara extraction
 # ---------------------------------------------------------------------------
-
 
 @dataclass(frozen=True)
 class TrainedCharaEntriesInfo:
@@ -427,7 +425,6 @@ def decode_trained_chara_dictionary(wdm: WorkDataManagerObject) -> list[dict[str
 # Chara/card extraction
 # ---------------------------------------------------------------------------
 
-
 def _card_data_entries_ptr_and_sizes(wdm: WorkDataManagerObject) \
         -> Optional[GenericDictionary[CardDataDictionaryEntry]]:
     """Resolve chara/card-data entries pointer and dictionary sizes."""
@@ -485,7 +482,6 @@ def decode_card_data_dictionary(wdm: WorkDataManagerObject) -> list[dict[str, An
 # ---------------------------------------------------------------------------
 # Friends extraction
 # ---------------------------------------------------------------------------
-
 
 def _resolve_work_friend_data_ptr(wdm: WorkDataManagerObject) -> Optional[WorkFriendDataObject]:
     """Resolve friend data pointer"""
@@ -836,7 +832,6 @@ def decode_race_replays(wdm: WorkDataManagerObject) -> list[RaceReplayOutput]:
 # Champions Meeting race extraction
 # ---------------------------------------------------------------------------
 
-
 def _resolve_champions_race_info(temp_data: TempDataObject) -> Optional[ChampionsRaceInfoObject]:
     champions_data = temp_data.fields.championsData
     if not champions_data:
@@ -1128,7 +1123,6 @@ def decode_champions_meeting_race(temp_data: TempDataObject) -> dict[str, Any]:
 # Singleton resolution
 # ---------------------------------------------------------------------------
 
-
 @dataclass(frozen=True)
 class GenericClassCollection:
     """Collected RuntimeIl2CppGenericClass pointers plus dereferenced cache by address."""
@@ -1409,7 +1403,6 @@ SINGLETON_EXTRACTOR_SETS: tuple[SingletonExtractorSet, ...] = (
     SingletonExtractorSet(TEMPDATA_SINGLETON_SPEC, TEMPDATA_EXTRACTORS),
 )
 
-
 ResolvedSingletonRoots = dict[str, Optional[C_Ptr[Any]]]
 
 
@@ -1445,7 +1438,6 @@ def _dump_from_singleton_roots(roots: ResolvedSingletonRoots) -> float:
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
-
 
 def _parse_args() -> argparse.Namespace:
     """Parse CLI flags for live/minidump mode and optional validation-only run."""
@@ -1492,7 +1484,6 @@ def _setup(args: argparse.Namespace) -> SetupContext:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-
 
 def _build_resolver(mem: MemoryReader, metadata_path: Path) -> Il2CppResolutionManager:
     """Create ``Il2CppResolutionManager`` and run schema validation for registered wrappers."""
