@@ -634,6 +634,74 @@ class WorkFriendDataObject(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
+# Gallop.WorkTrophyData.CharaIdList
+# ---------------------------------------------------------------------------
+
+class TrophyDataCharaIdListFields(CStructureDataclass):
+    charaId: ObscuredInt
+    winCount: ObscuredInt
+
+
+@register_runtime_validatable('Gallop::WorkTrophyData.CharaIdList')
+class TrophyDataCharaIdListObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: TrophyDataCharaIdListFields
+
+
+class TrophyDataCharaIdListDictionaryInnerEntry(CStructureDataclass):
+    hashCode: C_Int[c_int32]
+    _ignored_1: c_int32  # next
+    key: C_Int[c_int32]
+    value: C_Ptr[TrophyDataCharaIdListObject]
+
+
+class TrophyDataCharaIdListDictionaryEntry(CStructureDataclass):
+    hashCode: C_Int[c_int32]
+    _ignored_1: c_int32  # next
+    key: C_Int[c_int32]
+    value: C_Ptr[GenericDictionary[TrophyDataCharaIdListDictionaryInnerEntry]]
+
+# ---------------------------------------------------------------------------
+
+# Gallop.WorkTrophyData.TrophyData
+# ---------------------------------------------------------------------------
+
+class TrophyDataFields(CStructureDataclass):
+    trophyId: ObscuredInt
+    charaIdList: C_Ptr[GenericList[c_int32]]
+    raceCharaDataDic: C_Ptr[GenericDictionary[TrophyDataCharaIdListDictionaryEntry]]
+    _ignored_1: c_bool  # isNew
+
+
+@register_runtime_validatable('Gallop::WorkTrophyData.TrophyData')
+class TrophyDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: TrophyDataFields
+
+
+class TrophyDataDictionaryEntry(CStructureDataclass):
+    hashCode: C_Int[c_int32]
+    _ignored_1: c_int32  # next
+    key: C_Int[c_int32]
+    value: C_Ptr[TrophyDataObject]
+
+
+# ---------------------------------------------------------------------------
+# Gallop.WorkTrophyData
+# ---------------------------------------------------------------------------
+
+class WorkTrophyDataFields(CStructureDataclass):
+    dataDic: C_Ptr[GenericDictionary[TrophyDataDictionaryEntry]]
+    _ignored_1: c_bool  # isNew
+
+
+@register_runtime_validatable('Gallop::WorkTrophyData')
+class WorkTrophyDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: WorkTrophyDataFields
+
+
+# ---------------------------------------------------------------------------
 # Gallop.SkillData
 # ---------------------------------------------------------------------------
 
@@ -904,11 +972,13 @@ class WorkDataManagerFields(CStructureDataclass):
     friendData: C_Ptr[WorkFriendDataObject]
     cardData: C_Ptr[WorkCardDataObject]
     supportCardData: C_Ptr[WorkSupportCardDataObject]
-    _ignored_2: ArrayType[C_UDeclPtr, L[4]]  # CharaData … WorkItemData
+    _ignored_2: ArrayType[C_UDeclPtr, L[4]]  # CharaData … CircleData
     trainedCharaData: C_Ptr[WorkTrainedCharaDataObject]
-    _ignored_3: ArrayType[C_UDeclPtr, L[14]]  # WorkSingleModeData … WorkAnnounceData
+    _ignored_3: ArrayType[C_UDeclPtr, L[9]]  # WorkSingleModeData … WorkAnnounceData
+    trophy: C_Ptr[WorkTrophyDataObject]
+    _ignored_4: ArrayType[C_UDeclPtr, L[4]]
     teamStadiumData: C_Ptr[WorkTeamStadiumDataObject]
-    _ignored_4: ArrayType[C_UDeclPtr, L[24]]  # WorkDirectoryData … TeamBuildingData
+    _ignored_5: ArrayType[C_UDeclPtr, L[24]]  # WorkDirectoryData … TeamBuildingData
 
 
 @register_runtime_validatable('Gallop::WorkDataManager')

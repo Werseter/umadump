@@ -15,6 +15,7 @@ import re
 import struct
 import sys
 import time
+from ctypes import c_int32
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -23,14 +24,16 @@ from typing import Any, Callable, Optional, cast as type_cast
 from ctypes_utils import C_Ptr, StructOrSimple
 from game_structs import (AcquiredSkillObject, CardDataDictionaryEntry, ChampionsRaceInfoObject,
                           ChampionsRoomInfoObject, ChampionsRoomUserObject, ChampionsUserCharaObject, FactorDataObject,
-                          FavoriteDataDictionaryEntry, FriendDataObject, GenericDictionary, HintLevelDictionaryEntry,
-                          RaceHistoryInfoObject, RaceHorseDataObject, RaceHorseDataRaceResultObject, SkillDataObject,
-                          SuccessionCharaDataObject, SuccessionCharaObject, SuccessionHistoryObject,
-                          SupportCardDataDictionaryEntry, TeamStadiumRaceCharaResultObject, TeamStadiumRaceResultObject,
+                          FavoriteDataDictionaryEntry, FriendDataObject, GenericDictionary, GenericList,
+                          HintLevelDictionaryEntry, RaceHistoryInfoObject, RaceHorseDataObject,
+                          RaceHorseDataRaceResultObject, SkillDataObject, SuccessionCharaDataObject,
+                          SuccessionCharaObject, SuccessionHistoryObject, SupportCardDataDictionaryEntry,
+                          TeamStadiumRaceCharaResultObject, TeamStadiumRaceResultObject,
                           TeamStadiumResultBonusDataObject, TeamStadiumResultObject, TeamStadiumResultScoreDataObject,
                           TempDataObject, TempDataSingletonStaticFields, TrainedCharaDataDictionaryEntry,
                           TrainedCharaDataObject, TrainedCharaObject, TrainedCharaRaceResultObject,
-                          TrainedCharaSupportCardDataObject, TrainedCharaSupportCardListObject, WorkDataManagerObject,
+                          TrainedCharaSupportCardDataObject, TrainedCharaSupportCardListObject,
+                          TrophyDataCharaIdListDictionaryEntry, TrophyDataDictionaryEntry, WorkDataManagerObject,
                           WorkDataManagerSingletonStaticFields, WorkFriendDataObject, WorkTeamStadiumDataObject,
                           WorkTeamStadiumOpponentDataObject)
 from il2cpp_structs import (RuntimeIl2CppClass, RuntimeIl2CppGenericClass, RuntimeIl2CppGenericInst,
@@ -669,9 +672,84 @@ def decode_friend_data(wdm: WorkDataManagerObject) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Race replay extraction
+# Trophies extraction
 # ---------------------------------------------------------------------------
 
+def _resolve_work_trophy_data_ptr(wdm: WorkDataManagerObject) -> Optional[GenericDictionary[TrophyDataDictionaryEntry]]:
+    """Resolve trophy data pointer"""
+    trophy_data_ptr = wdm.fields.trophy
+    if not trophy_data_ptr:
+        logger.warning("WorkDataManager.trophy is null")
+        return None
+
+    dictionary_ptr = trophy_data_ptr.contents.fields.dataDic
+    if not dictionary_ptr:
+        logger.warning("WorkTrophyData.dataDic is null")
+        return None
+
+    return dictionary_ptr.contents
+
+
+def _build_trophy_room_race_instance_info_array(
+        race_chara_data_dic: GenericDictionary[TrophyDataCharaIdListDictionaryEntry]) -> list[dict[str, Any]]:
+    return [
+        {
+            "race_instance_id": race_chara_data_entry.key,
+            "trophy_chara_info_array": [
+                {
+                    "chara_id": race_chara_entry.value.contents.fields.charaId.value,
+                    "win_count": race_chara_entry.value.contents.fields.winCount.value,
+                } for race_chara_entry in race_chara_data_entry.value.contents
+                if race_chara_entry.value
+            ] if race_chara_data_entry.value else [],
+        } for race_chara_data_entry in race_chara_data_dic
+    ]
+
+
+def _build_limited_trophy_race_instance_info_array(chara_id_list: GenericList[c_int32]) -> list[dict[str, Any]]:
+    return [
+        {
+            "race_instance_id": 0,
+            "trophy_chara_info_array": [
+                {
+                    "chara_id": x.value,
+                    "win_count": 0,
+                } for x in chara_id_list
+            ]
+        }
+    ]
+
+
+def _decode_work_trophy_data_entry(entry: TrophyDataDictionaryEntry) -> dict[str, Any]:
+    f = entry.value.contents.fields
+    if f.raceCharaDataDic and f.raceCharaDataDic.contents.fields.count != 0:
+        race_instance_info_array = _build_trophy_room_race_instance_info_array(f.raceCharaDataDic.contents)
+    elif f.charaIdList and f.charaIdList.contents.fields.size != 0:
+        race_instance_info_array = _build_limited_trophy_race_instance_info_array(f.charaIdList.contents)
+    else:
+        return {}
+
+    return {
+        "trophy_id": f.trophyId.value,
+        "create_time": _timestamp_to_str(0),  # timestamp data not stored, comply to formatting
+        "race_instance_info_array": race_instance_info_array,
+    }
+
+
+def decode_trophy_data(wdm: WorkDataManagerObject) -> list[dict[str, Any]]:
+    """Descend WorkDataManager -> WorkTrophyData"""
+    trophy_data = _resolve_work_trophy_data_ptr(wdm)
+    if trophy_data is None:
+        return []
+
+    logger.debug("WorkTrophyData dictionary: count=%d", trophy_data.fields.count)
+
+    return [_decode_work_trophy_data_entry(entry) for entry in trophy_data]
+
+
+# ---------------------------------------------------------------------------
+# Race replay extraction
+# ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class RaceReplayOutput:
@@ -1325,6 +1403,12 @@ def _extract_friend_data(wdm: WorkDataManagerObject) -> dict[str, Any]:
     return friends
 
 
+def _extract_trophy_data(wdm: WorkDataManagerObject) -> list[dict[str, Any]]:
+    trophies = decode_trophy_data(wdm)
+    logger.info("Decoded trophy data with %d trophy entries", len(trophies))
+    return trophies
+
+
 def _extract_race_replays(wdm: WorkDataManagerObject) -> list[RaceReplayOutput]:
     replays = decode_race_replays(wdm)
     logger.info("Decoded %d race replay payloads", len(replays))
@@ -1360,6 +1444,11 @@ WORKDATA_EXTRACTORS: tuple[Extractor[Any, Any], ...] = (
             name="friend_data",
             output_path=Path("friend_data.json"),
             extract=_extract_friend_data
+    ),
+    Extractor(
+            name="trophy_data",
+            output_path=Path("trophy_data.json"),
+            extract=_extract_trophy_data,
     ),
     Extractor(
             name="race_replays",
