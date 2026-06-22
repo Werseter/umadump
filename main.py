@@ -301,6 +301,26 @@ class Extractor[TExtractorInput, TMultiOutputPayload]:
     writer: Optional[Callable[[Path, str, TMultiOutputPayload], None]] = None
 
 
+ResolvedSingletonRoots = dict[str, Optional[C_Ptr[Any]]]
+
+
+@dataclass(frozen=True)
+class ExtractionContext:
+    roots: ResolvedSingletonRoots
+
+    def singleton[TSingletonObject: StructOrSimple](self, spec: SingletonSpec[TSingletonObject]) \
+            -> Optional[C_Ptr[TSingletonObject]]:
+        # noinspection PyTypeChecker
+        return type_cast(Optional[C_Ptr[TSingletonObject]], self.roots.get(spec.name))
+
+    def require_singleton[TSingletonObject: StructOrSimple](self, spec: SingletonSpec[TSingletonObject]) \
+            -> TSingletonObject:
+        instance = self.singleton(spec)
+        if not instance:
+            raise RuntimeError(f"{spec.target_type} not resolved")
+        return instance.contents
+
+
 def _run_extractors(extractors: tuple[Extractor[Any, Any], ...], data: Any) -> None:
     """Run a sequence of extractors against *data*, writing output as configured."""
     for extractor in extractors:
@@ -322,38 +342,44 @@ def _run_extractors(extractors: tuple[Extractor[Any, Any], ...], data: Any) -> N
             logger.exception("Error in extractor %s", extractor.name)
 
 
-def _extract_support_cards(wdm: WorkDataManagerObject) -> Any:
+def _extract_support_cards(ctx: ExtractionContext) -> Any:
+    wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
     support_cards = decode_support_card_dictionary(wdm)
     logger.info("Decoded %d support cards", len(support_cards))
     return support_cards
 
 
-def _extract_trained_chara_data(wdm: WorkDataManagerObject) -> Any:
+def _extract_trained_chara_data(ctx: ExtractionContext) -> Any:
+    wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
     trained_charas = decode_trained_chara_dictionary(wdm)
     logger.info("Decoded %d trained chara entries", len(trained_charas))
     return trained_charas
 
 
-def _extract_card_data(wdm: WorkDataManagerObject) -> Any:
+def _extract_card_data(ctx: ExtractionContext) -> Any:
+    wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
     cards = decode_card_data_dictionary(wdm)
     # game calls the owned character data "card" data, making a distinction between alternate costume variants this way
     logger.info("Decoded %d owned character entries", len(cards))
     return cards
 
 
-def _extract_friend_data(wdm: WorkDataManagerObject) -> dict[str, Any]:
+def _extract_friend_data(ctx: ExtractionContext) -> dict[str, Any]:
+    wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
     friends = decode_friend_data(wdm)
     logger.info("Decoded friend data with %d friend entries", len(friends.get('friend_list', [])))
     return friends
 
 
-def _extract_trophy_data(wdm: WorkDataManagerObject) -> list[dict[str, Any]]:
+def _extract_trophy_data(ctx: ExtractionContext) -> list[dict[str, Any]]:
+    wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
     trophies = decode_trophy_data(wdm)
     logger.info("Decoded trophy data with %d trophy entries", len(trophies))
     return trophies
 
 
-def _extract_race_replays(wdm: WorkDataManagerObject) -> list[RaceReplayOutput]:
+def _extract_race_replays(ctx: ExtractionContext) -> list[RaceReplayOutput]:
+    wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
     replays = decode_race_replays(wdm)
     logger.info("Decoded %d race replay payloads", len(replays))
     return replays
@@ -368,7 +394,19 @@ def _write_race_replay_json(output_folder: Path, key: str, replay: RaceReplayOut
     _write_json_file(f"{output_folder.name}[{key}]", output_path, replay.payload)
 
 
-WORKDATA_EXTRACTORS: tuple[Extractor[Any, Any], ...] = (
+def _extract_champions_meeting_race(ctx: ExtractionContext) -> Any:
+    return decode_champions_meeting_race(ctx.require_singleton(TEMPDATA_SINGLETON_SPEC))
+
+
+def _champions_meeting_race_room_id(payload: dict[str, Any]) -> str:
+    room_id = payload.get("data", {}).get("room_info", {}).get("room_id", 0)
+    if not room_id:
+        logger.debug("Champions meeting race has no room_id, skipping folder extraction")
+        return ""
+    return str(room_id)
+
+
+EXTRACTORS: tuple[Extractor[Any, Any], ...] = (
     Extractor(
             name="support_cards",
             output_path=Path("support_card_data.json"),
@@ -401,42 +439,14 @@ WORKDATA_EXTRACTORS: tuple[Extractor[Any, Any], ...] = (
             key_fn=_race_replay_key,
             writer=_write_race_replay_json,
     ),
-)
-
-
-def _champions_meeting_race_room_id(payload: dict[str, Any]) -> str:
-    room_id = payload.get("data", {}).get("room_info", {}).get("room_id", 0)
-    if not room_id:
-        logger.debug("Champions meeting race has no room_id, skipping folder extraction")
-        return ""
-    return str(room_id)
-
-
-TEMPDATA_EXTRACTORS: tuple[Extractor[Any, Any], ...] = (
     Extractor(
             name="champions_meeting_race_folder",
             output_folder=Path("champions_meeting_race"),
-            extract=decode_champions_meeting_race,
+            extract=_extract_champions_meeting_race,
             key_fn=_champions_meeting_race_room_id,
             writer=_write_multi_output_json,
     ),
 )
-
-
-@dataclass(frozen=True)
-class SingletonExtractorSet:
-    """A singleton root plus the extractors that consume it."""
-
-    spec: SingletonSpec[Any]
-    extractors: tuple[Extractor[Any, Any], ...]
-
-
-SINGLETON_EXTRACTOR_SETS: tuple[SingletonExtractorSet, ...] = (
-    SingletonExtractorSet(WORKDATAMANAGER_SINGLETON_SPEC, WORKDATA_EXTRACTORS),
-    SingletonExtractorSet(TEMPDATA_SINGLETON_SPEC, TEMPDATA_EXTRACTORS),
-)
-
-ResolvedSingletonRoots = dict[str, Optional[C_Ptr[Any]]]
 
 
 def _resolve_singleton_roots(
@@ -444,27 +454,15 @@ def _resolve_singleton_roots(
         singleton_index: dict[tuple[int, int], SingletonGenericClassMatch]) -> ResolvedSingletonRoots:
     """Resolve singleton roots once so reload passes can skip the metadata/generic scan."""
     roots: ResolvedSingletonRoots = {}
-    for extractor_set in SINGLETON_EXTRACTOR_SETS:
-        spec = extractor_set.spec
+    for spec in SINGLETON_SPEC_REGISTRY.values():
         roots[spec.name] = resolve_singleton(resolver, spec, singleton_index)
     return roots
-
-
-def _dump_singleton_root(extractor_set: SingletonExtractorSet, instance: Optional[C_Ptr[Any]]) -> None:
-    """Run configured extractors from an already-resolved singleton root."""
-    spec = extractor_set.spec
-    if not instance:
-        logger.warning("%s not resolved", spec.target_type)
-        return
-
-    _run_extractors(extractor_set.extractors, instance.contents)
 
 
 def _dump_from_singleton_roots(roots: ResolvedSingletonRoots) -> float:
     """Run all extractors from already-resolved singleton roots and return elapsed seconds."""
     t_start = time.perf_counter()
-    for extractor_set in SINGLETON_EXTRACTOR_SETS:
-        _dump_singleton_root(extractor_set, roots.get(extractor_set.spec.name))
+    _run_extractors(EXTRACTORS, ExtractionContext(roots))
     return time.perf_counter() - t_start
 
 
