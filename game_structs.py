@@ -262,6 +262,50 @@ class ObscuredStringPtr(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
+# Gallop.WorkSkillData.SkillDataBase
+# ---------------------------------------------------------------------------
+
+class SkillDataBaseFields(CStructureDataclass):
+    masterId: ObscuredInt
+    level: ObscuredInt
+    _ignored_1: C_UDeclPtr  # master
+
+
+@register_runtime_validatable('Gallop::WorkSkillData.SkillDataBase')
+class SkillDataBaseObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SkillDataBaseFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.WorkSkillData.AcquiredSkill
+# ---------------------------------------------------------------------------
+
+class AcquiredSkillFields(SkillDataBaseFields):
+    pass
+
+
+@register_runtime_validatable('Gallop::WorkSkillData.AcquiredSkill')
+class AcquiredSkillObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: AcquiredSkillFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.WorkSkillData.AcquirableSkill
+# ---------------------------------------------------------------------------
+
+class AcquirableSkillFields(SkillDataBaseFields):
+    _ignored_1: C_UDeclPtr  # skillSet
+
+
+@register_runtime_validatable('Gallop::WorkSkillData.AcquirableSkill')
+class AcquirableSkillObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: AcquirableSkillFields
+
+
+# ---------------------------------------------------------------------------
 # Gallop.WorkCardData.CardData
 # ---------------------------------------------------------------------------
 
@@ -281,7 +325,8 @@ class CardDataFields(CStructureDataclass):
     _ignored_2: ObscuredInt  # changedModelDressId
     createTime: ObscuredLong
     _ignored_3: ArrayType[ObscuredInt, L[5]]  # speed … wiz
-    _ignored_4: ArrayType[C_UDeclPtr, L[2]]  # uniqueSkill, acquirableSkillArray
+    uniqueSkill: C_Ptr[AcquiredSkillObject]
+    acquirableSkillArray: GenericArrayPtr[C_Ptr[AcquirableSkillObject]]
 
 
 @register_runtime_validatable('Gallop::WorkCardData.CardData')
@@ -439,22 +484,6 @@ class SuccessionHistoryFields(CStructureDataclass):
 class SuccessionHistoryObject(CStructureDataclass):
     _il2cpp_obj: RuntimeIl2CppObject
     fields: SuccessionHistoryFields
-
-
-# ---------------------------------------------------------------------------
-# Gallop.WorkSkillData.AcquiredSkill
-# ---------------------------------------------------------------------------
-
-class AcquiredSkillFields(CStructureDataclass):
-    masterId: ObscuredInt
-    level: ObscuredInt
-    _ignored_1: C_UDeclPtr  # master
-
-
-@register_runtime_validatable('Gallop::WorkSkillData.AcquiredSkill')
-class AcquiredSkillObject(CStructureDataclass):
-    _il2cpp_obj: RuntimeIl2CppObject
-    fields: AcquiredSkillFields
 
 
 # ---------------------------------------------------------------------------
