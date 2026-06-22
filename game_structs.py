@@ -690,6 +690,7 @@ class TrophyDataCharaIdListDictionaryEntry(CStructureDataclass):
     key: C_Int[c_int32]
     value: C_Ptr[GenericDictionary[TrophyDataCharaIdListDictionaryInnerEntry]]
 
+
 # ---------------------------------------------------------------------------
 
 # Gallop.WorkTrophyData.TrophyData
@@ -944,7 +945,7 @@ class TeamStadiumRaceResultObject(CStructureDataclass):
 class TeamStadiumResultFields(CStructureDataclass):
     useItemIdArray: GenericArrayPtr[c_int32]
     raceResultArray: GenericArrayPtr[C_Ptr[TeamStadiumRaceResultObject]]
-    isIncludeUnsupportedRace: c_bool
+    isIncludeUnsupportedRace: C_Int[c_bool]
     _ignored_1: C_UDeclPtr  # winningRewardInfoArray
 
 
@@ -959,7 +960,7 @@ class TeamStadiumResultObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class TeamStadiumStatusFields(CStructureDataclass):
-    _ignored_1: C_Int[c_int32]  # currentState
+    _ignored_1: c_int32  # currentState
     _ignored_2: C_UDeclPtr  # myDeckInfo
     opponentData: C_Ptr[WorkTeamStadiumOpponentDataObject]
     result: C_Ptr[TeamStadiumResultObject]
