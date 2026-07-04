@@ -196,7 +196,7 @@ def _decode_factor_extend_history_entry(position_id: SuccessionCharaPosition | i
     }
 
 
-def _decode_factor_extend_history_array(
+def _decode_factor_extend_array(
         position_id: SuccessionCharaPosition | int,
         factor_data_array: GenericArrayPtr[C_Ptr[FactorDataObject]]) -> list[dict[str, int | str]]:
     factor_extend_array: list[dict[str, int | str]] = []
@@ -221,7 +221,7 @@ def _decode_succession_chara_entry(entry: SuccessionCharaDataObject) -> dict[str
         "rarity": f.rarity.value,
         "talent_level": f.level.value,
         "factor_info_array": [_decode_factor_data_entry(x.contents) for x in f.factorDataArray],
-        "factor_extend_array": _decode_factor_extend_history_array(f.positionId.value, f.factorDataArray),
+        "factor_extend_array": _decode_factor_extend_array(f.positionId.value, f.factorDataArray),
         "win_saddle_id_array": [x.value for x in f.winSaddleIdArray],
         "owner_viewer_id": f.ownerViewerId.value
     }
@@ -298,7 +298,7 @@ def _decode_trained_chara_entry(entry: TrainedCharaDataDictionaryEntry) -> dict[
         "win_saddle_id_array": [x.value for x in f.winSaddleIdArray],
         "nickname_id_array": [x.value for x in f.nickNameIdArray],
         "factor_info_array": [_decode_factor_data_entry(x.contents) for x in f.factorDataArray],
-        "factor_extend_array": _decode_factor_extend_history_array(SuccessionCharaPosition.SELF, f.factorDataArray),
+        "factor_extend_array": _decode_factor_extend_array(SuccessionCharaPosition.SELF, f.factorDataArray),
         "succession_chara_array": [
             _decode_succession_chara_entry(x.contents) for x in f.successionCharaList.contents],
         "icon_type": f.favoriteData.contents.fields.type if f.favoriteData else 0,
@@ -481,7 +481,7 @@ def _decode_friend_trained_chara_entry(entry: TrainedCharaDataObject) -> dict[st
         "talent_level": f.talentLevel.value,
         "register_time": f.createTime.value,
         "factor_info_array": [_decode_factor_data_entry(x.contents) for x in f.factorDataArray],
-        "factor_extend_array": _decode_factor_extend_history_array(SuccessionCharaPosition.SELF, f.factorDataArray),
+        "factor_extend_array": _decode_factor_extend_array(SuccessionCharaPosition.SELF, f.factorDataArray),
         "skill_count": len(list(f.acquiredSkillArray))
     }
 

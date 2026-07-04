@@ -30,8 +30,8 @@ HTTP_USER_AGENT = f"umadump/{CURRENT_VERSION} (+https://github.com/{GITHUB_REPOS
 DEFAULT_TIMEOUT_SECONDS = 2.5
 
 _VERSION_RE = re.compile(
-    r"^v?(?P<release>\d+(?:\.\d+)*)(?:-(?P<prerelease>[0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$",
-    re.IGNORECASE,
+        r"^v?(?P<release>\d+(?:\.\d+)*)(?:-(?P<prerelease>[0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$",
+        re.IGNORECASE,
 )
 
 
@@ -175,10 +175,10 @@ def _release_info_from_payload(payload: dict[str, object]) -> Optional[ReleaseIn
         return None
 
     return ReleaseInfo(
-        tag_name=tag_name,
-        html_url=html_url,
-        prerelease=prerelease,
-        assets=_release_assets_from_payload(payload),
+            tag_name=tag_name,
+            html_url=html_url,
+            prerelease=prerelease,
+            assets=_release_assets_from_payload(payload),
     )
 
 
@@ -186,11 +186,11 @@ def fetch_available_releases(timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS) -
     """Fetch published GitHub releases, including prereleases, returning an empty tuple on failure."""
 
     request = Request(
-        RELEASES_API_URL,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "User-Agent": HTTP_USER_AGENT,
-        },
+            RELEASES_API_URL,
+            headers={
+                "Accept": "application/vnd.github+json",
+                "User-Agent": HTTP_USER_AGENT,
+            },
     )
     try:
         with urlopen(request, timeout=timeout_seconds) as response:
@@ -264,10 +264,10 @@ def check_for_updates(current_version: str = CURRENT_VERSION) -> Optional[Update
         return None
 
     return UpdateCheckResult(
-        current_version=current_version,
-        latest_version=release.tag_name,
-        release_page_url=release.html_url,
-        download_url=_select_download_url(release),
+            current_version=current_version,
+            latest_version=release.tag_name,
+            release_page_url=release.html_url,
+            download_url=_select_download_url(release),
     )
 
 

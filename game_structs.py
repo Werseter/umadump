@@ -725,7 +725,7 @@ class TrainedCharaDataFields(CStructureDataclass):
     cachedCreateTimeTimeStamp: ObscuredLong
     _ignored_1: ArrayType[C_UDeclPtr, L[3]]  # sortedFactorList … sortedFactorProfileCardList / masterDataPtrs
     successionCharaList: C_Ptr[GenericList[C_Ptr[SuccessionCharaDataObject]]]
-    _ignored_2: C_Int[c_bool]  # isSuccessionHistoryInitialized
+    _ignored_2: c_bool  # isSuccessionHistoryInitialized
     _ignored_3: C_UDeclPtr  # successionHistoryList
     acquiredSkillArray: GenericArrayPtr[C_Ptr[AcquiredSkillObject]]
     supportCardArray: GenericArrayPtr[C_Ptr[TrainedCharaSupportCardDataObject]]
@@ -1132,7 +1132,7 @@ class TeamStadiumStatusFields(CStructureDataclass):
     _ignored_2: C_UDeclPtr  # myDeckInfo
     opponentData: C_Ptr[WorkTeamStadiumOpponentDataObject]
     result: C_Ptr[TeamStadiumResultObject]
-    _ignored_3: ArrayType[C_Int[c_int32], L[2]]  # supportCartBonus, simulateRaceRound
+    _ignored_3: ArrayType[c_int32, L[2]]  # supportCartBonus, simulateRaceRound
 
 
 @register_runtime_validatable('Gallop::TeamStadiumStatus')

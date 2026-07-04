@@ -28,7 +28,7 @@ structured JSON data.
 
   Besides, I don't think those missing data points are critical for the current use cases.
 
-- Additional data points in the exports that are not available through the API, will be exposed through "extra_data" 
+- Additional data points in the exports that are not available through the API, will be exposed through "extra_data"
   fields in the JSON output, so they can be used by downstream tools without breaking existing fields.
 
 ## Why?

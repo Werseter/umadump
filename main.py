@@ -342,21 +342,21 @@ def _run_extractors(extractors: tuple[Extractor[Any, Any], ...], data: Any) -> N
             logger.exception("Error in extractor %s", extractor.name)
 
 
-def _extract_support_cards(ctx: ExtractionContext) -> Any:
+def _extract_support_cards(ctx: ExtractionContext) -> list[dict[str, Any]]:
     wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
     support_cards = decode_support_card_dictionary(wdm)
     logger.info("Decoded %d support cards", len(support_cards))
     return support_cards
 
 
-def _extract_trained_chara_data(ctx: ExtractionContext) -> Any:
+def _extract_trained_chara_data(ctx: ExtractionContext) -> list[dict[str, Any]]:
     wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
     trained_charas = decode_trained_chara_dictionary(wdm)
     logger.info("Decoded %d trained chara entries", len(trained_charas))
     return trained_charas
 
 
-def _extract_card_data(ctx: ExtractionContext) -> Any:
+def _extract_card_data(ctx: ExtractionContext) -> list[dict[str, Any]]:
     wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
     cards = decode_card_data_dictionary(wdm)
     # game calls the owned character data "card" data, making a distinction between alternate costume variants this way
@@ -425,7 +425,7 @@ EXTRACTORS: tuple[Extractor[Any, Any], ...] = (
     Extractor(
             name="friend_data",
             output_path=Path("friend_data.json"),
-            extract=_extract_friend_data
+            extract=_extract_friend_data,
     ),
     Extractor(
             name="trophy_data",
