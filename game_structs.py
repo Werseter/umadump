@@ -10,13 +10,141 @@ Contains:
 from __future__ import annotations
 
 from ctypes import c_bool, c_int32, c_int64, c_uint16, c_uint64, c_uint8
-from typing import Iterator, Literal as L, cast as type_cast
+from enum import IntEnum
+from typing import Annotated, Iterator, Literal as L, cast as type_cast
 
 from ctypes_utils import (ArrayType, CStructureDataclass, C_Int, C_Ptr, C_UDeclPtr, C_VoidPtr, RuntimeGenericMixin,
                           Span, StructOrSimple)
 from il2cpp_structs import RuntimeIl2CppObject
 from logger import logger
-from schema_validation import register_runtime_validatable
+from schema_validation import register_enum_validatable, register_runtime_validatable
+
+
+# ---------------------------------------------------------------------------
+# Game enums
+# ---------------------------------------------------------------------------
+
+@register_enum_validatable('Gallop::WorkTrainedCharaData.TrainedCharaData.UseType')
+class TrainedCharaUseType(IntEnum):
+    NONE = 0
+    RENTAL = 1
+    GHOST = 2
+
+
+@register_enum_validatable('Gallop::WorkTrainedCharaData.TrainedCharaData.SuccessionCharaPosition')
+class SuccessionCharaPosition(IntEnum):
+    SELF = 1
+    FIRST_1 = 10
+    FIRST_2 = 20
+    SECOND_1_1 = 11
+    SECOND_1_2 = 12
+    SECOND_2_1 = 21
+    SECOND_2_2 = 22
+
+
+@register_enum_validatable('Gallop::GameDefine.FinalTrainingRank')
+class FinalTrainingRank(IntEnum):
+    NONE = 0
+    G = 1
+    G_PLUS = 2
+    F = 3
+    F_PLUS = 4
+    E = 5
+    E_PLUS = 6
+    D = 7
+    D_PLUS = 8
+    C = 9
+    C_PLUS = 10
+    B = 11
+    B_PLUS = 12
+    A = 13
+    A_PLUS = 14
+    S = 15
+    S_PLUS = 16
+    SS = 17
+    SS_PLUS = 18
+    UG = 19
+    UG1 = 20
+    UG2 = 21
+    UG3 = 22
+    UG4 = 23
+    UG5 = 24
+    UG6 = 25
+    UG7 = 26
+    UG8 = 27
+    UG9 = 28
+    UF = 29
+    UF1 = 30
+    UF2 = 31
+    UF3 = 32
+    UF4 = 33
+    UF5 = 34
+    UF6 = 35
+    UF7 = 36
+    UF8 = 37
+    UF9 = 38
+    UE = 39
+    UE1 = 40
+    UE2 = 41
+    UE3 = 42
+    UE4 = 43
+    UE5 = 44
+    UE6 = 45
+    UE7 = 46
+    UE8 = 47
+    UE9 = 48
+    UD = 49
+    UD1 = 50
+    UD2 = 51
+    UD3 = 52
+    UD4 = 53
+    UD5 = 54
+    UD6 = 55
+    UD7 = 56
+    UD8 = 57
+    UD9 = 58
+    UC = 59
+    UC1 = 60
+    UC2 = 61
+    UC3 = 62
+    UC4 = 63
+    UC5 = 64
+    UC6 = 65
+    UC7 = 66
+    UC8 = 67
+    UC9 = 68
+    UB = 69
+    UB1 = 70
+    UB2 = 71
+    UB3 = 72
+    UB4 = 73
+    UB5 = 74
+    UB6 = 75
+    UB7 = 76
+    UB8 = 77
+    UB9 = 78
+    UA = 79
+    UA1 = 80
+    UA2 = 81
+    UA3 = 82
+    UA4 = 83
+    UA5 = 84
+    UA6 = 85
+    UA7 = 86
+    UA8 = 87
+    UA9 = 88
+    US = 89
+    US1 = 90
+    US2 = 91
+    US3 = 92
+    US4 = 93
+    US5 = 94
+    US6 = 95
+    US7 = 96
+    US8 = 97
+    US9 = 98
+    MIN = 1
+    MAX = 98
 
 
 # ---------------------------------------------------------------------------
@@ -448,11 +576,11 @@ class FavoriteDataDictionaryEntry(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class SuccessionCharaDataFields(CStructureDataclass):
-    positionId: ObscuredInt
+    positionId: Annotated[ObscuredInt, SuccessionCharaPosition]
     cardId: ObscuredInt
     rarity: ObscuredInt
     level: ObscuredInt
-    rank: ObscuredInt
+    rank: Annotated[ObscuredInt, FinalTrainingRank]
     factorDataArray: GenericArrayPtr[C_Ptr[FactorDataObject]]
     _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # _sortedFactorList, _sortedFactorListForProfileCard / masterDataPtrs
     ownerViewerId: ObscuredLong
@@ -538,7 +666,7 @@ class TrainedCharaDataFields(CStructureDataclass):
     viewerId: ObscuredLong
     ownerViewerId: ObscuredLong
     ownerTrainedCharaId: ObscuredInt
-    useType: C_Int[c_int32]
+    useType: Annotated[C_Int[c_int32], TrainedCharaUseType]
     cardId: ObscuredInt
     nickNameId: ObscuredInt
     nickNameIdArray: GenericArrayPtr[ObscuredInt]
@@ -548,7 +676,7 @@ class TrainedCharaDataFields(CStructureDataclass):
     guts: ObscuredInt
     wiz: ObscuredInt
     fans: ObscuredInt
-    rank: ObscuredInt
+    rank: Annotated[ObscuredInt, FinalTrainingRank]
     rankScore: ObscuredInt
     runningStyle: ObscuredInt
     properGroundTurf: ObscuredInt
@@ -1156,9 +1284,9 @@ class FactorInfoObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class SuccessionCharaFields(CStructureDataclass):
-    position_id: C_Int[c_int32]
+    position_id: Annotated[C_Int[c_int32], SuccessionCharaPosition]
     card_id: C_Int[c_int32]
-    rank: C_Int[c_int32]
+    rank: Annotated[C_Int[c_int32], FinalTrainingRank]
     rarity: C_Int[c_int32]
     talent_level: C_Int[c_int32]
     factor_info_array: GenericArrayPtr[C_Ptr[FactorInfoObject]]
@@ -1182,7 +1310,7 @@ class TrainedCharaFields(CStructureDataclass):
     trained_chara_id: C_Int[c_int32]
     owner_viewer_id: C_Int[c_int64]
     owner_trained_chara_id: C_Int[c_int32]
-    use_type: C_Int[c_int32]
+    use_type: Annotated[C_Int[c_int32], TrainedCharaUseType]
     card_id: C_Int[c_int32]
     name: SystemStringObjectPtr
     stamina: C_Int[c_int32]
@@ -1192,7 +1320,7 @@ class TrainedCharaFields(CStructureDataclass):
     wiz: C_Int[c_int32]
     fans: C_Int[c_int32]
     rank_score: C_Int[c_int32]
-    rank: C_Int[c_int32]
+    rank: Annotated[C_Int[c_int32], FinalTrainingRank]
     proper_distance_short: C_Int[c_int32]
     proper_distance_mile: C_Int[c_int32]
     proper_distance_middle: C_Int[c_int32]

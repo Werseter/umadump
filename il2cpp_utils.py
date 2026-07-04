@@ -12,8 +12,8 @@ from pathlib import Path
 from struct import iter_unpack
 from typing import Optional, TypeAlias
 
-from il2cpp_structs import (Il2CppFieldDefinition, Il2CppGlobalMetadataHeader, Il2CppMetadataRange,
-                            Il2CppTypeDefinition, RuntimeIl2CppMetadataRegistration)
+from il2cpp_structs import (Il2CppFieldDefaultValue, Il2CppFieldDefinition, Il2CppGlobalMetadataHeader,
+                            Il2CppMetadataRange, Il2CppTypeDefinition, RuntimeIl2CppMetadataRegistration)
 from logger import logger
 from memory import MemoryReader, POINTER_SIZE
 
@@ -155,6 +155,7 @@ class MinimalMetadata:
     strings: dict[int, str]
     type_defs: tuple[Il2CppTypeDefinition, ...]
     field_defs: tuple[Il2CppFieldDefinition, ...]
+    int32_field_defaults_by_field_index: dict[int, int]
     unresolved_indirect_call_param_ranges_count: int
     type_def_names: tuple[str, ...]
     type_def_namespaces: tuple[str, ...]
@@ -192,6 +193,37 @@ def _parse_field_defs(data: bytes, offset: int, size: int) -> tuple[Il2CppFieldD
     return tuple(Il2CppFieldDefinition.from_buffer_copy(data, offset + i * type_size) for i in range(count))
 
 
+def _parse_field_default_values(data: bytes, offset: int, size: int) -> tuple[Il2CppFieldDefaultValue, ...]:
+    """Parse ``Il2CppFieldDefaultValue`` entries from the metadata binary section."""
+
+    type_size = sizeof(Il2CppFieldDefaultValue)
+    count = size // type_size
+    return tuple(Il2CppFieldDefaultValue.from_buffer_copy(data, offset + i * type_size) for i in range(count))
+
+
+def _parse_int32_field_defaults(data: bytes, header: Il2CppGlobalMetadataHeader) -> dict[int, int]:
+    """Return raw int32 field defaults keyed by metadata field index.
+
+    Il2Cpp enum literals observed here are int32-backed and stored as raw
+    little-endian values in fieldAndParameterDefaultValueData.
+    """
+
+    field_defaults = _parse_field_default_values(data, header.fieldDefaultValuesOffset, header.fieldDefaultValuesSize)
+    values: dict[int, int] = {}
+    data_offset = int(header.fieldAndParameterDefaultValueDataOffset)
+    data_size = int(header.fieldAndParameterDefaultValueDataSize)
+    for default in field_defaults:
+        if int(default.typeIndex) != 0x08:  # IL2CPP_TYPE_I4
+            continue
+        local_offset = int(default.dataIndex)
+        if local_offset < 0 or local_offset + 4 > data_size:
+            continue
+        value_offset = data_offset + local_offset
+        values[int(default.fieldIndex)] = int.from_bytes(data[value_offset:value_offset + 4],
+                                                         byteorder="little", signed=True)
+    return values
+
+
 def parse_minimal_metadata(metadata_path: Path) -> MinimalMetadata:
     """Load and parse the minimal set of sections required by this project."""
 
@@ -206,6 +238,7 @@ def parse_minimal_metadata(metadata_path: Path) -> MinimalMetadata:
     strings = _parse_cstrings(data, header.stringOffset, header.stringSize)
     type_defs = _parse_type_defs(data, header.typeDefinitionsOffset, header.typeDefinitionsSize)
     field_defs = _parse_field_defs(data, header.fieldsOffset, header.fieldsSize)
+    int32_field_defaults_by_field_index = _parse_int32_field_defaults(data, header)
     unresolved_count = header.unresolvedIndirectCallParameterRangesSize // sizeof(Il2CppMetadataRange)
     type_def_names = tuple(strings.get(type_def.nameIndex, "") for type_def in type_defs)
     type_def_namespaces = tuple(strings.get(type_def.namespaceIndex, "") for type_def in type_defs)
@@ -213,6 +246,7 @@ def parse_minimal_metadata(metadata_path: Path) -> MinimalMetadata:
 
     return MinimalMetadata(
             strings=strings, type_defs=type_defs, field_defs=field_defs,
+            int32_field_defaults_by_field_index=int32_field_defaults_by_field_index,
             unresolved_indirect_call_param_ranges_count=unresolved_count,
             type_def_names=type_def_names,
             type_def_namespaces=type_def_namespaces,

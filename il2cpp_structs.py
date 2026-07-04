@@ -25,15 +25,22 @@ class Il2CppGlobalMetadataHeader(CStructureDataclass):
     _ignored_1: ArrayType[c_int32, L[4]]                       # [2–5]  stringLiteralOffset … stringLiteralDataSize
     stringOffset: C_Int[c_int32]                               # [6]
     stringSize: C_Int[c_int32]                                 # [7]
-    _ignored_2: ArrayType[c_int32, L[16]]                      # [8–23] events … parameters
+    _ignored_2: ArrayType[c_int32, L[6]]                       # [8–13] events … methods
+    parameterDefaultValuesOffset: C_Int[c_int32]
+    parameterDefaultValuesSize: C_Int[c_int32]
+    fieldDefaultValuesOffset: C_Int[c_int32]
+    fieldDefaultValuesSize: C_Int[c_int32]
+    fieldAndParameterDefaultValueDataOffset: C_Int[c_int32]
+    fieldAndParameterDefaultValueDataSize: C_Int[c_int32]
+    _ignored_3: ArrayType[c_int32, L[4]]                       # [20–23] fieldMarshalled … parameters
     fieldsOffset: C_Int[c_int32]                               # [24]
     fieldsSize: C_Int[c_int32]                                 # [25]
-    _ignored_3: ArrayType[c_int32, L[14]]                      # [26–39] genericParameters … interfaceOffsets
+    _ignored_4: ArrayType[c_int32, L[14]]                      # [26–39] genericParameters … interfaceOffsets
     typeDefinitionsOffset: C_Int[c_int32]                      # [40]
     typeDefinitionsSize: C_Int[c_int32]                        # [41]
-    _ignored_4: ArrayType[c_int32, L[15]]                      # [42-56] imagesOffset … unresolvedRangesOffset
+    _ignored_5: ArrayType[c_int32, L[15]]                      # [42-56] imagesOffset … unresolvedRangesOffset
     unresolvedIndirectCallParameterRangesSize: C_Int[c_int32]  # [57]
-    _ignored_5: ArrayType[c_int32, L[6]]                       # [58–63] windowsRuntime … exportedTypeDefinitionsSize
+    _ignored_6: ArrayType[c_int32, L[6]]                       # [58–63] windowsRuntime … exportedTypeDefinitionsSize
 # @formatter:on
 
 
@@ -41,6 +48,12 @@ class Il2CppFieldDefinition(CStructureDataclass):
     nameIndex: C_Int[c_int32]
     typeIndex: C_Int[c_int32]
     _ignored_1: c_uint32  # token
+
+
+class Il2CppFieldDefaultValue(CStructureDataclass):
+    fieldIndex: C_Int[c_int32]
+    typeIndex: C_Int[c_int32]
+    dataIndex: C_Int[c_int32]
 
 
 class Il2CppTypeDefinition(CStructureDataclass):

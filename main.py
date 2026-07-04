@@ -29,7 +29,7 @@ from json_encoders import (RaceReplayOutput, decode_card_data_dictionary, decode
                            decode_trained_chara_dictionary, decode_trophy_data)
 from logger import configure_logging, logger
 from memory import MemoryReader, MinidumpMemory, POINTER_SIZE, TARGET_MODULE
-from schema_validation import validate_registered_classes
+from schema_validation import validate_registered_schema
 from update_check import CURRENT_VERSION, notify_if_update_available
 
 ProcessMemory: type[MemoryReader]
@@ -530,7 +530,7 @@ def _build_resolver(mem: MemoryReader, metadata_path: Path) -> Il2CppResolutionM
     meta_reg = C_Ptr[RuntimeIl2CppMetadataRegistration](reg_va).contents
 
     resolver = Il2CppResolutionManager(mem, metadata, meta_reg)
-    validate_registered_classes(resolver)
+    validate_registered_schema(resolver)
     return resolver
 
 
