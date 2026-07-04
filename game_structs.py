@@ -1149,7 +1149,7 @@ class TrainedCharaRaceResultObject(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
-# Gallop.SuccessionChara
+# Gallop.FactorInfo
 # ---------------------------------------------------------------------------
 
 class FactorInfoFields(CStructureDataclass):
@@ -1157,10 +1157,15 @@ class FactorInfoFields(CStructureDataclass):
     level: C_Int[c_int32]
 
 
+@register_runtime_validatable('Gallop::FactorInfo')
 class FactorInfoObject(CStructureDataclass):
     _il2cpp_obj: RuntimeIl2CppObject
     fields: FactorInfoFields
 
+
+# ---------------------------------------------------------------------------
+# Gallop.SuccessionChara
+# ---------------------------------------------------------------------------
 
 class SuccessionCharaFields(CStructureDataclass):
     position_id: C_Int[c_int32]

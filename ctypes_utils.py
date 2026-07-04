@@ -15,8 +15,7 @@ import ctypes
 from ctypes import Array, Structure, c_char, c_uint64, c_void_p, sizeof
 from dataclasses import dataclass, fields
 from typing import (Any, Callable, ClassVar, Generic, Iterator, Literal as L, Optional, Sequence, TYPE_CHECKING,
-                    TypeAlias,
-                    TypeVar, cast as type_cast, get_args, get_origin, get_type_hints, no_type_check)
+                    TypeAlias, TypeVar, cast as type_cast, get_args, get_origin, get_type_hints, no_type_check)
 
 if TYPE_CHECKING:
     from _ctypes import _CDataType, _CData, _PyCSimpleType, _SimpleCData
