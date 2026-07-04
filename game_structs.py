@@ -147,6 +147,14 @@ class FinalTrainingRank(IntEnum):
     MAX = 98
 
 
+@register_enum_validatable('Gallop::GameDefine.FactorRarity')
+class FactorRarity(IntEnum):
+    NONE = 0
+    RARE_1 = 1
+    RARE_2 = 2
+    RARE_3 = 3
+
+
 # ---------------------------------------------------------------------------
 # System-namespace Miscellaneous Structs
 # ---------------------------------------------------------------------------
@@ -532,14 +540,30 @@ class WorkSupportCardDataObject(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
+# Gallop.WorkTrainedCharaData.TrainedCharaData.SuccessionCharaData.FactorData.UpgradeHistory
+# ---------------------------------------------------------------------------
+
+class FactorDataUpgradeHistoryFields(CStructureDataclass):
+    factorId: ObscuredInt
+    upgradeDate: ObscuredLong
+
+
+@register_runtime_validatable('Gallop::WorkTrainedCharaData.TrainedCharaData.SuccessionCharaData'
+                              '.FactorData.UpgradeHistory')
+class FactorDataUpgradeHistoryObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: FactorDataUpgradeHistoryFields
+
+
+# ---------------------------------------------------------------------------
 # Gallop.WorkTrainedCharaData.TrainedCharaData.SuccessionCharaData.FactorData
 # ---------------------------------------------------------------------------
 
 class FactorDataFields(CStructureDataclass):
     factorLv: ObscuredInt
     factorId: ObscuredInt
-    _ignored_1: ObscuredInt  # _baseFactorId
-    _ignored_2: C_UDeclPtr  # _upgradeHistoryList
+    baseFactorId: ObscuredInt
+    upgradeHistoryList: C_Ptr[GenericList[C_Ptr[FactorDataUpgradeHistoryObject]]]
 
 
 @register_runtime_validatable('Gallop::WorkTrainedCharaData.TrainedCharaData.SuccessionCharaData.FactorData')
@@ -1280,6 +1304,23 @@ class FactorInfoObject(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
+# Gallop.FactorExtend
+# ---------------------------------------------------------------------------
+
+class FactorExtendFields(CStructureDataclass):
+    position_id: Annotated[C_Int[c_int32], SuccessionCharaPosition]
+    base_factor_id: C_Int[c_int32]
+    factor_id: C_Int[c_int32]
+    register_time: SystemStringObjectPtr
+
+
+@register_runtime_validatable('Gallop::FactorExtend')
+class FactorExtendObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: FactorExtendFields
+
+
+# ---------------------------------------------------------------------------
 # Gallop.SuccessionChara
 # ---------------------------------------------------------------------------
 
@@ -1346,7 +1387,7 @@ class TrainedCharaFields(CStructureDataclass):
     win_saddle_id_array: GenericArrayPtr[c_int32]
     nickname_id_array: GenericArrayPtr[c_int32]
     factor_info_array: GenericArrayPtr[C_Ptr[FactorInfoObject]]
-    factor_extend_array: C_UDeclPtr
+    factor_extend_array: GenericArrayPtr[C_Ptr[FactorExtendObject]]
     succession_chara_array: GenericArrayPtr[C_Ptr[SuccessionCharaObject]]
     scenario_id: C_Int[c_int32]
     create_time: SystemStringObjectPtr

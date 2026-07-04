@@ -9,7 +9,7 @@ from __future__ import annotations
 from ctypes import sizeof
 from dataclasses import dataclass
 from pathlib import Path
-from struct import iter_unpack
+from struct import error as StructError, iter_unpack, unpack_from
 from typing import Optional, TypeAlias
 
 from il2cpp_structs import (Il2CppFieldDefaultValue, Il2CppFieldDefinition, Il2CppGlobalMetadataHeader,
@@ -201,11 +201,38 @@ def _parse_field_default_values(data: bytes, offset: int, size: int) -> tuple[Il
     return tuple(Il2CppFieldDefaultValue.from_buffer_copy(data, offset + i * type_size) for i in range(count))
 
 
-def _parse_int32_field_defaults(data: bytes, header: Il2CppGlobalMetadataHeader) -> dict[int, int]:
-    """Return raw int32 field defaults keyed by metadata field index.
+def _read_compressed_uint32(data: bytes, offset: int) -> tuple[int, int]:
+    first = data[offset]
+    if (first & 0x80) == 0:
+        return first, offset + 1
+    if (first & 0xC0) == 0x80:
+        return unpack_from(">H", data, offset)[0] & 0x3FFF, offset + 2
+    if (first & 0xE0) == 0xC0:
+        return unpack_from(">I", data, offset)[0] & 0x1FFFFFFF, offset + 4
+    if first == 0xF0:
+        return unpack_from("<I", data, offset + 1)[0], offset + 5
+    if first == 0xFE:
+        return 0xFFFFFFFE, offset + 1
+    if first == 0xFF:
+        return 0xFFFFFFFF, offset + 1
+    raise ValueError(f"Invalid compressed uint32 marker: 0x{first:02X}")
 
-    Il2Cpp enum literals observed here are int32-backed and stored as raw
-    little-endian values in fieldAndParameterDefaultValueData.
+
+def _read_compressed_int32(data: bytes, offset: int) -> tuple[int, int]:
+    encoded, offset = _read_compressed_uint32(data, offset)
+    if encoded == 0xFFFFFFFF:
+        return -0x80000000, offset
+    value = encoded >> 1
+    if encoded & 1:
+        return -(value + 1), offset
+    return value, offset
+
+
+def _parse_int32_field_defaults(data: bytes, header: Il2CppGlobalMetadataHeader) -> dict[int, int]:
+    """Return int32 field defaults keyed by metadata field index.
+
+    Il2Cpp enum literals observed here are int32-backed and stored as compressed
+    signed integers in fieldAndParameterDefaultValueData.
     """
 
     field_defaults = _parse_field_default_values(data, header.fieldDefaultValuesOffset, header.fieldDefaultValuesSize)
@@ -213,14 +240,14 @@ def _parse_int32_field_defaults(data: bytes, header: Il2CppGlobalMetadataHeader)
     data_offset = int(header.fieldAndParameterDefaultValueDataOffset)
     data_size = int(header.fieldAndParameterDefaultValueDataSize)
     for default in field_defaults:
-        if int(default.typeIndex) != 0x08:  # IL2CPP_TYPE_I4
-            continue
         local_offset = int(default.dataIndex)
-        if local_offset < 0 or local_offset + 4 > data_size:
+        if local_offset < 0 or local_offset >= data_size:
             continue
         value_offset = data_offset + local_offset
-        values[int(default.fieldIndex)] = int.from_bytes(data[value_offset:value_offset + 4],
-                                                         byteorder="little", signed=True)
+        try:
+            values[int(default.fieldIndex)], _ = _read_compressed_int32(data, value_offset)
+        except (StructError, ValueError):
+            continue
     return values
 
 

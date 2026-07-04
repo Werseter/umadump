@@ -4,16 +4,18 @@ from __future__ import annotations
 import hashlib
 from ctypes import c_int32
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any, Optional
 
+from ctypes_utils import C_Ptr
 from game_structs import (AcquiredSkillObject, CardDataDictionaryEntry, ChampionsRaceInfoObject,
                           ChampionsRoomInfoObject, ChampionsRoomUserObject, ChampionsUserCharaObject, FactorDataObject,
-                          FactorInfoObject, FavoriteDataDictionaryEntry, FriendDataObject, GenericDictionary,
+                          FactorDataUpgradeHistoryObject, FactorExtendObject, FactorInfoObject,
+                          FavoriteDataDictionaryEntry, FriendDataObject, GenericArrayPtr, GenericDictionary,
                           GenericList, HintLevelDictionaryEntry, RaceHistoryInfoObject, RaceHorseDataObject,
                           RaceHorseDataRaceResultObject, SkillDataObject, SuccessionCharaDataObject,
-                          SuccessionCharaObject, SuccessionHistoryObject, SupportCardDataDictionaryEntry,
-                          TeamStadiumRaceCharaResultObject, TeamStadiumRaceResultObject,
+                          SuccessionCharaObject, SuccessionCharaPosition, SuccessionHistoryObject,
+                          SupportCardDataDictionaryEntry, TeamStadiumRaceCharaResultObject, TeamStadiumRaceResultObject,
                           TeamStadiumResultBonusDataObject, TeamStadiumResultObject, TeamStadiumResultScoreDataObject,
                           TempDataObject, TrainedCharaDataDictionaryEntry, TrainedCharaDataObject, TrainedCharaObject,
                           TrainedCharaRaceResultObject, TrainedCharaSupportCardDataObject,
@@ -22,11 +24,13 @@ from game_structs import (AcquiredSkillObject, CardDataDictionaryEntry, Champion
                           WorkTeamStadiumDataObject, WorkTeamStadiumOpponentDataObject)
 from logger import logger
 
+JST = timezone(timedelta(hours=9), "JST")
 
-def _timestamp_to_str(timestamp: int) -> str:
+
+def _timestamp_to_str(timestamp: int, tz: timezone = UTC) -> str:
     if not timestamp:
         return "0000-00-00 00:00:00"
-    return str(datetime.fromtimestamp(timestamp, tz=UTC).replace(tzinfo=None))
+    return str(datetime.fromtimestamp(timestamp, tz=tz).replace(tzinfo=None))
 
 
 # ---------------------------------------------------------------------------
@@ -171,6 +175,43 @@ def _decode_factor_info_entry(entry: FactorInfoObject) -> dict[str, int]:
     }
 
 
+def _decode_factor_extend_entry(entry: FactorExtendObject) -> dict[str, int | str]:
+    f = entry.fields
+    return {
+        "position_id": f.position_id,
+        "base_factor_id": f.base_factor_id,
+        "factor_id": f.factor_id,
+        "register_time": f.register_time.value,
+    }
+
+
+def _decode_factor_extend_history_entry(position_id: SuccessionCharaPosition | int, base_factor_id: int,
+                                        entry: FactorDataUpgradeHistoryObject) -> dict[str, int | str]:
+    f = entry.fields
+    return {
+        "position_id": int(position_id),
+        "base_factor_id": base_factor_id,
+        "factor_id": f.factorId.value,
+        "register_time": _timestamp_to_str(f.upgradeDate.value, tz=JST),
+    }
+
+
+def _decode_factor_extend_history_array(
+        position_id: SuccessionCharaPosition | int,
+        factor_data_array: GenericArrayPtr[C_Ptr[FactorDataObject]]) -> list[dict[str, int | str]]:
+    factor_extend_array: list[dict[str, int | str]] = []
+    for factor_ptr in factor_data_array:
+        factor = factor_ptr.contents.fields
+        if not factor.upgradeHistoryList:
+            continue
+        base_factor_id = factor.baseFactorId.value
+        factor_extend_array.extend(
+                _decode_factor_extend_history_entry(position_id, base_factor_id, history_ptr.contents)
+                for history_ptr in factor.upgradeHistoryList.contents
+        )
+    return factor_extend_array
+
+
 def _decode_succession_chara_entry(entry: SuccessionCharaDataObject) -> dict[str, Any]:
     f = entry.fields
     return {
@@ -180,7 +221,7 @@ def _decode_succession_chara_entry(entry: SuccessionCharaDataObject) -> dict[str
         "rarity": f.rarity.value,
         "talent_level": f.level.value,
         "factor_info_array": [_decode_factor_data_entry(x.contents) for x in f.factorDataArray],
-        "factor_extend_array": [],
+        "factor_extend_array": _decode_factor_extend_history_array(f.positionId.value, f.factorDataArray),
         "win_saddle_id_array": [x.value for x in f.winSaddleIdArray],
         "owner_viewer_id": f.ownerViewerId.value
     }
@@ -257,7 +298,7 @@ def _decode_trained_chara_entry(entry: TrainedCharaDataDictionaryEntry) -> dict[
         "win_saddle_id_array": [x.value for x in f.winSaddleIdArray],
         "nickname_id_array": [x.value for x in f.nickNameIdArray],
         "factor_info_array": [_decode_factor_data_entry(x.contents) for x in f.factorDataArray],
-        "factor_extend_array": [],
+        "factor_extend_array": _decode_factor_extend_history_array(SuccessionCharaPosition.SELF, f.factorDataArray),
         "succession_chara_array": [
             _decode_succession_chara_entry(x.contents) for x in f.successionCharaList.contents],
         "icon_type": f.favoriteData.contents.fields.type if f.favoriteData else 0,
@@ -440,7 +481,7 @@ def _decode_friend_trained_chara_entry(entry: TrainedCharaDataObject) -> dict[st
         "talent_level": f.talentLevel.value,
         "register_time": f.createTime.value,
         "factor_info_array": [_decode_factor_data_entry(x.contents) for x in f.factorDataArray],
-        "factor_extend_array": [],
+        "factor_extend_array": _decode_factor_extend_history_array(SuccessionCharaPosition.SELF, f.factorDataArray),
         "skill_count": len(list(f.acquiredSkillArray))
     }
 
@@ -1005,7 +1046,7 @@ def _decode_champions_trained_chara_entry(entry: TrainedCharaObject,
         "race_result_list": [_decode_trained_chara_race_result_entry(x.contents) for x in f.race_result_list],
         "win_saddle_id_array": [x.value for x in f.win_saddle_id_array],
         "factor_info_array": [_decode_factor_info_entry(x.contents) for x in f.factor_info_array],
-        "factor_extend_array": [],
+        "factor_extend_array": [_decode_factor_extend_entry(x.contents) for x in f.factor_extend_array],
         "succession_chara_array": [_decode_succession_chara_temp_entry(x.contents) for x in f.succession_chara_array],
         "nickname_id_array": [x.value for x in f.nickname_id_array],
         "team_member_id": race_horse.get("team_member_id", 0),
