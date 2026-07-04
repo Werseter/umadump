@@ -9,8 +9,8 @@ from typing import Any, Optional
 
 from game_structs import (AcquiredSkillObject, CardDataDictionaryEntry, ChampionsRaceInfoObject,
                           ChampionsRoomInfoObject, ChampionsRoomUserObject, ChampionsUserCharaObject, FactorDataObject,
-                          FavoriteDataDictionaryEntry, FriendDataObject, GenericDictionary, GenericList,
-                          HintLevelDictionaryEntry, RaceHistoryInfoObject, RaceHorseDataObject,
+                          FactorInfoObject, FavoriteDataDictionaryEntry, FriendDataObject, GenericDictionary,
+                          GenericList, HintLevelDictionaryEntry, RaceHistoryInfoObject, RaceHorseDataObject,
                           RaceHorseDataRaceResultObject, SkillDataObject, SuccessionCharaDataObject,
                           SuccessionCharaObject, SuccessionHistoryObject, SupportCardDataDictionaryEntry,
                           TeamStadiumRaceCharaResultObject, TeamStadiumRaceResultObject,
@@ -155,11 +155,19 @@ def _decode_race_history_entry(entry: RaceHistoryInfoObject) -> dict[str, int]:
     }
 
 
-def _decode_factor_entry(entry: FactorDataObject) -> dict[str, int]:
+def _decode_factor_data_entry(entry: FactorDataObject) -> dict[str, int]:
     f = entry.fields
     return {
         "factor_id": f.factorId.value,
         "level": f.factorLv.value,
+    }
+
+
+def _decode_factor_info_entry(entry: FactorInfoObject) -> dict[str, int]:
+    f = entry.fields
+    return {
+        "factor_id": f.factor_id,
+        "level": f.level,
     }
 
 
@@ -171,8 +179,8 @@ def _decode_succession_chara_entry(entry: SuccessionCharaDataObject) -> dict[str
         "rank": f.rank.value,
         "rarity": f.rarity.value,
         "talent_level": f.level.value,
-        "factor_id_array": [x.contents.fields.factorId.value for x in f.factorDataArray],
-        "factor_info_array": [_decode_factor_entry(x.contents) for x in f.factorDataArray],
+        "factor_info_array": [_decode_factor_data_entry(x.contents) for x in f.factorDataArray],
+        "factor_extend_array": [],
         "win_saddle_id_array": [x.value for x in f.winSaddleIdArray],
         "owner_viewer_id": f.ownerViewerId.value
     }
@@ -200,7 +208,7 @@ def _decode_trained_chara_entry(entry: TrainedCharaDataDictionaryEntry) -> dict[
         "viewer_id": f.viewerId.value,
         "trained_chara_id": f.id.value,
         "owner_viewer_id": f.ownerViewerId.value,
-        "owner_trained_chara_id": 0,
+        "owner_trained_chara_id": f.ownerTrainedCharaId.value,
         "single_mode_chara_id": 0,
         "chara_seed": 0,
         "card_id": f.cardId.value,
@@ -248,12 +256,10 @@ def _decode_trained_chara_entry(entry: TrainedCharaDataDictionaryEntry) -> dict[
             _decode_race_history_entry(x.contents) for x in f.singleModeRaceResultArray],
         "win_saddle_id_array": [x.value for x in f.winSaddleIdArray],
         "nickname_id_array": [x.value for x in f.nickNameIdArray],
-        "factor_id_array": [x.contents.fields.factorId.value for x in f.factorDataArray],
-        "factor_info_array": [_decode_factor_entry(x.contents) for x in f.factorDataArray],
+        "factor_info_array": [_decode_factor_data_entry(x.contents) for x in f.factorDataArray],
+        "factor_extend_array": [],
         "succession_chara_array": [
             _decode_succession_chara_entry(x.contents) for x in f.successionCharaList.contents],
-        "succession_history_array": [
-            _decode_succession_history_entry(x.contents) for x in f.successionHistoryList.contents],
         "icon_type": f.favoriteData.contents.fields.type if f.favoriteData else 0,
         "memo": f.favoriteData.contents.fields.memo.value if f.favoriteData else "",
     }
@@ -433,8 +439,8 @@ def _decode_friend_trained_chara_entry(entry: TrainedCharaDataObject) -> dict[st
         "rarity": f.rarity.value,
         "talent_level": f.talentLevel.value,
         "register_time": f.createTime.value,
-        "factor_id_array": [x.contents.fields.factorId.value for x in f.factorDataArray],
-        "factor_info_array": [_decode_factor_entry(x.contents) for x in f.factorDataArray],
+        "factor_info_array": [_decode_factor_data_entry(x.contents) for x in f.factorDataArray],
+        "factor_extend_array": [],
         "skill_count": len(list(f.acquiredSkillArray))
     }
 
@@ -450,7 +456,10 @@ def _decode_user_info_summary_list_entry(entry: FriendDataObject) -> dict[str, A
     return {
         "viewer_id": f.viewerId.value,
         "name": f.name.value,
-        "honor_id": f.honorId.value,
+        "honor_id": f.honorData.contents.fields.honor_id,
+        "honor_data": {
+            "honor_id": f.honorData.contents.fields.honor_id,
+        },
         "last_login_time": last_login_time,
         "leader_chara_id": 0,
         "leader_chara_dress_id": 0,
@@ -492,7 +501,10 @@ def _decode_follower_info_summary_list_entry(entry: FriendDataObject) -> dict[st
 
     return {
         "viewer_id": f.viewerId.value,
-        "honor_id": f.honorId.value,
+        "honor_id": f.honorData.contents.fields.honor_id,
+        "honor_data": {
+            "honor_id": f.honorData.contents.fields.honor_id,
+        },
         "name": f.name.value,
         "last_login_time": last_login_time,
         "support_card_id": f.supportCardId.value,
@@ -824,7 +836,10 @@ def _decode_champions_room_user_entry(entry: ChampionsRoomUserObject) -> dict[st
         "room_id": f.room_id,
         "viewer_id": f.viewer_id,
         "name": f.name.value,
-        "honor_id": f.honor_id,
+        "honor_id": f.honor_data.contents.fields.honor_id,
+        "honor_data": {
+            "honor_id": f.honor_data.contents.fields.honor_id,
+        },
         "team_id": f.team_id,
         "entry_chara_array": [_decode_champions_user_chara_entry(x.contents) for x in f.entry_chara_array],
     }
@@ -932,7 +947,6 @@ def _decode_trained_chara_race_result_entry(entry: TrainedCharaRaceResultObject)
 
 def _decode_succession_chara_temp_entry(entry: SuccessionCharaObject) -> dict[str, Any]:
     f = entry.fields
-    factor_ids = [x.value for x in f.factor_id_array]
     return {
         "position_id": f.position_id,
         "card_id": f.card_id,
@@ -940,8 +954,7 @@ def _decode_succession_chara_temp_entry(entry: SuccessionCharaObject) -> dict[st
         "rarity": f.rarity,
         "talent_level": f.talent_level,
         "owner_viewer_id": f.owner_viewer_id,
-        "factor_id_array": factor_ids,
-        "factor_info_array": [{"factor_id": factor_id, "level": 0} for factor_id in factor_ids],
+        "factor_info_array": [_decode_factor_info_entry(x.contents) for x in f.factor_info_array],
         "win_saddle_id_array": [x.value for x in f.win_saddle_id_array],
     }
 
@@ -951,12 +964,11 @@ def _decode_champions_trained_chara_entry(entry: TrainedCharaObject,
     f = entry.fields
     trained_chara_id = f.trained_chara_id
     race_horse = race_horse_by_trained_id.get(trained_chara_id, {})
-    factor_ids = [x.value for x in f.factor_id_array]
     return {
         "viewer_id": f.viewer_id,
         "trained_chara_id": trained_chara_id,
         "owner_viewer_id": f.owner_viewer_id,
-        "owner_trained_chara_id": 0,
+        "owner_trained_chara_id": f.owner_trained_chara_id,
         "single_mode_chara_id": 0,
         "card_id": f.card_id,
         "speed": f.speed,
@@ -992,9 +1004,8 @@ def _decode_champions_trained_chara_entry(entry: TrainedCharaObject,
             _decode_trained_chara_support_card_list_entry(x.contents) for x in f.support_card_list],
         "race_result_list": [_decode_trained_chara_race_result_entry(x.contents) for x in f.race_result_list],
         "win_saddle_id_array": [x.value for x in f.win_saddle_id_array],
-        "factor_id_array": factor_ids,
-        "factor_info_array": [{"factor_id": factor_id, "level": 0} for factor_id in factor_ids],
-        "succession_history_array": [_decode_succession_history_entry(x.contents) for x in f.succession_history_array],
+        "factor_info_array": [_decode_factor_info_entry(x.contents) for x in f.factor_info_array],
+        "factor_extend_array": [],
         "succession_chara_array": [_decode_succession_chara_temp_entry(x.contents) for x in f.succession_chara_array],
         "nickname_id_array": [x.value for x in f.nickname_id_array],
         "team_member_id": race_horse.get("team_member_id", 0),

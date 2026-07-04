@@ -573,18 +573,18 @@ class TrainedCharaDataFields(CStructureDataclass):
     cachedCreateTimeTimeStamp: ObscuredLong
     _ignored_1: ArrayType[C_UDeclPtr, L[3]]  # sortedFactorList … sortedFactorProfileCardList / masterDataPtrs
     successionCharaList: C_Ptr[GenericList[C_Ptr[SuccessionCharaDataObject]]]
-    isSuccessionHistoryInitialized: C_Int[c_bool]
-    successionHistoryList: C_Ptr[GenericList[C_Ptr[SuccessionHistoryObject]]]
+    _ignored_2: C_Int[c_bool]  # isSuccessionHistoryInitialized
+    _ignored_3: C_UDeclPtr  # successionHistoryList
     acquiredSkillArray: GenericArrayPtr[C_Ptr[AcquiredSkillObject]]
     supportCardArray: GenericArrayPtr[C_Ptr[TrainedCharaSupportCardDataObject]]
     singleModeRaceResultArray: GenericArrayPtr[C_Ptr[RaceHistoryInfoObject]]
-    _ignored_2: C_UDeclPtr  # winSaddleArray / masterDataPtr
+    _ignored_4: C_UDeclPtr  # winSaddleArray / masterDataPtr
     winSaddleIdArray: GenericArrayPtr[ObscuredInt]
     cacheCharaId: ObscuredInt
-    _ignored_3: ArrayType[C_UDeclPtr, L[3]]  # masterCardData, masterCharaData, masterCardRarityData / masterDataPtrs
+    _ignored_5: ArrayType[C_UDeclPtr, L[3]]  # masterCardData, masterCharaData, masterCardRarityData / masterDataPtrs
     singleTotalRaceNum: C_Int[c_int32]
     singleWinNum: ObscuredInt
-    _ignored_4: C_UDeclPtr  # trainedCharaDataAccessor
+    _ignored_6: C_UDeclPtr  # trainedCharaDataAccessor
 
 
 @register_runtime_validatable('Gallop::WorkTrainedCharaData.TrainedCharaData')
@@ -623,8 +623,8 @@ class WorkTrainedCharaDataObject(CStructureDataclass):
 
 class HonorDataFields(CStructureDataclass):
     honor_id: C_Int[c_int32]
-    step: C_Int[c_int32]
-    create_time: SystemStringObjectPtr
+    _ignored_1: c_int32  # step
+    _ignored_2: C_UDeclPtr  # create_time
 
 
 class HonorDataObject(CStructureDataclass):
@@ -652,12 +652,6 @@ class FriendDataFields(CStructureDataclass):
     circleMonthlyRank: ObscuredInt
     virtualSupportCardData: C_Ptr[SupportCardDataObject]
     virtualTrainedCharaData: C_Ptr[TrainedCharaDataObject]
-
-    @property
-    def honorId(self) -> C_Int[c_int32]:
-        if not self.honorData:
-            return C_Int[c_int32](0)
-        return self.honorData.contents.fields.honor_id
 
 
 @register_runtime_validatable('Gallop::WorkFriendData.FriendData')
@@ -1099,12 +1093,6 @@ class ChampionsRoomUserFields(CStructureDataclass):
     team_id: C_Int[c_int32]
     entry_chara_array: GenericArrayPtr[C_Ptr[ChampionsUserCharaObject]]
 
-    @property
-    def honor_id(self) -> C_Int[c_int32]:
-        if not self.honor_data:
-            return C_Int[c_int32](0)
-        return self.honor_data.contents.fields.honor_id
-
 
 @register_runtime_validatable('Gallop::ChampionsRoomUser')
 class ChampionsRoomUserObject(CStructureDataclass):
@@ -1178,12 +1166,6 @@ class SuccessionCharaFields(CStructureDataclass):
     owner_viewer_id: C_Int[c_int64]
     _ignored_2: C_UDeclPtr  # user_info_summary
 
-    @property
-    def factor_id_array(self) -> list[C_Int[c_int32]]:
-        if not self.factor_info_array.inner_ptr:
-            return []
-        return [factor.contents.fields.factor_id for factor in self.factor_info_array]
-
 
 @register_runtime_validatable('Gallop::SuccessionChara')
 class SuccessionCharaObject(CStructureDataclass):
@@ -1240,12 +1222,6 @@ class TrainedCharaFields(CStructureDataclass):
     succession_chara_array: GenericArrayPtr[C_Ptr[SuccessionCharaObject]]
     scenario_id: C_Int[c_int32]
     create_time: SystemStringObjectPtr
-
-    @property
-    def factor_id_array(self) -> list[C_Int[c_int32]]:
-        if not self.factor_info_array.inner_ptr:
-            return []
-        return [factor.contents.fields.factor_id for factor in self.factor_info_array]
 
 
 @register_runtime_validatable('Gallop::TrainedChara')
