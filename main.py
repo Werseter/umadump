@@ -9,9 +9,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
-import re
-import struct
 import sys
 import time
 from dataclasses import dataclass
@@ -21,114 +18,22 @@ from typing import Any, Callable, Optional, cast as type_cast
 from ctypes_utils import C_Ptr, StructOrSimple
 from game_structs import (TempDataObject, TempDataSingletonStaticFields, WorkDataManagerObject,
                           WorkDataManagerSingletonStaticFields)
+from il2cpp_runtime import build_resolver, setup_memory
 from il2cpp_structs import (RuntimeIl2CppClass, RuntimeIl2CppGenericClass, RuntimeIl2CppGenericInst,
                             RuntimeIl2CppMetadataRegistration, RuntimeIl2CppType)
-from il2cpp_utils import Il2CppResolutionManager, default_metadata_path_from_exe, parse_minimal_metadata
+from il2cpp_utils import Il2CppResolutionManager
 from json_encoders import (RaceReplayOutput, decode_card_data_dictionary, decode_champions_meeting_race,
                            decode_friend_data, decode_race_replays, decode_support_card_dictionary,
                            decode_trained_chara_dictionary, decode_trophy_data)
 from logger import configure_logging, logger
-from memory import MemoryReader, MinidumpMemory, POINTER_SIZE, TARGET_MODULE
-from schema_validation import validate_registered_schema
+from memory import MemoryReader
 from update_check import CURRENT_VERSION, notify_if_update_available
-
-ProcessMemory: type[MemoryReader]
-if os.name == "nt":
-    # noinspection PyTypeChecker
-    from memory import WindowsProcessMemory as ProcessMemory
-else:
-    # noinspection PyTypeChecker
-    from memory import LinuxProcessMemory as ProcessMemory
-
-
-# ---------------------------------------------------------------------------
-# Registration scanner
-# ---------------------------------------------------------------------------
-
-class Il2CppRegistrationResolver:
-    """Scans a process module for Il2CppMetadataRegistration."""
-
-    def __init__(self, mem: MemoryReader, module_base: int, module_size: int) -> None:
-        self.mem = mem
-        self.module_base = module_base
-        self.module_size = module_size
-
-    def _in_module(self, va: int) -> bool:
-        return self.module_base <= va < self.module_base + self.module_size
-
-    def _value_bytes(self, value: int) -> bytes:
-        return value.to_bytes(POINTER_SIZE, "little", signed=False)
-
-    def _read_ptr_table(self, ptr: int, count: int) -> list[int]:
-        if not ptr or count == 0:
-            return []
-        return list(struct.unpack(f"<{count}Q", self.mem.read(ptr, count * POINTER_SIZE)))
-
-    def _find_registration(self, pattern_re: re.Pattern[bytes], overlap: int,
-                           array_ptr_offset: int, array_count: int,
-                           name: str, offset_adjustment: int) -> Optional[int]:
-        logger.info("Scanning for %s", name)
-        for match_va in self.mem.scan(self.module_base, self.module_size, pattern_re, overlap):
-            array_ptr_va = self.mem.read_pointer(match_va + array_ptr_offset)
-            if not self._in_module(array_ptr_va):
-                continue
-
-            pointers = self._read_ptr_table(array_ptr_va, array_count)
-            if not all(self._in_module(x) for x in pointers):
-                continue
-
-            result = match_va + offset_adjustment
-            logger.info("Found %s", name)
-            return result
-
-        logger.warning("%s was not found in the module scan range", name)
-        return None
-
-    def find_metadata_registration(self, type_def_count: int) -> Optional[int]:
-        """
-        Locate Il2CppMetadataRegistration by scanning for the
-        (fieldOffsetsCount, …, typeDefinitionsSizesCount) pair.
-        """
-        # ---------------------------------------------------------------------------
-        # Il2CppMetadataRegistration scan constants (x64).
-        #
-        # The struct alternates (int32_count, ptr) pairs.  On x64 each int32
-        # is followed by 4 bytes of alignment padding, so every "slot"
-        # occupies exactly POINTER_SIZE (8) bytes.  The slot numbering
-        # below therefore counts 8-byte slots, not C fields:
-        #
-        #   [0] genericClassesCount      [1] genericClasses
-        #   [2] genericInstsCount        [3] genericInsts
-        #   [4] genericMethodTableCount  [5] genericMethodTable
-        #   [6] typesCount               [7] types
-        #   [8] methodSpecsCount         [9] methodSpecs
-        #  [10] fieldOffsetsCount ← pattern anchor (= type_def_count)
-        #  [11] fieldOffsets      ← wildcard
-        #  [12] typeDefinitionsSizesCount ← second anchor (= type_def_count)
-        #  [13] typeDefinitionsSizes ← validated pointer array
-        #
-        # _value_pattern() emits 8-byte patterns (value + zero padding)
-        # which match the (int32 + pad) layout.
-        # ---------------------------------------------------------------------------
-        META_REG_SLOTS_BEFORE_ANCHOR = 10  # slots 0-9 precede fieldOffsetsCount
-        META_REG_ARRAY_PTR_SLOT = 3  # typeDefinitionsSizes relative to anchor
-
-        anchor = re.escape(self._value_bytes(type_def_count))
-        pattern_re = re.compile(anchor + (b"." * POINTER_SIZE) + anchor, re.DOTALL)
-        pattern_width = (POINTER_SIZE * 3)
-        return self._find_registration(
-                pattern_re=pattern_re,
-                overlap=pattern_width - 1,
-                array_ptr_offset=POINTER_SIZE * META_REG_ARRAY_PTR_SLOT,
-                array_count=type_def_count,
-                name="MetadataRegistration",
-                offset_adjustment=-(POINTER_SIZE * META_REG_SLOTS_BEFORE_ANCHOR),
-        )
 
 
 # ---------------------------------------------------------------------------
 # Misc Utils
 # ---------------------------------------------------------------------------
+
 def _write_json_file(name: str, output_path: Path, payload: Any) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     pretty_json = json.dumps(payload, indent=2, ensure_ascii=False)
@@ -490,49 +395,9 @@ def _parse_args() -> argparse.Namespace:
     return args
 
 
-@dataclass(frozen=True)
-class SetupContext:
-    mem: MemoryReader
-    metadata_path: Path
-
-
-def _setup(args: argparse.Namespace) -> SetupContext:
-    """Build memory interface and metadata path from CLI args."""
-    mem: MemoryReader
-    if args.minidump:
-        logger.info("Offline mode from minidump: %s", args.minidump)
-        mem = MinidumpMemory(args.minidump)
-        metadata_path = Path(args.metadata_path)
-    else:
-        logger.info("Live mode from process memory")
-        mem = ProcessMemory()
-        metadata_path = Path(args.metadata_path) if args.metadata_path else default_metadata_path_from_exe(
-                mem.exe_path())
-
-    return SetupContext(mem=mem, metadata_path=metadata_path)
-
-
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-
-def _build_resolver(mem: MemoryReader, metadata_path: Path) -> Il2CppResolutionManager:
-    """Create ``Il2CppResolutionManager`` and run schema validation for registered wrappers."""
-
-    metadata = parse_minimal_metadata(metadata_path)
-    logger.info("Parsed metadata: type_defs=%d", len(metadata.type_defs))
-
-    base, size = mem.module_info(TARGET_MODULE)
-
-    reg_va = Il2CppRegistrationResolver(mem, base, size).find_metadata_registration(len(metadata.type_defs))
-    if reg_va is None:
-        raise RuntimeError("Could not locate Il2CppMetadataRegistration")
-    meta_reg = C_Ptr[RuntimeIl2CppMetadataRegistration](reg_va).contents
-
-    resolver = Il2CppResolutionManager(mem, metadata, meta_reg)
-    validate_registered_schema(resolver)
-    return resolver
-
 
 def _run_live_reload_loop(mem: MemoryReader, roots: ResolvedSingletonRoots) -> None:
     """Repeatedly rerun extractors using fixed singleton roots and fresh memory reads."""
@@ -570,12 +435,12 @@ def main() -> None:
     if not args.no_update_check:
         notify_if_update_available(CURRENT_VERSION)
 
-    setup = _setup(args)
+    setup = setup_memory(args.minidump, args.metadata_path)
     logger.info("Metadata path: %s", setup.metadata_path)
 
     with setup.mem:
         try:
-            resolver = _build_resolver(setup.mem, setup.metadata_path)
+            resolver = build_resolver(setup.mem, setup.metadata_path)
 
             if args.validate_only:
                 return
