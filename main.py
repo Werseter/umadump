@@ -181,6 +181,9 @@ def resolve_singleton[TSingletonObject: StructOrSimple](
     # noinspection PyTypeHints
     static_fields_ptr_type = C_Ptr[static_fields_type]  # type: ignore[valid-type]
     static_fields_ptr = static_fields_ptr_type(int(matched.class_ptr.contents.static_fields))
+    if not static_fields_ptr:
+        logger.debug("%s singleton static fields are null", spec.name)
+        return None
     # noinspection PyTypeChecker
     return type_cast(C_Ptr[TSingletonObject], static_fields_ptr.contents._instance)  # type: ignore[attr-defined]
 

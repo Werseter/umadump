@@ -14,6 +14,16 @@ from typing import Literal as L
 from ctypes_utils import ArrayType, CStructureDataclass, C_CharPtr, C_Int, C_Ptr, C_UDeclPtr, C_VoidPtr
 
 
+class HasTokenMixin:
+    token: int
+
+    def get_token_type(self) -> int:
+        return self.token & 0xFF000000
+
+    def get_token_row_id(self) -> int:
+        return self.token & 0x00FFFFFF
+
+
 # ---------------------------------------------------------------------------
 # Il2Cpp metadata structs (global-metadata.dat layout, v31)
 # ---------------------------------------------------------------------------
@@ -25,23 +35,37 @@ class Il2CppGlobalMetadataHeader(CStructureDataclass):
     _ignored_1: ArrayType[c_int32, L[4]]                       # [2–5]  stringLiteralOffset … stringLiteralDataSize
     stringOffset: C_Int[c_int32]                               # [6]
     stringSize: C_Int[c_int32]                                 # [7]
-    _ignored_2: ArrayType[c_int32, L[6]]                       # [8–13] events … methods
-    parameterDefaultValuesOffset: C_Int[c_int32]
-    parameterDefaultValuesSize: C_Int[c_int32]
-    fieldDefaultValuesOffset: C_Int[c_int32]
-    fieldDefaultValuesSize: C_Int[c_int32]
-    fieldAndParameterDefaultValueDataOffset: C_Int[c_int32]
-    fieldAndParameterDefaultValueDataSize: C_Int[c_int32]
-    _ignored_3: ArrayType[c_int32, L[4]]                       # [20–23] fieldMarshalled … parameters
+    _ignored_2: ArrayType[c_int32, L[4]]                       # [8-11] events, properties
+    methodsOffset: C_Int[c_int32]                              # [12]
+    methodsSize: C_Int[c_int32]                                # [13]
+    _ignored_3: ArrayType[c_int32, L[2]]                       # [14-15] parameterDefaultValuesOffset/Size
+    fieldDefaultValuesOffset: C_Int[c_int32]                   # [16]
+    fieldDefaultValuesSize: C_Int[c_int32]                     # [17]
+    fieldAndParameterDefaultValueDataOffset: C_Int[c_int32]    # [18]
+    fieldAndParameterDefaultValueDataSize: C_Int[c_int32]      # [19]
+    _ignored_4: ArrayType[c_int32, L[4]]                       # [20-23] fieldMarshaledSizes/parameters
     fieldsOffset: C_Int[c_int32]                               # [24]
     fieldsSize: C_Int[c_int32]                                 # [25]
-    _ignored_4: ArrayType[c_int32, L[14]]                      # [26–39] genericParameters … interfaceOffsets
+    _ignored_5: ArrayType[c_int32, L[14]]                      # [26-39] genericParameters … interfaceOffsets
     typeDefinitionsOffset: C_Int[c_int32]                      # [40]
     typeDefinitionsSize: C_Int[c_int32]                        # [41]
-    _ignored_5: ArrayType[c_int32, L[15]]                      # [42-56] imagesOffset … unresolvedRangesOffset
+    imagesOffset: C_Int[c_int32]                               # [42]
+    imagesSize: C_Int[c_int32]                                 # [43]
+    _ignored_6: ArrayType[c_int32, L[13]]                      # [44-56] assemblies … unresolvedRangesOffset
     unresolvedIndirectCallParameterRangesSize: C_Int[c_int32]  # [57]
-    _ignored_6: ArrayType[c_int32, L[6]]                       # [58–63] windowsRuntime … exportedTypeDefinitionsSize
+    _ignored_7: ArrayType[c_int32, L[6]]                       # [58–63] windowsRuntime … exportedTypeDefinitionsSize
 # @formatter:on
+
+
+class Il2CppMethodDefinition(CStructureDataclass, HasTokenMixin):
+    nameIndex: C_Int[c_int32]
+    declaringType: C_Int[c_int32]
+    returnType: C_Int[c_int32]
+    _ignored_1: c_uint32  # returnParameterToken
+    _ignored_2: ArrayType[c_int32, L[2]]  # parameterStart, genericContainerIndex
+    token: C_Int[c_uint32]
+    _ignored_3: ArrayType[c_uint16, L[3]]  # flags, iflags, slot
+    parameterCount: C_Int[c_uint16]
 
 
 class Il2CppFieldDefinition(CStructureDataclass):
@@ -56,7 +80,17 @@ class Il2CppFieldDefaultValue(CStructureDataclass):
     dataIndex: C_Int[c_int32]
 
 
-class Il2CppTypeDefinition(CStructureDataclass):
+class Il2CppImageDefinition(CStructureDataclass, HasTokenMixin):
+    nameIndex: C_Int[c_int32]
+    _ignored_1: c_int32  # assemblyIndex
+    typeStart: C_Int[c_int32]
+    typeCount: C_Int[c_uint32]
+    _ignored_2: ArrayType[c_int32, L[3]]  # exportedTypeStart, exportedTypeCount, entryPointIndex
+    token: C_Int[c_uint32]
+    _ignored_3: ArrayType[c_uint32, L[2]]  # customAttributeStart, customAttributeCount
+
+
+class Il2CppTypeDefinition(CStructureDataclass, HasTokenMixin):
     nameIndex: C_Int[c_int32]
     namespaceIndex: C_Int[c_int32]
     byvalTypeIndex: C_Int[c_int32]
@@ -66,11 +100,14 @@ class Il2CppTypeDefinition(CStructureDataclass):
     _ignored_1: c_int32  # genericContainerIndex
     _ignored_2: c_uint32  # flags
     fieldStart: C_Int[c_int32]
-    _ignored_3: ArrayType[c_int32, L[7]]  # methodStart … interfaceOffsetsStart
-    _ignored_4: ArrayType[c_uint16, L[2]]  # method_count, property_count
+    methodStart: C_Int[c_int32]
+    _ignored_3: ArrayType[c_int32, L[6]]  # eventStart … interfaceOffsetsStart
+    method_count: C_Int[c_uint16]
+    _ignored_4: c_uint16  # property_count
     field_count: C_Int[c_uint16]
     _ignored_5: ArrayType[c_uint16, L[5]]  # event_count … interface_offsets_count
-    _ignored_6: ArrayType[c_uint32, L[2]]  # bitfield, token
+    bitfield: C_Int[c_uint32]
+    token: C_Int[c_uint32]
 
 
 class Il2CppMetadataRange(CStructureDataclass):
@@ -146,11 +183,48 @@ class RuntimeIl2CppClass(CStructureDataclass):
     def parent(self) -> C_Ptr[RuntimeIl2CppClass]:
         return C_Ptr[RuntimeIl2CppClass](int(self._parent))
 
+    def static_fields_as[TStaticFields](self, static_fields_type: type[TStaticFields]) \
+            -> C_Ptr[TStaticFields]:  # type: ignore[type-var]
+        # noinspection PyTypeHints
+        return C_Ptr[static_fields_type](int(self.static_fields))  # type: ignore[valid-type]
+
 
 class RuntimeIl2CppGenericClass(CStructureDataclass):
     type: C_Ptr[RuntimeIl2CppType]
     context: RuntimeIl2CppGenericContext
     cached_class: C_Ptr[RuntimeIl2CppClass]
+
+
+class RuntimeIl2CppCodeGenModule(CStructureDataclass):
+    moduleName: C_CharPtr
+    methodPointerCount: C_Int[c_uint32]
+    methodPointers: C_Ptr[C_UDeclPtr]
+    _ignored_1: c_uint32  # adjustorThunkCount
+    _ignored_2: ArrayType[C_UDeclPtr, L[2]]  # adjustorThunks, invokerIndices
+    _ignored_3: c_uint32  # reversePInvokeWrapperCount
+    _ignored_4: C_UDeclPtr  # reversePInvokeWrapperIndices
+    _ignored_5: c_uint32  # rgctxRangesCount
+    _ignored_6: C_UDeclPtr  # rgctxRanges
+    _ignored_7: c_uint32  # rgctxsCount
+    _ignored_8: C_UDeclPtr  # rgctxs
+    _ignored_9: ArrayType[C_UDeclPtr, L[5]]  # debuggerMetadata … codeRegistaration
+
+
+class RuntimeIl2CppCodeRegistration(CStructureDataclass):
+    _ignored_1: c_uint32  # reversePInvokeWrapperCount
+    _ignored_2: C_UDeclPtr  # reversePInvokeWrappers
+    _ignored_3: c_uint32  # genericMethodPointersCount
+    _ignored_4: ArrayType[C_UDeclPtr, L[2]]  # genericMethodPointers, genericAdjustorThunks
+    _ignored_5: c_uint32  # invokerPointersCount
+    _ignored_6: C_UDeclPtr  # invokerPointers
+    unresolvedIndirectCallCount: C_Int[c_uint32]
+    _ignored_7: ArrayType[C_UDeclPtr, L[3]]  # unresolvedVirtual/Instance/StaticCallPointers
+    _ignored_8: c_uint32  # interopDataCount
+    _ignored_9: C_UDeclPtr  # interopData
+    _ignored_10: c_uint32  # windowsRuntimeFactoryCount
+    _ignored_11: C_UDeclPtr  # windowsRuntimeFactoryTable
+    codeGenModulesCount: C_Int[c_uint32]
+    codeGenModules: C_Ptr[C_Ptr[RuntimeIl2CppCodeGenModule]]
 
 
 class RuntimeIl2CppMetadataRegistration(CStructureDataclass):

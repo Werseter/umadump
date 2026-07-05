@@ -11,7 +11,7 @@ from memory import MemoryReader, POINTER_SIZE
 
 
 class Il2CppRegistrationResolver:
-    """Scans a process module for Il2CppMetadataRegistration."""
+    """Scans a process module for IL2CPP runtime registration structs."""
 
     def __init__(self, mem: MemoryReader, module_base: int, module_size: int) -> None:
         self.mem = mem
@@ -48,6 +48,27 @@ class Il2CppRegistrationResolver:
 
         logger.warning("%s was not found in the module scan range", name)
         return None
+
+    def find_code_registration(self, unresolved_indirect_call_count: int, image_count: int) -> Optional[int]:
+        """
+        Locate Il2CppCodeRegistration by scanning for unresolvedIndirectCallCount
+        followed by codeGenModulesCount/codeGenModules.
+        """
+        CODE_REG_SLOTS_BEFORE_ANCHOR = 7
+        CODE_REG_CODEGEN_MODULES_PTR_SLOT = 9
+
+        unresolved_anchor = re.escape(self._value_bytes(unresolved_indirect_call_count))
+        image_anchor = re.escape(self._value_bytes(image_count))
+        pattern_re = re.compile(unresolved_anchor + (b"." * POINTER_SIZE * 7) + image_anchor, re.DOTALL)
+        pattern_width = POINTER_SIZE * 9
+        return self._find_registration(
+                pattern_re=pattern_re,
+                overlap=pattern_width - 1,
+                array_ptr_offset=POINTER_SIZE * CODE_REG_CODEGEN_MODULES_PTR_SLOT,
+                array_count=image_count,
+                name="CodeRegistration",
+                offset_adjustment=-(POINTER_SIZE * CODE_REG_SLOTS_BEFORE_ANCHOR),
+        )
 
     def find_metadata_registration(self, type_def_count: int) -> Optional[int]:
         """

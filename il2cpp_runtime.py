@@ -8,7 +8,7 @@ from typing import Optional
 
 from ctypes_utils import C_Ptr
 from il2cpp_registration import Il2CppRegistrationResolver
-from il2cpp_structs import RuntimeIl2CppMetadataRegistration
+from il2cpp_structs import RuntimeIl2CppCodeRegistration, RuntimeIl2CppMetadataRegistration
 from il2cpp_utils import Il2CppResolutionManager, default_metadata_path_from_exe, parse_minimal_metadata
 from logger import logger
 from memory import MemoryReader, MinidumpMemory, ProcessMemory, TARGET_MODULE
@@ -50,11 +50,17 @@ def build_resolver(mem: MemoryReader, metadata_path: Path) -> Il2CppResolutionMa
     base, size = mem.module_info(TARGET_MODULE)
     registration_resolver = Il2CppRegistrationResolver(mem, base, size)
 
+    param_ranges_count = metadata.unresolved_indirect_call_param_ranges_count
+    code_reg_va = registration_resolver.find_code_registration(param_ranges_count, len(metadata.image_defs))
+    if code_reg_va is None:
+        raise RuntimeError("Could not locate Il2CppCodeRegistration")
+    code_reg = C_Ptr[RuntimeIl2CppCodeRegistration](code_reg_va).contents
+
     reg_va = registration_resolver.find_metadata_registration(len(metadata.type_defs))
     if reg_va is None:
         raise RuntimeError("Could not locate Il2CppMetadataRegistration")
     meta_reg = C_Ptr[RuntimeIl2CppMetadataRegistration](reg_va).contents
 
-    resolver = Il2CppResolutionManager(mem, metadata, meta_reg)
+    resolver = Il2CppResolutionManager(mem, metadata, code_reg, meta_reg)
     validate_registered_schema(resolver)
     return resolver
