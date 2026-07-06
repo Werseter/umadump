@@ -8,20 +8,16 @@ from datetime import UTC, datetime, timedelta, timezone
 from typing import Any, Optional
 
 from ctypes_utils import C_Ptr
-from game_structs import (AcquiredSkillObject, CardDataDictionaryEntry, ChampionsRaceInfoObject,
-                          ChampionsRoomInfoObject, ChampionsRoomUserObject, ChampionsUserCharaObject, FactorDataObject,
-                          FactorDataUpgradeHistoryObject, FactorExtendObject, FactorInfoObject,
-                          FavoriteDataDictionaryEntry, FriendDataObject, GenericArrayPtr, GenericDictionary,
-                          GenericList, HintLevelDictionaryEntry, RaceHistoryInfoObject, RaceHorseDataObject,
-                          RaceHorseDataRaceResultObject, SkillDataObject, SuccessionCharaDataObject,
-                          SuccessionCharaObject, SuccessionCharaPosition, SuccessionHistoryObject,
+from game_structs import (AcquiredSkillObject, CardDataDictionaryEntry, FactorDataObject,
+                          FactorDataUpgradeHistoryObject, FactorInfoObject, FavoriteDataDictionaryEntry,
+                          FriendDataObject, GenericArrayPtr, GenericDictionary, GenericList, HintLevelDictionaryEntry,
+                          RaceHistoryInfoObject, RaceHorseDataObject, RaceHorseDataRaceResultObject, SkillDataObject,
+                          SuccessionCharaDataObject, SuccessionCharaPosition, SuccessionHistoryObject,
                           SupportCardDataDictionaryEntry, TeamStadiumRaceCharaResultObject, TeamStadiumRaceResultObject,
                           TeamStadiumResultBonusDataObject, TeamStadiumResultObject, TeamStadiumResultScoreDataObject,
-                          TempDataObject, TrainedCharaDataDictionaryEntry, TrainedCharaDataObject, TrainedCharaObject,
-                          TrainedCharaRaceResultObject, TrainedCharaSupportCardDataObject,
-                          TrainedCharaSupportCardListObject, TrophyDataCharaIdListDictionaryEntry,
-                          TrophyDataDictionaryEntry, WorkDataManagerObject, WorkFriendDataObject,
-                          WorkTeamStadiumDataObject, WorkTeamStadiumOpponentDataObject)
+                          TrainedCharaDataDictionaryEntry, TrainedCharaDataObject, TrainedCharaSupportCardDataObject,
+                          TrophyDataCharaIdListDictionaryEntry, TrophyDataDictionaryEntry, WorkDataManagerObject,
+                          WorkFriendDataObject, WorkTeamStadiumDataObject, WorkTeamStadiumOpponentDataObject)
 from logger import logger
 
 JST = timezone(timedelta(hours=9), "JST")
@@ -172,16 +168,6 @@ def _decode_factor_info_entry(entry: FactorInfoObject) -> dict[str, int]:
     return {
         "factor_id": f.factor_id,
         "level": f.level,
-    }
-
-
-def _decode_factor_extend_entry(entry: FactorExtendObject) -> dict[str, int | str]:
-    f = entry.fields
-    return {
-        "position_id": f.position_id,
-        "base_factor_id": f.base_factor_id,
-        "factor_id": f.factor_id,
-        "register_time": f.register_time.value,
     }
 
 
@@ -829,63 +815,6 @@ def decode_race_replays(wdm: WorkDataManagerObject) -> list[RaceReplayOutput]:
     return _decode_team_stadium_replays(team_stadium_data, team_stadium_opponent_data, team_stadium_result)
 
 
-# ---------------------------------------------------------------------------
-# Champions Meeting race extraction
-# ---------------------------------------------------------------------------
-
-def _resolve_champions_race_info(temp_data: TempDataObject) -> Optional[ChampionsRaceInfoObject]:
-    champions_data = temp_data.fields.championsData
-    if not champions_data:
-        logger.warning("TempData.championsData is null")
-        return None
-
-    race_info = champions_data.contents.fields.raceInfo
-    if not race_info:
-        logger.warning("TempData.ChampionsTempData.raceInfo is null")
-        return None
-
-    return race_info.contents
-
-
-def _decode_champions_room_info(room: ChampionsRoomInfoObject) -> dict[str, Any]:
-    f = room.fields
-    return {
-        "room_id": f.room_id,
-        "user_entry_num": f.user_entry_num,
-        "race_instance_id": f.race_instance_id,
-        "season": f.season,
-        "weather": f.weather,
-        "ground_condition": f.ground_condition,
-        "random_seed": f.random_seed,
-        "race_scenario": f.race_scenario.value,
-    }
-
-
-def _decode_champions_user_chara_entry(entry: ChampionsUserCharaObject) -> dict[str, int]:
-    f = entry.fields
-    return {
-        "team_member_id": f.team_member_id,
-        "race_cloth_id": f.race_cloth_id,
-        "nickname_id": f.nick_name_id,
-        "chara_id": f.chara_id,
-    }
-
-
-def _decode_champions_room_user_entry(entry: ChampionsRoomUserObject) -> dict[str, Any]:
-    f = entry.fields
-    return {
-        "room_id": f.room_id,
-        "viewer_id": f.viewer_id,
-        "name": f.name.value,
-        "honor_id": f.honor_data.contents.fields.honor_id,
-        "honor_data": {
-            "honor_id": f.honor_data.contents.fields.honor_id,
-        },
-        "team_id": f.team_id,
-        "entry_chara_array": [_decode_champions_user_chara_entry(x.contents) for x in f.entry_chara_array],
-    }
-
-
 def _decode_skill_data_entry(entry: SkillDataObject) -> dict[str, int]:
     f = entry.fields
     return {
@@ -959,161 +888,3 @@ def _decode_race_horse_data_entry(entry: RaceHorseDataObject) -> dict[str, Any]:
         "motivation_change_flag": f.motivation_change_flag,
         "frame_order_change_flag": f.frame_order_change_flag,
     }
-
-
-def _decode_trained_chara_support_card_list_entry(entry: TrainedCharaSupportCardListObject) -> dict[str, int]:
-    f = entry.fields
-    return {
-        "position": f.position,
-        "support_card_id": f.support_card_id,
-        "exp": f.exp,
-        "limit_break_count": f.limit_break_count,
-    }
-
-
-def _decode_trained_chara_race_result_entry(entry: TrainedCharaRaceResultObject) -> dict[str, int]:
-    f = entry.fields
-    return {
-        "turn": f.turn,
-        "program_id": f.program_id,
-        "weather": f.weather,
-        "ground_condition": f.ground_condition,
-        "running_style": f.running_style,
-        "popularity": 0,
-        "result_rank": f.result_rank,
-        "result_time": 0,
-        "prize_money": 0,
-    }
-
-
-def _decode_succession_chara_temp_entry(entry: SuccessionCharaObject) -> dict[str, Any]:
-    f = entry.fields
-    return {
-        "position_id": f.position_id,
-        "card_id": f.card_id,
-        "rank": f.rank,
-        "rarity": f.rarity,
-        "talent_level": f.talent_level,
-        "owner_viewer_id": f.owner_viewer_id,
-        "factor_info_array": [_decode_factor_info_entry(x.contents) for x in f.factor_info_array],
-        "win_saddle_id_array": [x.value for x in f.win_saddle_id_array],
-    }
-
-
-def _decode_champions_trained_chara_entry(entry: TrainedCharaObject,
-                                          race_horse_by_trained_id: dict[int, dict[str, Any]]) -> dict[str, Any]:
-    f = entry.fields
-    trained_chara_id = f.trained_chara_id
-    race_horse = race_horse_by_trained_id.get(trained_chara_id, {})
-    return {
-        "viewer_id": f.viewer_id,
-        "trained_chara_id": trained_chara_id,
-        "owner_viewer_id": f.owner_viewer_id,
-        "owner_trained_chara_id": f.owner_trained_chara_id,
-        "single_mode_chara_id": 0,
-        "card_id": f.card_id,
-        "speed": f.speed,
-        "stamina": f.stamina,
-        "power": f.power,
-        "wiz": f.wiz,
-        "guts": f.guts,
-        "fans": f.fans,
-        "rank_score": f.rank_score,
-        "rank": f.rank,
-        "proper_ground_turf": f.proper_ground_turf,
-        "proper_ground_dirt": f.proper_ground_dirt,
-        "proper_running_style_nige": f.proper_running_style_nige,
-        "proper_running_style_senko": f.proper_running_style_senko,
-        "proper_running_style_sashi": f.proper_running_style_sashi,
-        "proper_running_style_oikomi": f.proper_running_style_oikomi,
-        "proper_distance_short": f.proper_distance_short,
-        "proper_distance_mile": f.proper_distance_mile,
-        "proper_distance_middle": f.proper_distance_middle,
-        "proper_distance_long": f.proper_distance_long,
-        "succession_num": f.succession_num,
-        "rarity": f.rarity,
-        "is_saved": f.is_saved,
-        "is_locked": f.is_locked,
-        "talent_level": f.talent_level,
-        "race_cloth_id": race_horse.get("race_dress_id", 0),
-        "running_style": f.running_style,
-        "nickname_id": f.nickname_id,
-        "wins": f.wins,
-        "create_time": f.create_time.value,
-        "skill_array": [_decode_skill_data_entry(x.contents) for x in f.skill_array],
-        "support_card_list": [
-            _decode_trained_chara_support_card_list_entry(x.contents) for x in f.support_card_list],
-        "race_result_list": [_decode_trained_chara_race_result_entry(x.contents) for x in f.race_result_list],
-        "win_saddle_id_array": [x.value for x in f.win_saddle_id_array],
-        "factor_info_array": [_decode_factor_info_entry(x.contents) for x in f.factor_info_array],
-        "factor_extend_array": [_decode_factor_extend_entry(x.contents) for x in f.factor_extend_array],
-        "succession_chara_array": [_decode_succession_chara_temp_entry(x.contents) for x in f.succession_chara_array],
-        "nickname_id_array": [x.value for x in f.nickname_id_array],
-        "team_member_id": race_horse.get("team_member_id", 0),
-        "race_running_style": race_horse.get("running_style", f.running_style),
-        "scenario_id": f.scenario_id,
-    }
-
-
-def order_champions_race_horses(room_user_array: list[dict[str, Any]],
-                                race_horse_data_array: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Order horse rows to match room-user ordering and each user's entry sequence."""
-    room_user_order = {user["viewer_id"]: idx for idx, user in enumerate(room_user_array)}
-    room_user_team_order: dict[tuple[int, int], int] = {}
-    for user in room_user_array:
-        viewer_id = user["viewer_id"]
-        for team_idx, chara in enumerate(user.get("entry_chara_array", [])):
-            team_member_id = chara.get("team_member_id", 0)
-            room_user_team_order[(viewer_id, team_member_id)] = team_idx
-
-    return sorted(
-            race_horse_data_array,
-            key=lambda horse: (
-                room_user_order.get(horse.get("viewer_id", 0), len(room_user_order)),
-                room_user_team_order.get(
-                        (horse.get("viewer_id", 0), horse.get("team_member_id", 0)),
-                        horse.get("team_member_id", 0),
-                ),
-                horse.get("frame_order", 0),
-            )
-    )
-
-
-def decode_champions_meeting_race_data(temp_data: TempDataObject) -> dict[str, Any]:
-    """Descend TempData -> ChampionsTempData -> ChampionsRaceInfo and normalize the data payload."""
-    race_info_obj = _resolve_champions_race_info(temp_data)
-    if race_info_obj is None:
-        return {}
-
-    race_info = race_info_obj.fields
-    if not race_info.isSet:
-        logger.info("No Champions Meeting race replay available for extraction")
-        return {}
-
-    room_info: dict[str, Any] = {}
-    if race_info.roomInfo:
-        room_info = _decode_champions_room_info(race_info.roomInfo.contents)
-
-    room_user_array = [_decode_champions_room_user_entry(x.contents) for x in race_info.roomUserArray]
-    race_horse_data_array = [_decode_race_horse_data_entry(x.contents) for x in race_info.raceHorseDataArray]
-    race_horse_data_array = order_champions_race_horses(room_user_array, race_horse_data_array)
-
-    race_horse_by_trained_id: dict[int, dict[str, Any]] = {
-        x.get("trained_chara_id", 0): x for x in race_horse_data_array if x.get("trained_chara_id", 0) > 0
-    }
-    trained_chara_array = [
-        _decode_champions_trained_chara_entry(x.contents, race_horse_by_trained_id) for x in race_info.trainedCharaArray
-    ]
-
-    return {
-        "room_info": room_info,
-        "room_user_array": room_user_array,
-        "race_horse_data_array": race_horse_data_array,
-        "trained_chara_array": trained_chara_array,
-    }
-
-
-def decode_champions_meeting_race(temp_data: TempDataObject) -> dict[str, Any]:
-    """Public wrapper preserving the existing API payload shape."""
-    data = decode_champions_meeting_race_data(temp_data)
-    return {"data": data} if data else {}
