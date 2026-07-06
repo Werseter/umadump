@@ -9,12 +9,12 @@ Contains:
 """
 from __future__ import annotations
 
-from ctypes import c_bool, c_int32, c_int64, c_uint16, c_uint64, c_uint8
+from ctypes import c_bool, c_float, c_int32, c_int64, c_uint16, c_uint32, c_uint64, c_uint8
 from enum import IntEnum
 from typing import Annotated, Iterator, Literal as L, cast as type_cast
 
-from ctypes_utils import (ArrayType, CStructureDataclass, C_Int, C_Ptr, C_UDeclPtr, C_VoidPtr, RuntimeGenericMixin,
-                          Span, StructOrSimple)
+from ctypes_utils import (ArrayType, CStructureDataclass, C_Float, C_Int, C_Ptr, C_UDeclPtr, C_VoidPtr,
+                          RuntimeGenericMixin, Span, StructOrSimple)
 from il2cpp_structs import RuntimeIl2CppObject
 from logger import logger
 from schema_validation import register_enum_validatable, register_runtime_validatable
@@ -153,6 +153,203 @@ class FactorRarity(IntEnum):
     RARE_1 = 1
     RARE_2 = 2
     RARE_3 = 3
+
+
+@register_enum_validatable('Gallop::RaceDefine.RaceType')
+class RaceType(IntEnum):
+    NONE = 0
+    PvP = 1
+    Tutorial = 2
+    Story = 3
+    StoryCondition = 4
+    Champions = 5
+    Single = 6
+    SingleModeScenarioTeamRace = 7
+    RoomMatch = 8
+    Practice = 9
+    Daily = 10
+    TeamBuilding = 11
+    Legend = 12
+    ChallengeMatch = 13
+    TeamStadium = 14
+    Heroes = 16
+
+
+@register_enum_validatable('Gallop::GameDefine.CardRarity')
+class CardRarity(IntEnum):
+    NONE = 0
+    Rare1 = 1
+    Rare2 = 2
+    Rare3 = 3
+    Rare4 = 4
+    Rare5 = 5
+
+
+@register_enum_validatable('Gallop::HorseInitialLaneCalculator.InitialLaneType')
+class InitialLaneType(IntEnum):
+    ExtraSpaceAfter9 = 1
+    Equidistant = 2
+    ExtraSpaceAfter14 = 3
+    ExtraSpaceAfter8 = 4
+
+
+@register_enum_validatable('Gallop::RaceDefine.Rotation')
+class Rotation(IntEnum):
+    Right = 1
+    Left = 2
+    StraightRight = 3
+    StraightLeft = 4
+
+
+@register_enum_validatable('Gallop::RaceDefine.ResultBoardConditionType')
+class ResultBoardConditionType(IntEnum):
+    Turf_None = 1
+    Turf_Dirt = 2
+    Dirt_None = 3
+    Dirt_Turf = 4
+
+
+@register_enum_validatable('Gallop::RaceDefine.CourseDistanceType')
+class CourseDistanceType(IntEnum):
+    Short = 1
+    Mile = 2
+    Middle = 3
+    Long = 4
+
+
+@register_enum_validatable('Gallop::RaceDefine.TurfVisionType')
+class TurfVisionType(IntEnum):
+    URA = 1
+    NAU = 2
+    Stand = 3
+
+
+@register_enum_validatable('Gallop::RaceDefine.GroundCondition')
+class RaceGroundCondition(IntEnum):
+    Good = 1
+    Soft = 2
+    Hard = 3
+    Bad = 4
+
+
+@register_enum_validatable('Gallop::RaceDefine.Weather')
+class RaceWeather(IntEnum):
+    NONE = 0
+    Sunny = 1
+    Cloudy = 2
+    Rainy = 3
+    Snow = 4
+    Max = 5
+    Min = 0
+
+
+@register_enum_validatable('Gallop::GameDefine.BgSeason')
+class BgSeason(IntEnum):
+    NONE = 0
+    Spring = 1
+    Summer = 2
+    Fall = 3
+    Winter = 4
+    CherryBlossom = 5
+    Max = 6
+    Min = 0
+
+
+@register_enum_validatable('Gallop::RaceDefine.Time')
+class RaceTime(IntEnum):
+    NONE = 0
+    Morning = 1
+    Daytime = 2
+    Evening = 3
+    Night = 4
+    Max = 5
+    Min = 0
+
+
+@register_enum_validatable('Gallop::RaceDefine.RunningStyleEx')
+class RunningStyleEx(IntEnum):
+    NONE = 0
+    Oonige = 1
+
+
+@register_enum_validatable('Gallop::RaceDefine.Motivation')
+class RaceMotivation(IntEnum):
+    NONE = 0
+    Min = 1
+    Low = 2
+    Middle = 3
+    High = 4
+    Max = 5
+
+
+@register_enum_validatable('Gallop::RaceDefine.DefeatType')
+class DefeatType(IntEnum):
+    Null = 0
+    Win = 1
+    Lose = 2
+    RunningStyleMany = 3
+    Temptaion = 4
+    GutsOrder = 5
+    Stamina = 6
+    LastSpurtFalse = 7
+    LastSpurtTargetSpeedDec = 8
+    PassiveSkillNum = 9
+    BlockFrontTime = 10
+    Speed = 11
+    ProperDistance = 12
+    ProperGround = 13
+    Motivation = 14
+
+
+@register_enum_validatable('Gallop::ModelLoader.RaceRunningType')
+class RaceRunningType(IntEnum):
+    Base = 1
+    Pitch = 2
+    Stride = 3
+
+
+@register_enum_validatable('Gallop::RaceDefine.ProperGrade')
+class ProperGrade(IntEnum):
+    Null = 0
+    G = 1
+    F = 2
+    E = 3
+    D = 4
+    C = 5
+    B = 6
+    A = 7
+    S = 8
+
+
+@register_enum_validatable('Gallop::RaceDefine.Difficulty')
+class RaceDifficulty(IntEnum):
+    Easy = 1
+    Normal = 2
+    Hard = 3
+    VeryHard = 4
+    Extreme = 5
+
+
+@register_enum_validatable('Gallop::SingleModeDefine.CharaGradeType')
+class CharaGradeType(IntEnum):
+    NONE = 0
+    Debut = 1
+    NoWin = 2
+    Open = 3
+    G3Silver = 4
+    G3Gold = 5
+    G2Silver = 6
+    G2Gold = 7
+    G1Bronze = 8
+    G1Silver = 9
+    G1Gold = 10
+    Max = 10
+
+
+@register_enum_validatable('Gallop::MainStoryDefine.RaceGimmickType')
+class MainStoryRaceGimmickType(IntEnum):
+    NONE = 0
+    Special_00 = 1
 
 
 # ---------------------------------------------------------------------------
@@ -1225,3 +1422,192 @@ class FactorExtendFields(CStructureDataclass):
 class FactorExtendObject(CStructureDataclass):
     _il2cpp_obj: RuntimeIl2CppObject
     fields: FactorExtendFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.HorseData
+# ---------------------------------------------------------------------------
+
+class RaceParameterFields(CStructureDataclass):
+    rawSpeed: C_Int[c_int32]
+    rawStamina: C_Int[c_int32]
+    rawPow: C_Int[c_int32]
+    rawGuts: C_Int[c_int32]
+    rawWiz: C_Int[c_int32]
+    baseSpeed: C_Float[c_float]
+    baseStamina: C_Float[c_float]
+    basePow: C_Float[c_float]
+    baseGuts: C_Float[c_float]
+    baseWiz: C_Float[c_float]
+    motivation: Annotated[C_Int[c_int32], RaceMotivation]
+    motivationCoef: C_Float[c_float]
+
+
+@register_runtime_validatable('Gallop::RaceParameter')
+class RaceParameterObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: RaceParameterFields
+
+
+class HorseDataFields(CStructureDataclass):
+    horseIndex: C_Int[c_int32]
+    postNumber: C_Int[c_int32]
+    charaId: C_Int[c_int32]
+    charaName: SystemStringObjectPtr
+    finishOrder: C_Int[c_int32]
+    finishTimeRaw: C_Float[c_float]
+    finishTimeScaled: C_Float[c_float]
+    finishDiffTimeFromPrev: C_Float[c_float]
+    raceParam: C_Ptr[RaceParameterObject]
+    responseHorseData: C_Ptr[RaceHorseDataObject]
+    popularity: C_Int[c_int32]
+    popularityRankLeft: C_Int[c_int32]
+    popularityRankCenter: C_Int[c_int32]
+    popularityRankRight: C_Int[c_int32]
+    gateInPopularity: C_Int[c_int32]
+    rarity: Annotated[C_Int[c_int32], CardRarity]
+    trainerName: SystemStringObjectPtr
+    isGhost: C_Int[c_bool]
+    isRunningStyleExInitialized: C_Int[c_bool]
+    runningStyleEx: Annotated[C_Int[c_int32], RunningStyleEx]
+    defeat: Annotated[C_Int[c_int32], DefeatType]
+    raceDressId: C_Int[c_int32]
+    raceDressIdWithOption: C_Int[c_int32]
+    runningType: Annotated[C_Int[c_int32], RaceRunningType]
+    activeProperDistance: Annotated[C_Int[c_int32], ProperGrade]
+    activeProperGroundType: Annotated[C_Int[c_int32], ProperGrade]
+    mobId: C_Int[c_int32]
+    _ignored_1: C_UDeclPtr  # raceRecord
+    finishOrderRawScore: C_Int[c_int32]
+    trainedCharaData: C_Ptr[TrainedCharaDataObject]
+
+
+@register_runtime_validatable('Gallop::HorseData')
+class HorseDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: HorseDataFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.MasterRaceCourseSet.RaceCourseSet
+# ---------------------------------------------------------------------------
+
+class RaceCourseSetFields(CStructureDataclass):
+    Id: C_Int[c_int32]
+    RaceTrackId: C_Int[c_int32]
+    Distance: C_Int[c_int32]
+    Ground: C_Int[c_int32]
+    Inout: C_Int[c_int32]
+    Turn: C_Int[c_int32]
+    FenceSet: C_Int[c_int32]
+    FloatLaneMax: C_Int[c_int32]
+    CourseSetStatusId: C_Int[c_int32]
+    FinishTimeMin: C_Int[c_int32]
+    FinishTimeMinRandomRange: C_Int[c_int32]
+    FinishTimeMax: C_Int[c_int32]
+    FinishTimeMaxRandomRange: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::MasterRaceCourseSet.RaceCourseSet')
+class RaceCourseSetObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: RaceCourseSetFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.RaceInfo
+# ---------------------------------------------------------------------------
+
+class RaceInfoFields(CStructureDataclass):
+    raceType: Annotated[C_Int[c_int32], RaceType]
+    isExistPlayerRace: C_Int[c_bool]
+    isExistGhostRace: C_Int[c_bool]
+    isExistFollowRace: C_Int[c_bool]
+    isMultiplePlayerRace: C_Int[c_bool]
+    randomSeed: C_Int[c_int32]
+    singleRaceProgramId: C_Int[c_int32]
+    opponentEvaluate: C_Int[c_int32]
+    selfEvaluate: C_Int[c_int32]
+    supportCardScoreBonus: C_Int[c_int32]
+    scoreCalcTeamId: C_Int[c_int32]
+    raceNo: C_Int[c_int32]
+    raceCourseSet: C_Ptr[RaceCourseSetObject]
+    _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # fenceSet, raceTrack
+    goalGate: C_Int[c_int32]
+    goalGateFlower: C_Int[c_int32]
+    initialLaneType: Annotated[C_Int[c_int32], InitialLaneType]
+    rotationCategory: Annotated[C_Int[c_int32], Rotation]
+    resultBoardConditionType: Annotated[C_Int[c_int32], ResultBoardConditionType]
+    courseSectionDistance: C_Float[c_float]
+    courseDistanceType: Annotated[C_Int[c_int32], CourseDistanceType]
+    courseFurlongNum: C_Int[c_int32]
+    isHalfGate: C_Int[c_bool]
+    isHorseNumVariationGate: C_Int[c_bool]
+    turfVisionType: Annotated[C_Int[c_int32], TurfVisionType]
+    groundCondition: Annotated[C_Int[c_int32], RaceGroundCondition]
+    weather: Annotated[C_Int[c_int32], RaceWeather]
+    season: Annotated[C_Int[c_int32], BgSeason]
+    time: Annotated[C_Int[c_int32], RaceTime]
+    baseSpeed: C_Float[c_float]
+    borderTimeScaled: C_Float[c_float]
+    challengeMatchDifficulty: Annotated[C_Int[c_int32], RaceDifficulty]
+    numRaceHorses: C_Int[c_int32]
+    postNumberMax: C_Int[c_int32]
+    playerHorseIndex: C_Int[c_int32]
+    overridePlayerHorseIndex: C_Int[c_int32]
+    playerTeamMemberArray: GenericArrayPtr[C_Ptr[HorseDataObject]]
+    playerTeamTopFinishOrderHorse: C_Ptr[HorseDataObject]
+    isGateInPopularityInitialized: C_Int[c_bool]
+    raceHorse: GenericArrayPtr[C_Ptr[HorseDataObject]]
+    _ignored_2: ArrayType[C_UDeclPtr, L[3]]  # raceBibMaster, raceMaster, raceInstanceMaster
+    simDataBase64: SystemStringObjectPtr
+    _ignored_3: ArrayType[C_UDeclPtr, L[2]]  # simData, simReader
+    episodeRaceReplayId: C_Int[c_int32]
+    isNotSimulateExport: C_Int[c_bool]
+    laneDistanceMax: C_Float[c_float]
+    _ignored_4: ArrayType[C_UDeclPtr, L[3]]  # replayCheckInfo, replayCheckInfoDaily, replayCheckInfoLegend
+    isDailyLegendRace: C_Int[c_bool]
+    _ignored_5: ArrayType[C_UDeclPtr, L[2]]  # replayCheckInfoChallengeMatch, raceRewardSingle
+    resultHorseIndex: C_Int[c_int32]
+    prevGradeType: Annotated[C_Int[c_int32], CharaGradeType]
+    mainStoryRaceGimmickType: Annotated[C_Int[c_int32], MainStoryRaceGimmickType]
+    isMainStoryRaceMatchGimmick: C_Int[c_bool]
+    unlockFlags: C_Int[c_uint32]
+    _ignored_6: C_UDeclPtr  # phaseCalculator
+    horseIndexByFinishOrder: GenericArrayPtr[c_int32]
+    horseIndexByPopularity: GenericArrayPtr[c_int32]
+
+
+@register_runtime_validatable('Gallop::RaceInfo')
+class RaceInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: RaceInfoFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.RaceManager object hierarchy
+# ---------------------------------------------------------------------------
+
+class RaceManagerStaticFields(CStructureDataclass):
+    raceInfo: C_Ptr[RaceInfoObject]
+
+
+class RaceManagerFields(CStructureDataclass):
+    pass  # stub - we don't need fields for now
+
+
+@register_runtime_validatable('Gallop::RaceManager')
+class RaceManagerObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: RaceManagerFields
+
+
+class RaceManagerSingletonStaticFields(CStructureDataclass):
+    _isApplicationQuit: C_Int[c_bool]
+    _instance: C_Ptr[RaceManagerObject]
+    _parentObject: C_UDeclPtr
+
+
+@register_runtime_validatable('Gallop::MonoSingleton`1<Gallop::RaceManager>')
+class RaceManagerSingleton(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject

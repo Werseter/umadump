@@ -1,23 +1,30 @@
-"""JSON decoders for API-shaped umadump output."""
+"""JSON decoders for umadump output."""
 from __future__ import annotations
 
-import hashlib
+import re
 from ctypes import c_int32
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
+from enum import IntEnum
 from typing import Any, Optional
 
 from ctypes_utils import C_Ptr
-from game_structs import (AcquiredSkillObject, CardDataDictionaryEntry, FactorDataObject,
-                          FactorDataUpgradeHistoryObject, FactorInfoObject, FavoriteDataDictionaryEntry,
-                          FriendDataObject, GenericArrayPtr, GenericDictionary, GenericList, HintLevelDictionaryEntry,
-                          RaceHistoryInfoObject, RaceHorseDataObject, RaceHorseDataRaceResultObject, SkillDataObject,
+from game_structs import (AcquiredSkillObject, BgSeason, CardDataDictionaryEntry, CardRarity, CharaGradeType,
+                          CourseDistanceType, DefeatType, FactorDataObject, FactorDataUpgradeHistoryObject,
+                          FactorInfoObject, FavoriteDataDictionaryEntry, FriendDataObject, GenericArrayPtr,
+                          GenericDictionary, GenericList, HintLevelDictionaryEntry, HorseDataObject, InitialLaneType,
+                          MainStoryRaceGimmickType, ProperGrade, RaceCourseSetObject, RaceDifficulty,
+                          RaceGroundCondition, RaceHistoryInfoObject, RaceHorseDataObject,
+                          RaceHorseDataRaceResultObject, RaceInfoObject, RaceManagerStaticFields, RaceMotivation,
+                          RaceParameterObject, RaceRunningType, RaceTime, RaceType, RaceWeather,
+                          ResultBoardConditionType, Rotation, RunningStyleEx, SkillDataObject,
                           SuccessionCharaDataObject, SuccessionCharaPosition, SuccessionHistoryObject,
                           SupportCardDataDictionaryEntry, TeamStadiumRaceCharaResultObject, TeamStadiumRaceResultObject,
                           TeamStadiumResultBonusDataObject, TeamStadiumResultObject, TeamStadiumResultScoreDataObject,
                           TrainedCharaDataDictionaryEntry, TrainedCharaDataObject, TrainedCharaSupportCardDataObject,
-                          TrophyDataCharaIdListDictionaryEntry, TrophyDataDictionaryEntry, WorkDataManagerObject,
-                          WorkFriendDataObject, WorkTeamStadiumDataObject, WorkTeamStadiumOpponentDataObject)
+                          TrophyDataCharaIdListDictionaryEntry, TrophyDataDictionaryEntry, TurfVisionType,
+                          WorkDataManagerObject, WorkFriendDataObject, WorkTeamStadiumDataObject,
+                          WorkTeamStadiumOpponentDataObject)
 from logger import logger
 
 JST = timezone(timedelta(hours=9), "JST")
@@ -666,10 +673,8 @@ class RaceReplayOutput:
     payload: dict[str, Any]
 
 
-def _team_stadium_match_key(race_result_array: list[dict[str, Any]]) -> str:
-    race_scenario_digest_source = "|".join(race_result["race_scenario"] for race_result in race_result_array)
-    race_scenario_digest = hashlib.sha1(race_scenario_digest_source.encode("utf-8")).hexdigest()[:12]
-    return f"team_stadium/{race_scenario_digest}"
+def _team_stadium_match_key() -> str:
+    return f"team_stadium/TT-{datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]}"
 
 
 def _decode_team_stadium_result_bonus_data(entry: TeamStadiumResultBonusDataObject) -> dict[str, int]:
@@ -745,10 +750,10 @@ def _decode_team_stadium_race_result(race_result_obj: TeamStadiumRaceResultObjec
     return race_start_params, race_result
 
 
-def _decode_team_stadium_replays(
+def _decode_team_stadium_replay_data(
         team_stadium_data: WorkTeamStadiumDataObject,
         team_stadium_opponent_data: WorkTeamStadiumOpponentDataObject,
-        team_stadium_result: TeamStadiumResultObject) -> list[RaceReplayOutput]:
+        team_stadium_result: TeamStadiumResultObject) -> Optional[RaceReplayOutput]:
     support_card_bonus = 0
     if support_card_bonus_info_ptr := team_stadium_data.fields.teamStadiumSupportCardBonusInfo:
         support_card_bonus = support_card_bonus_info_ptr.contents.fields.totalSupportCardBonus
@@ -769,7 +774,7 @@ def _decode_team_stadium_replays(
             race_result_array.append(race_result)
 
     if not race_start_params_array:
-        return []
+        return None
 
     match_payload = {
         "use_item_id_array": [x.value for x in team_stadium_result.fields.useItemIdArray],
@@ -787,32 +792,35 @@ def _decode_team_stadium_replays(
         "opponent_info_copy": {},
         "opponent_chara_info_array_latest_copy": [],
     }
-    return [RaceReplayOutput(
-            key=_team_stadium_match_key(race_result_array),
-            # payload={"data": match_payload}, -- envelope skipped for TT races
+    return RaceReplayOutput(
+            key=_team_stadium_match_key(),
             payload=match_payload,
-    )]
+    )
 
 
-def decode_race_replays(wdm: WorkDataManagerObject) -> list[RaceReplayOutput]:
-    """Collect API-like race replay payloads from known WorkDataManager sub-structures."""
+def _decode_team_stadium_replay(wdm: WorkDataManagerObject) -> Optional[RaceReplayOutput]:
     if not (team_stadium_data_ptr := wdm.fields.teamStadiumData):
-        return []
+        return None
     team_stadium_data = team_stadium_data_ptr.contents
 
     if not (team_stadium_status_ptr := team_stadium_data.fields.teamStadiumStatus):
-        return []
+        return None
     team_stadium_status = team_stadium_status_ptr.contents
 
     if not (team_stadium_opponent_data_ptr := team_stadium_status.fields.opponentData):
-        return []
+        return None
     team_stadium_opponent_data = team_stadium_opponent_data_ptr.contents
 
-    if not (team_stadium_result_ptr := team_stadium_status_ptr.contents.fields.result):
-        return []
+    if not (team_stadium_result_ptr := team_stadium_status.fields.result):
+        return None
     team_stadium_result = team_stadium_result_ptr.contents
 
-    return _decode_team_stadium_replays(team_stadium_data, team_stadium_opponent_data, team_stadium_result)
+    return _decode_team_stadium_replay_data(team_stadium_data, team_stadium_opponent_data, team_stadium_result)
+
+
+def decode_team_stadium_replay(wdm: WorkDataManagerObject) -> Optional[RaceReplayOutput]:
+    """Decode the resident WorkDataManager TeamStadium replay payload, if present."""
+    return _decode_team_stadium_replay(wdm)
 
 
 def _decode_skill_data_entry(entry: SkillDataObject) -> dict[str, int]:
@@ -888,3 +896,184 @@ def _decode_race_horse_data_entry(entry: RaceHorseDataObject) -> dict[str, Any]:
         "motivation_change_flag": f.motivation_change_flag,
         "frame_order_change_flag": f.frame_order_change_flag,
     }
+
+
+def _enum_name(enum_cls: type[IntEnum], value: int) -> str:
+    try:
+        member = enum_cls(value)
+    except ValueError:
+        return "UNKNOWN"
+    return member.name
+
+
+def _decode_race_course_set(value: RaceCourseSetObject) -> dict[str, int]:
+    f = value.fields
+
+    return {
+        "id": f.Id,
+        "raceTrackId": f.RaceTrackId,
+        "distance": f.Distance,
+        "ground": f.Ground,
+        "inout": f.Inout,
+        "turn": f.Turn,
+        "fenceSet": f.FenceSet,
+        "floatLaneMax": f.FloatLaneMax,
+        "courseSetStatusId": f.CourseSetStatusId,
+        "finishTimeMin": f.FinishTimeMin,
+        "finishTimeMinRandomRange": f.FinishTimeMinRandomRange,
+        "finishTimeMax": f.FinishTimeMax,
+        "finishTimeMaxRandomRange": f.FinishTimeMaxRandomRange,
+    }
+
+
+def _decode_race_parameter(value: RaceParameterObject) -> dict[str, int | float | str]:
+    f = value.fields
+
+    return {
+        "rawSpeed": f.rawSpeed,
+        "rawStamina": f.rawStamina,
+        "rawPow": f.rawPow,
+        "rawGuts": f.rawGuts,
+        "rawWiz": f.rawWiz,
+        "baseSpeed": f.baseSpeed,
+        "baseStamina": f.baseStamina,
+        "basePow": f.basePow,
+        "baseGuts": f.baseGuts,
+        "baseWiz": f.baseWiz,
+        "motivation": _enum_name(RaceMotivation, f.motivation),
+        "motivationCoef": f.motivationCoef,
+    }
+
+
+def _decode_horse_data_entry(entry: HorseDataObject) -> dict[str, Any]:
+    f = entry.fields
+
+    return {
+        "horseIndex": f.horseIndex,
+        "postNumber": f.postNumber,
+        "charaId": f.charaId,
+        "charaName": f.charaName.value,
+        "finishOrder": f.finishOrder,
+        "finishTimeRaw": f.finishTimeRaw,
+        "finishTimeScaled": f.finishTimeScaled,
+        "finishDiffTimeFromPrev": f.finishDiffTimeFromPrev,
+        "raceParam": _decode_race_parameter(f.raceParam.contents),
+        "responseHorseData": _decode_race_horse_data_entry(f.responseHorseData.contents),
+        "popularity": f.popularity,
+        "popularityRankLeft": f.popularityRankLeft,
+        "popularityRankCenter": f.popularityRankCenter,
+        "popularityRankRight": f.popularityRankRight,
+        "gateInPopularity": f.gateInPopularity,
+        "rarity": _enum_name(CardRarity, f.rarity),
+        "trainerName": f.trainerName.value if f.responseHorseData.contents.fields.viewer_id != 0 else "",
+        "isGhost": bool(f.isGhost),
+        "isRunningStyleExInitialized": bool(f.isRunningStyleExInitialized),
+        "runningStyleEx": _enum_name(RunningStyleEx, f.runningStyleEx),
+        "defeat": _enum_name(DefeatType, f.defeat),
+        "raceDressId": f.raceDressId,
+        "raceDressIdWithOption": f.raceDressIdWithOption,
+        "runningType": _enum_name(RaceRunningType, f.runningType),
+        "activeProperDistance": _enum_name(ProperGrade, f.activeProperDistance),
+        "activeProperGroundType": _enum_name(ProperGrade, f.activeProperGroundType),
+        "mobId": f.mobId,
+        "raceRecord": {},
+        "finishOrderRawScore": f.finishOrderRawScore,
+        "trainedCharaData": {},  # this should be redundant with responseHorseData
+    }
+
+
+def decode_race_info(race_info_obj: RaceInfoObject) -> dict[str, Any]:
+    f = race_info_obj.fields
+
+    return {
+        "raceType": _enum_name(RaceType, f.raceType),
+        "isExistPlayerRace": bool(f.isExistPlayerRace),
+        "isExistGhostRace": bool(f.isExistGhostRace),
+        "isExistFollowRace": bool(f.isExistFollowRace),
+        "isMultiplePlayerRace": bool(f.isMultiplePlayerRace),
+        "randomSeed": f.randomSeed,
+        "singleRaceProgramId": f.singleRaceProgramId,
+        "opponentEvaluate": f.opponentEvaluate,
+        "selfEvaluate": f.selfEvaluate,
+        "supportCardScoreBonus": f.supportCardScoreBonus,
+        "scoreCalcTeamId": f.scoreCalcTeamId,
+        "raceNo": f.raceNo,
+        "raceCourseSet": _decode_race_course_set(f.raceCourseSet.contents),
+        "fenceSet": {},
+        "raceTrack": {},
+        "goalGate": f.goalGate,
+        "goalGateFlower": f.goalGateFlower,
+        "initialLaneType": _enum_name(InitialLaneType, f.initialLaneType),
+        "rotationCategory": _enum_name(Rotation, f.rotationCategory),
+        "resultBoardConditionType": _enum_name(ResultBoardConditionType, f.resultBoardConditionType),
+        "courseSectionDistance": f.courseSectionDistance,
+        "courseDistanceType": _enum_name(CourseDistanceType, f.courseDistanceType),
+        "courseFurlongNum": f.courseFurlongNum,
+        "isHalfGate": bool(f.isHalfGate),
+        "isHorseNumVariationGate": bool(f.isHorseNumVariationGate),
+        "turfVisionType": _enum_name(TurfVisionType, f.turfVisionType),
+        "groundCondition": _enum_name(RaceGroundCondition, f.groundCondition),
+        "weather": _enum_name(RaceWeather, f.weather),
+        "season": _enum_name(BgSeason, f.season),
+        "time": _enum_name(RaceTime, f.time),
+        "baseSpeed": f.baseSpeed,
+        "borderTimeScaled": f.borderTimeScaled,
+        "challengeMatchDifficulty": _enum_name(RaceDifficulty, f.challengeMatchDifficulty),
+        "numRaceHorses": f.numRaceHorses,
+        "postNumberMax": f.postNumberMax,
+        "playerHorseIndex": f.playerHorseIndex,
+        "overridePlayerHorseIndex": f.overridePlayerHorseIndex,
+        "playerTeamMemberArray": [_decode_horse_data_entry(x.contents) for x in f.playerTeamMemberArray],
+        "playerTeamTopFinishOrderHorse": _decode_horse_data_entry(f.playerTeamTopFinishOrderHorse.contents),
+        "isGateInPopularityInitialized": bool(f.isGateInPopularityInitialized),
+        "raceHorse": [_decode_horse_data_entry(x.contents) for x in f.raceHorse],
+        "raceBibMaster": {},
+        "raceMaster": {},
+        "raceInstanceMaster": {},
+        "simDataBase64": f.simDataBase64.value,
+        "simData": {},
+        "simReader": {},
+        "episodeRaceReplayId": f.episodeRaceReplayId,
+        "isNotSimulateExport": bool(f.isNotSimulateExport),
+        "laneDistanceMax": f.laneDistanceMax,
+        "replayCheckInfo": {},
+        "replayCheckInfoDaily": {},
+        "replayCheckInfoLegend": {},
+        "isDailyLegendRace": bool(f.isDailyLegendRace),
+        "replayCheckInfoChallengeMatch": {},
+        "raceRewardSingle": {},
+        "resultHorseIndex": f.resultHorseIndex,
+        "prevGradeType": _enum_name(CharaGradeType, f.prevGradeType),
+        "mainStoryRaceGimmickType": _enum_name(MainStoryRaceGimmickType, f.mainStoryRaceGimmickType),
+        "isMainStoryRaceMatchGimmick": bool(f.isMainStoryRaceMatchGimmick),
+        "unlockFlags": f.unlockFlags,
+        "phaseCalculator": {},
+        "horseIndexByFinishOrder": [x.value for x in f.horseIndexByFinishOrder],
+        "horseIndexByPopularity": [x.value for x in f.horseIndexByPopularity],
+    }
+
+
+def _safe_filename_component(name: str) -> str:
+    safe_name = re.sub(r"[^A-Za-z0-9 -]+", "_", name).strip()
+    return safe_name or "Unknown"
+
+
+def _race_type_folder(race_type: object) -> str:
+    return f"{re.sub(r'(?<!^)(?=[A-Z])', '_', str(race_type or 'Other')).lower()}_race"
+
+
+def _race_info_replay_key(payload: dict[str, Any], winner: dict[str, Any]) -> str:
+    folder = _race_type_folder(payload["raceType"])
+    name = str(winner["charaName"]) or "Unknown"
+    raw_time = float(winner["finishTimeRaw"])
+    date_str = datetime.now().strftime("%Y%m%d")
+    return f"{folder}/{_safe_filename_component(name)}-{raw_time:.4f}s-{date_str}"
+
+
+def decode_race_info_replay(race_manager_static: RaceManagerStaticFields) -> RaceReplayOutput:
+    """Decode the current live RaceInfo replay."""
+
+    payload = decode_race_info(race_manager_static.raceInfo.contents)
+    winner = next(horse for horse in payload["raceHorse"] if horse["finishOrder"] == 0)
+
+    return RaceReplayOutput(key=_race_info_replay_key(payload, winner), payload=payload)

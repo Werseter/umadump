@@ -134,6 +134,20 @@ class C_Int[CDT: StructOrSimple](int):
         return item  # Just return the type itself (e.g. c_int32) for wrapper purposes
 
 
+# noinspection PyPep8Naming
+class C_Float[CDT: StructOrSimple](float):
+    """
+    Wrapper for implicit runtime __ctypes_from_outparam__ conversion of c_float/c_double types to
+    Python float on metadata struct fields.
+    """
+
+    @classmethod
+    def __class_getitem__(cls, item: type[CDT]) -> type[float]:
+        if TYPE_CHECKING:
+            return float  # type hinting only; never actually used at runtime
+        return item  # Just return the type itself (e.g. c_float) for wrapper purposes
+
+
 PointerReader = Callable[[int, int], bytes]
 
 

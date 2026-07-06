@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-WorkDataManager singleton resolver.
+WorkDataManager singleton resolver plus RaceManager static-field resolver.
 
 Supports live mode (process memory reads) and offline mode (full-memory minidump).
-Walks Il2CppMetadataRegistration to locate Gallop.Singleton<WorkDataManager>._instance.
+Walks Il2CppMetadataRegistration for generic singletons and CodeRegistration for
+RaceManager static fields.
 """
 from __future__ import annotations
 
@@ -16,13 +17,15 @@ from pathlib import Path
 from typing import Any, Callable, Optional, cast as type_cast
 
 from ctypes_utils import C_Ptr, StructOrSimple
-from game_structs import WorkDataManagerObject, WorkDataManagerSingletonStaticFields
+from game_structs import (RaceManagerObject, RaceManagerSingletonStaticFields, RaceManagerStaticFields,
+                          WorkDataManagerObject, WorkDataManagerSingletonStaticFields)
 from il2cpp_runtime import build_resolver, setup_memory
 from il2cpp_structs import (RuntimeIl2CppClass, RuntimeIl2CppGenericClass, RuntimeIl2CppGenericInst,
                             RuntimeIl2CppMetadataRegistration, RuntimeIl2CppType)
 from il2cpp_utils import Il2CppResolutionManager
-from json_encoders import (RaceReplayOutput, decode_card_data_dictionary, decode_friend_data, decode_race_replays,
-                           decode_support_card_dictionary, decode_trained_chara_dictionary, decode_trophy_data)
+from json_encoders import (RaceReplayOutput, decode_card_data_dictionary, decode_friend_data, decode_race_info_replay,
+                           decode_support_card_dictionary, decode_team_stadium_replay, decode_trained_chara_dictionary,
+                           decode_trophy_data)
 from logger import configure_logging, logger
 from memory import MemoryReader, TransientMemoryReadError
 from schema_validation import TransientRuntimeValidationError
@@ -91,9 +94,18 @@ WORKDATAMANAGER_SINGLETON_SPEC = SingletonSpec(
         output_type=WorkDataManagerObject,
 )
 
+RACEMANAGER_SINGLETON_SPEC = SingletonSpec(
+        name="racemanager",
+        target_type="RaceManager",
+        static_fields_type=RaceManagerSingletonStaticFields,
+        output_type=RaceManagerObject,
+        singleton_class="MonoSingleton`1",
+)
+
 SINGLETON_SPEC_REGISTRY: dict[str, SingletonSpec[Any]] = {
     spec.name: spec for spec in (
         WORKDATAMANAGER_SINGLETON_SPEC,
+        RACEMANAGER_SINGLETON_SPEC,
     )
 }
 
@@ -294,20 +306,27 @@ def _extract_trophy_data(ctx: ExtractionContext) -> list[dict[str, Any]]:
     return trophies
 
 
-def _extract_race_replays(ctx: ExtractionContext) -> list[RaceReplayOutput]:
+def _extract_team_stadium_replay(ctx: ExtractionContext) -> Optional[RaceReplayOutput]:
     wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
-    replays = decode_race_replays(wdm)
-    logger.info("Decoded %d race replay payloads", len(replays))
-    return replays
+    replay = decode_team_stadium_replay(wdm)
+    logger.info("Decoded %d Team Stadium replay payloads", 1 if replay else 0)
+    return replay
 
 
-def _race_replay_key(replay: RaceReplayOutput) -> str:
+def _replay_output_key(replay: RaceReplayOutput) -> str:
     return replay.key
 
 
 def _write_race_replay_json(output_folder: Path, key: str, replay: RaceReplayOutput) -> None:
     output_path = output_folder / f"{key}.json"
     _write_json_file(f"{output_folder.name}[{key}]", output_path, replay.payload)
+
+
+def _extract_race_info_replay(ctx: ExtractionContext) -> Optional[RaceReplayOutput]:
+    race_manager_static = ctx.roots.get("racemanager_static")
+    if not race_manager_static:
+        return None
+    return decode_race_info_replay(race_manager_static.contents)
 
 
 EXTRACTORS: tuple[Extractor[Any, Any], ...] = (
@@ -337,17 +356,27 @@ EXTRACTORS: tuple[Extractor[Any, Any], ...] = (
             extract=_extract_trophy_data,
     ),
     Extractor(
-            name="race_replays",
+            name="team_stadium_replay",
             output_folder=Path("race_replays"),
-            extract=_extract_race_replays,
-            key_fn=_race_replay_key,
+            extract=_extract_team_stadium_replay,
+            key_fn=_replay_output_key,
+            writer=_write_race_replay_json,
+    ),
+    Extractor(
+            name="race_info_replay",
+            output_folder=Path("race_replays"),
+            extract=_extract_race_info_replay,
+            key_fn=_replay_output_key,
             writer=_write_race_replay_json,
     ),
 )
 
+RACEMANAGER_STATIC_ROOT = "racemanager_static"
+
 
 def _init_singleton_roots() -> ResolvedSingletonRoots:
     roots: ResolvedSingletonRoots = {spec.name: None for spec in SINGLETON_SPEC_REGISTRY.values()}
+    roots[RACEMANAGER_STATIC_ROOT] = None
     return roots
 
 
@@ -359,6 +388,17 @@ def _refresh_singleton_roots(
     for spec in SINGLETON_SPEC_REGISTRY.values():
         if roots.get(spec.name) is None:
             roots[spec.name] = resolve_singleton(resolver, spec, singleton_index)
+
+    if roots.get(RACEMANAGER_STATIC_ROOT) is not None:
+        return
+
+    roots[RACEMANAGER_STATIC_ROOT] = resolver.static_fields_from_instance_or_typeinfo_method(
+            roots.get(RACEMANAGER_SINGLETON_SPEC.name),
+            "Gallop",
+            "RaceManager",
+            RaceManagerStaticFields,
+            "get_RaceInfo",
+    )
 
 
 def _dump_from_singleton_roots(roots: ResolvedSingletonRoots) -> float:
