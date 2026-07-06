@@ -44,9 +44,9 @@ Public function
 from __future__ import annotations
 
 import re
-from ctypes import CField, c_int32
+from ctypes import CField, c_int32, sizeof
 from enum import IntEnum
-from typing import Any, Callable, ClassVar, Optional, Protocol, get_type_hints
+from typing import Any, Callable, ClassVar, Optional, Protocol, cast as type_cast, get_type_hints
 
 from ctypes_utils import CStructureDataclass, C_Ptr
 from il2cpp_structs import Il2CppFieldDefinition, RuntimeIl2CppClass, RuntimeIl2CppObject, RuntimeIl2CppType
@@ -411,6 +411,60 @@ def _iter_expected_registered_fields(cls: type[Any]) -> list[tuple[str, int, obj
     return expected
 
 
+def _registered_instance_fields_type(cls: type[Any]) -> type[CStructureDataclass] | None:
+    cls_fields: Optional[CField[CStructureDataclass, Any, Any]] = getattr(cls, "fields", None)
+    if cls_fields is not None:
+        return cls_fields.type
+    if getattr(cls, "_fields_", ()):
+        return type_cast(type[CStructureDataclass], cls)
+    return None
+
+
+def _registered_field_storage_tail_offset(fields_type: type[CStructureDataclass]) -> int | None:
+    tail_offset: int | None = None
+    for field_name, _field_type in getattr(fields_type, "_fields_", ()):
+        field_desc = getattr(fields_type, field_name)
+        field_offset = int(field_desc.offset)
+        field_storage_type = field_desc.type
+        array_length = getattr(field_storage_type, "_length_", None)
+        array_item_type = getattr(field_storage_type, "_type_", None)
+        if isinstance(array_length, int) and array_length > 0 and array_item_type is not None:
+            # noinspection PyTypeChecker
+            field_tail_offset = field_offset + (array_length - 1) * sizeof(array_item_type)
+        else:
+            field_tail_offset = field_offset
+        tail_offset = field_tail_offset if tail_offset is None else max(tail_offset, field_tail_offset)
+    return tail_offset
+
+
+def _validate_registered_layout_covers_metadata_tail(full_name: str, cls: type[Any],
+                                                     metadata_fields_by_offset: dict[int, set[str]]) -> None:
+    fields_type = _registered_instance_fields_type(cls)
+    if fields_type is None:
+        return
+
+    wrapper_size = sizeof(fields_type)
+    max_metadata_offset = max(metadata_fields_by_offset.keys())
+    if max_metadata_offset >= wrapper_size:
+        logger.debug(
+                "%s metadata has instance fields beyond registered ctypes layout size %d "
+                "(metadata_tail_offset=%d)",
+                full_name,
+                wrapper_size,
+                max_metadata_offset,
+        )
+
+    wrapper_tail_offset = _registered_field_storage_tail_offset(fields_type)
+    if wrapper_tail_offset is not None and wrapper_tail_offset > max_metadata_offset:
+        logger.debug(
+                "%s ctypes layout has fields beyond metadata tail offset %d "
+                "(wrapper_tail_offset=%d)",
+                full_name,
+                max_metadata_offset,
+                wrapper_tail_offset,
+        )
+
+
 def _validate_registered_class(resolver: Il2CppResolutionManager, typedef_index: int, full_name: str,
                                cls: type[Any]) -> None:
     """Cross-check the Python ctypes wrapper *cls* against metadata field offsets.
@@ -449,6 +503,7 @@ def _validate_registered_class(resolver: Il2CppResolutionManager, typedef_index:
             logger.warning("%s field '%s' storage type mismatch: annotation=%s, ctypes=%s",
                            full_name, field_name, expected_storage_type, actual_storage_type)
 
+    _validate_registered_layout_covers_metadata_tail(full_name, cls, metadata_fields_by_offset)
     logger.debug("Validated registered class in metadata: %s (public fields checked=%d)", full_name, checked_public)
 
 

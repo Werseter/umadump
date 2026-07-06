@@ -981,6 +981,7 @@ class RaceHorseDataFields(CStructureDataclass):
     frame_order_change_flag: C_Int[c_int32]
     team_rank: C_Int[c_int32]
     single_mode_win_count: C_Int[c_int32]
+    fan_count: C_Int[c_int32]
 
 
 @register_runtime_validatable('Gallop::RaceHorseData')
@@ -1150,7 +1151,7 @@ class WorkTeamStadiumDataFields(CStructureDataclass):
     teamStadiumStatus: C_Ptr[TeamStadiumStatusObject]
     _ignored_2: ArrayType[C_UDeclPtr, L[6]]  # opponentDataList … teamStadiumMenuBgmInfo
     teamStadiumSupportCardBonusInfo: C_Ptr[TeamStadiumSupportCardBonusInfoObject]
-    _ignored_3: C_UDeclPtr  # teamEvaluationUpdateRankRewardArray
+    _ignored_3: ArrayType[C_UDeclPtr, L[2]]  # teamEvaluationUpdateRankRewardArray, updateTeamRankInfo
     _ignored_4: c_bool  # needNotifyBadge
     _ignored_5: ArrayType[C_UDeclPtr, L[2]]  # stadiumRaceCharaIdArray, prevMemberList
 
@@ -1166,17 +1167,17 @@ class WorkTeamStadiumDataObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class WorkDataManagerFields(CStructureDataclass):
-    _ignored_1: C_UDeclPtr  # UserData
+    _ignored_1: C_UDeclPtr  # userData
     friendData: C_Ptr[WorkFriendDataObject]
     cardData: C_Ptr[WorkCardDataObject]
     supportCardData: C_Ptr[WorkSupportCardDataObject]
-    _ignored_2: ArrayType[C_UDeclPtr, L[4]]  # CharaData … CircleData
+    _ignored_2: ArrayType[C_UDeclPtr, L[4]]  # charaData … itemData
     trainedCharaData: C_Ptr[WorkTrainedCharaDataObject]
-    _ignored_3: ArrayType[C_UDeclPtr, L[9]]  # WorkSingleModeData … WorkAnnounceData
+    _ignored_3: ArrayType[C_UDeclPtr, L[9]]  # singleMode … announceData
     trophy: C_Ptr[WorkTrophyDataObject]
     _ignored_4: ArrayType[C_UDeclPtr, L[4]]
     teamStadiumData: C_Ptr[WorkTeamStadiumDataObject]
-    _ignored_5: ArrayType[C_UDeclPtr, L[24]]  # WorkDirectoryData … TeamBuildingData
+    _ignored_5: ArrayType[C_UDeclPtr, L[30]]  # directoryData … factorResearchData
 
 
 @register_runtime_validatable('Gallop::WorkDataManager')
@@ -1442,7 +1443,7 @@ class ChampionsTempDataObject(CStructureDataclass):
 class TempDataFields(CStructureDataclass):
     _ignored_1: C_UDeclPtr  # championsClearMissionIdList
     championsData: C_Ptr[ChampionsTempDataObject]
-    _ignored_2: ArrayType[C_UDeclPtr, L[1]]  # TODO: precise mapping
+    _ignored_2: ArrayType[C_UDeclPtr, L[560]]  # TODO: precise mapping
 
 
 @register_runtime_validatable('Gallop::TempData')
