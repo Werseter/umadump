@@ -9,6 +9,7 @@ RaceManager static fields.
 from __future__ import annotations
 
 import argparse
+import gc
 import json
 import sys
 import time
@@ -502,6 +503,15 @@ def _dump_from_singleton_roots(
     return time.perf_counter() - t_start
 
 
+def _prepare_memory_pass(mem: MemoryReader) -> None:
+    mem.clear_cache()
+
+
+def _finish_memory_pass(mem: MemoryReader) -> None:
+    mem.clear_cache()
+    gc.collect()
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -552,13 +562,16 @@ def _run_live_reload_loop(
             logger.info("Target process has exited; stopping live reload")
             return
 
+        _prepare_memory_pass(mem)
         if pass_num > 1:
-            logger.info("Clearing memory cache before reload pass %d", pass_num)
-            mem.clear_cache()
+            logger.info("Refreshing singleton roots before reload pass %d", pass_num)
             _refresh_singleton_roots(resolver, singleton_index, roots)
 
         logger.info("Reload extractor pass %d", pass_num)
-        elapsed = _dump_from_singleton_roots(roots, state)
+        try:
+            elapsed = _dump_from_singleton_roots(roots, state)
+        finally:
+            _finish_memory_pass(mem)
         logger.info("Reload extractor pass %d completed in %.2fs", pass_num, elapsed)
 
         try:
@@ -589,13 +602,16 @@ def _run_live_daemon_loop(
     poll_interval = max(0.1, float(poll_interval))
     logger.info("Daemon mode started; polling every %.2fs", poll_interval)
     while mem.is_alive():
+        _prepare_memory_pass(mem)
         if pass_num > 1:
-            logger.debug("Clearing memory cache before daemon pass %d", pass_num)
-            mem.clear_cache()
+            logger.debug("Refreshing singleton roots before daemon pass %d", pass_num)
             _refresh_singleton_roots(resolver, singleton_index, roots)
 
         logger.debug("Daemon extractor pass %d", pass_num)
-        elapsed = _dump_from_singleton_roots(roots, state)
+        try:
+            elapsed = _dump_from_singleton_roots(roots, state)
+        finally:
+            _finish_memory_pass(mem)
         logger.debug("Daemon extractor pass %d completed in %.2fs", pass_num, elapsed)
 
         pass_num += 1
@@ -622,22 +638,35 @@ def main() -> None:
 
     with setup.mem:
         try:
-            resolver = build_resolver(setup.mem, setup.metadata_path)
+            try:
+                resolver = build_resolver(setup.mem, setup.metadata_path)
+            finally:
+                setup.mem.clear_cache()
+                gc.collect()
 
             if args.validate_only:
                 return
 
-            logger.info("Scanning %d generic class instantiations...", resolver.meta_reg.genericClassesCount)
-            singleton_index = _build_singleton_generic_index(resolver.meta_reg)
-            roots = _init_singleton_roots()
-            _refresh_singleton_roots(resolver, singleton_index, roots)
+            _prepare_memory_pass(setup.mem)
+            try:
+                logger.info("Scanning %d generic class instantiations...", resolver.meta_reg.genericClassesCount)
+                singleton_index = _build_singleton_generic_index(resolver.meta_reg)
+                roots = _init_singleton_roots()
+                _refresh_singleton_roots(resolver, singleton_index, roots)
+            finally:
+                _finish_memory_pass(setup.mem)
+
             rerun_mode = args.rerun_mode or ("once" if args.minidump else "prompt")
             if rerun_mode == "daemon":
                 _run_live_daemon_loop(setup.mem, resolver, singleton_index, roots, args.poll_interval)
             elif rerun_mode == "prompt":
                 _run_live_reload_loop(setup.mem, resolver, singleton_index, roots, args.poll_interval)
             else:
-                elapsed = _dump_from_singleton_roots(roots)
+                _prepare_memory_pass(setup.mem)
+                try:
+                    elapsed = _dump_from_singleton_roots(roots)
+                finally:
+                    _finish_memory_pass(setup.mem)
                 logger.info("Extractor pass completed in %.2fs", elapsed)
         finally:
             logger.info("Total time: %.2fs", time.perf_counter() - t_start)

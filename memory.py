@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 TARGET_PROCESS = "UmamusumePrettyDerby.exe"
 TARGET_MODULE = "GameAssembly.dll"
 POINTER_SIZE = 8  # x64 only
+DEFAULT_CACHE_FETCH_WINDOW_SIZE = 1 * 1024 * 1024
 
 
 class TransientMemoryReadError(RuntimeError):
@@ -101,6 +102,29 @@ class _ReaderMixin:
         raw = self.read(address, max_len)
         end = raw.find(b"\0")
         return raw[:end if end >= 0 else len(raw)].decode("utf-8", errors="replace")
+
+    def _cache_fetch_bounds(
+            self,
+            region_start: int,
+            region_end: int,
+            address: int,
+            min_size: int,
+            window_size: Optional[int] = None) -> tuple[int, int]:
+        """Return a bounded cache window that contains *address* and prefers read locality."""
+        region_start = int(region_start)
+        region_end = int(region_end)
+        address = int(address)
+        if region_end <= region_start:
+            raise RuntimeError(f"Invalid memory region: 0x{region_start:X}-0x{region_end:X}")
+        if not region_start <= address < region_end:
+            raise RuntimeError(f"0x{address:X} is outside memory region 0x{region_start:X}-0x{region_end:X}")
+
+        window_size = DEFAULT_CACHE_FETCH_WINDOW_SIZE if window_size is None else max(1, int(window_size))
+        min_size = max(1, int(min_size))
+        start_offset = ((address - region_start) // window_size) * window_size
+        fetch_start = region_start + start_offset
+        fetch_end = min(region_end, max(fetch_start + window_size, address + min_size))
+        return fetch_start, fetch_end
 
 
 class _ReadCache:
@@ -307,12 +331,15 @@ class MinidumpMemory(_RegionChunkScanMixin):
                     raise RuntimeError(f"0x{cursor:X} not in dump")
                 span_start = int(span.start_virtual_address)
                 span_end = int(span.end_virtual_address)
-                span_size = span_end - span_start
+                fetch_start, fetch_end = self._cache_fetch_bounds(span_start, span_end, cursor, end - cursor)
+                fetch_size = fetch_end - fetch_start
                 try:
-                    data = span.read(span_start, span_size, self._fh)
+                    data = span.read(fetch_start, fetch_size, self._fh)
                 except Exception:
                     raise
-                self._cache.insert(span_start, span_start + len(data), data)
+                if len(data) <= cursor - fetch_start:
+                    raise RuntimeError(f"0x{cursor:X} not covered by minidump read window")
+                self._cache.insert(fetch_start, fetch_start + len(data), data)
 
             block = self._cache.lookup(cursor)
             if block is None:
@@ -733,7 +760,7 @@ class WindowsProcessMemory(_RegionChunkScanMixin):
         while cursor < end_addr:
             # Populate the cache for the region containing cursor if not yet present.
             if self._cache.lookup(cursor) is None:
-                self._fetch_region_into_cache(cursor)
+                self._fetch_region_into_cache(cursor, end_addr - cursor)
 
             block = self._cache.lookup(cursor)
             if block is None:
@@ -749,8 +776,8 @@ class WindowsProcessMemory(_RegionChunkScanMixin):
 
         return bytes(out)
 
-    def _fetch_region_into_cache(self, address: int) -> None:
-        """Query and read the full committed readable region containing *address* into cache."""
+    def _fetch_region_into_cache(self, address: int, min_size: int) -> None:
+        """Query and read a bounded window from the committed readable region containing *address*."""
         mbi = _MEMORY_BASIC_INFORMATION()
         ret_len = c_size_t(0)
         status = _ntdll.NtQueryVirtualMemory(
@@ -773,26 +800,31 @@ class WindowsProcessMemory(_RegionChunkScanMixin):
         region_size = int(mbi.RegionSize)
         if region_size <= 0:
             raise RuntimeError(f"0x{address:X}: region size is zero")
+        region_end = region_base + region_size
+        fetch_start, fetch_end = self._cache_fetch_bounds(region_base, region_end, address, min_size)
+        fetch_size = fetch_end - fetch_start
 
-        buf = create_string_buffer(region_size)
+        buf = create_string_buffer(fetch_size)
         read_len = c_size_t(0)
         status = _ntdll.NtReadVirtualMemory(
                 self._process,
-                c_void_p(region_base),
+                c_void_p(fetch_start),
                 buf,
-                region_size,
+                fetch_size,
                 byref(read_len),
         )
         actual = int(read_len.value)
         read_ok = status >= 0 and actual > 0
+        if read_ok and actual <= address - fetch_start:
+            read_ok = False
         if not read_ok:
             raise TransientMemoryReadError(
-                    f"NtReadVirtualMemory(0x{region_base:X}, size={region_size}) failed "
+                    f"NtReadVirtualMemory(0x{fetch_start:X}, size={fetch_size}) failed "
                     f"(status=0x{status & 0xFFFFFFFF:08X}, read={actual})",
-                    address=region_base,
-                    size=region_size)
+                    address=fetch_start,
+                    size=fetch_size)
 
-        self._cache.insert(region_base, region_base + actual, bytes(buf.raw[:actual]))
+        self._cache.insert(fetch_start, fetch_start + actual, bytes(buf.raw[:actual]))
 
     @staticmethod
     def _find_pid_by_name(process_name: str) -> int:
@@ -964,7 +996,7 @@ class LinuxProcessMemory(_RegionChunkScanMixin):
 
         while cursor < end_addr:
             if self._cache.lookup(cursor) is None:
-                self._fetch_region_into_cache(cursor)
+                self._fetch_region_into_cache(cursor, end_addr - cursor)
 
             block = self._cache.lookup(cursor)
             if block is None:
@@ -1005,7 +1037,7 @@ class LinuxProcessMemory(_RegionChunkScanMixin):
 
         return bytes(buf.raw[:nread])
 
-    def _fetch_region_into_cache(self, address: int) -> None:
+    def _fetch_region_into_cache(self, address: int, min_size: int) -> None:
         region = self._region_containing(address)
 
         if region is None:
@@ -1014,14 +1046,22 @@ class LinuxProcessMemory(_RegionChunkScanMixin):
         if not region.readable:
             raise TransientMemoryReadError(f"Address 0x{address:X} is not readable", address=address)
 
-        data = self._read_remote(region.start, region.size)
+        fetch_start, fetch_end = self._cache_fetch_bounds(region.start, region.end, address, min_size)
+        fetch_size = fetch_end - fetch_start
+
+        data = self._read_remote(fetch_start, fetch_size)
         if not data:
             raise TransientMemoryReadError(
-                    f"Failed reading region 0x{region.start:X}-0x{region.end:X}",
-                    address=region.start,
-                    size=region.size)
+                    f"Failed reading region window 0x{fetch_start:X}-0x{fetch_end:X}",
+                    address=fetch_start,
+                    size=fetch_size)
+        if len(data) <= address - fetch_start:
+            raise TransientMemoryReadError(
+                    f"Read window 0x{fetch_start:X}-0x{fetch_end:X} did not cover 0x{address:X}",
+                    address=fetch_start,
+                    size=fetch_size)
 
-        self._cache.insert(region.start, region.start + len(data), data)
+        self._cache.insert(fetch_start, fetch_start + len(data), data)
 
     def _iter_scan_regions(self, start: int, end: int) -> Iterable[ScanRegion]:
         for seg_start, seg_end, region in self._iter_readable_regions(start, end - start):
