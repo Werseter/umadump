@@ -321,10 +321,17 @@ def _write_multi_output_payloads(extractor: Extractor[Any, Any, Any], payload: A
 
 
 def _is_empty_payload(payload: Any) -> bool:
+    def _is_container(value: Any) -> bool:
+        return isinstance(value, (dict, list, tuple, set))
+
     if payload is None:
         return True
-    if isinstance(payload, (dict, list, tuple, set)) and not payload:
+    if _is_container(payload) and not payload:
         return True
+    if isinstance(payload, dict):
+        container_values = [value for value in payload.values() if _is_container(value)]
+        if container_values and all(not value for value in container_values):
+            return True
     return False
 
 
