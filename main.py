@@ -26,7 +26,8 @@ from json_encoders import (RaceReplayOutput, decode_card_data_dictionary, decode
                            decode_friend_data, decode_race_replays, decode_support_card_dictionary,
                            decode_trained_chara_dictionary, decode_trophy_data)
 from logger import configure_logging, logger
-from memory import MemoryReader
+from memory import MemoryReader, TransientMemoryReadError
+from schema_validation import TransientRuntimeValidationError
 from update_check import CURRENT_VERSION, notify_if_update_available
 
 
@@ -252,6 +253,9 @@ def _run_extractors(extractors: tuple[Extractor[Any, Any], ...], data: Any) -> N
                     if not key:
                         continue
                     writer(extractor.output_folder, key, item)
+        except (TransientMemoryReadError, TransientRuntimeValidationError) as exc:
+            logger.warning("%s: transient memory state; extraction skipped: %s", extractor.name, exc)
+            continue
         except Exception:
             logger.exception("Error in extractor %s", extractor.name)
 

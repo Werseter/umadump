@@ -60,6 +60,10 @@ class RuntimeValidatableIl2CppClass(Protocol):
     _il2cpp_obj: RuntimeIl2CppObject
 
 
+class TransientRuntimeValidationError(RuntimeError):
+    """Raised when runtime validation observes an Il2Cpp object mid-update."""
+
+
 class RuntimeValidatableIl2CppClassManager:
     """
     Central registry for Il2Cpp wrapper classes that need schema or runtime validation.
@@ -116,11 +120,13 @@ class RuntimeValidatableIl2CppClassManager:
 def _runtime_validate_type_metadata_handle_access(instance: RuntimeValidatableIl2CppClass, attr_name: str) -> None:
     inst_type = type(instance)
     if not instance._il2cpp_obj.klass:
-        raise RuntimeError(f"{inst_type.__name__} has null _il2cpp_obj.klass while accessing '{attr_name}'")
+        raise TransientRuntimeValidationError(
+                f"{inst_type.__name__} has null _il2cpp_obj.klass while accessing '{attr_name}'"
+        )
     runtime_class_ptr = instance._il2cpp_obj.klass
     runtime_type_metadata_handle = runtime_class_ptr.contents.typeMetadataHandle.address
     if runtime_type_metadata_handle == 0:
-        raise RuntimeError(
+        raise TransientRuntimeValidationError(
                 f"{inst_type.__name__} has null _il2cpp_obj.klass.typeMetadataHandle "
                 f"while accessing '{attr_name}'"
         )

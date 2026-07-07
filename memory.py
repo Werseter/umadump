@@ -35,6 +35,15 @@ TARGET_MODULE = "GameAssembly.dll"
 POINTER_SIZE = 8  # x64 only
 
 
+class TransientMemoryReadError(RuntimeError):
+    """Raised when a live target memory read fails because the target changed."""
+
+    def __init__(self, message: str, *, address: int, size: Optional[int] = None) -> None:
+        super().__init__(message)
+        self.address = address
+        self.size = size
+
+
 # ---------------------------------------------------------------------------
 # Protocol
 # ---------------------------------------------------------------------------
@@ -728,8 +737,10 @@ class WindowsProcessMemory(_RegionChunkScanMixin):
 
             block = self._cache.lookup(cursor)
             if block is None:
-                raise RuntimeError(
-                        f"Failed to read 0x{cursor:X}: region not readable or not committed")
+                raise TransientMemoryReadError(
+                        f"Failed to read 0x{cursor:X}: region not readable or not committed",
+                        address=cursor,
+                        size=end_addr - cursor)
             block_start, block_end, block_data = block
             take = min(end_addr - cursor, block_end - cursor)
             off = cursor - block_start
@@ -751,11 +762,12 @@ class WindowsProcessMemory(_RegionChunkScanMixin):
                 byref(ret_len),
         )
         if status < 0:
-            raise RuntimeError(
-                    f"NtQueryVirtualMemory(0x{address:X}) failed (status=0x{status & 0xFFFFFFFF:08X})")
+            raise TransientMemoryReadError(
+                    f"NtQueryVirtualMemory(0x{address:X}) failed (status=0x{status & 0xFFFFFFFF:08X})",
+                    address=address)
 
         if not self._is_region_readable(mbi):
-            raise RuntimeError(f"0x{address:X} is in a non-readable region")
+            raise TransientMemoryReadError(f"0x{address:X} is in a non-readable region", address=address)
 
         region_base = int(mbi.BaseAddress or 0)
         region_size = int(mbi.RegionSize)
@@ -774,9 +786,11 @@ class WindowsProcessMemory(_RegionChunkScanMixin):
         actual = int(read_len.value)
         read_ok = status >= 0 and actual > 0
         if not read_ok:
-            raise RuntimeError(
+            raise TransientMemoryReadError(
                     f"NtReadVirtualMemory(0x{region_base:X}, size={region_size}) failed "
-                    f"(status=0x{status & 0xFFFFFFFF:08X}, read={actual})")
+                    f"(status=0x{status & 0xFFFFFFFF:08X}, read={actual})",
+                    address=region_base,
+                    size=region_size)
 
         self._cache.insert(region_base, region_base + actual, bytes(buf.raw[:actual]))
 
@@ -954,7 +968,7 @@ class LinuxProcessMemory(_RegionChunkScanMixin):
 
             block = self._cache.lookup(cursor)
             if block is None:
-                raise RuntimeError(f"Address 0x{cursor:X} not readable")
+                raise TransientMemoryReadError(f"Address 0x{cursor:X} not readable", address=cursor)
 
             block_start, block_end, block_data = block
             take = min(end_addr - cursor, block_end - cursor)
@@ -978,15 +992,16 @@ class LinuxProcessMemory(_RegionChunkScanMixin):
         if nread < 0:
             err = get_errno()
 
-            raise RuntimeError(
+            raise TransientMemoryReadError(
                     f"process_vm_readv("
                     f"pid={self._pid}, "
                     f"addr=0x{address:X}, "
                     f"size={size}"
                     f") failed: "
                     f"{os.strerror(err)} "
-                    f"(errno={err})"
-            )
+                    f"(errno={err})",
+                    address=address,
+                    size=size)
 
         return bytes(buf.raw[:nread])
 
@@ -994,14 +1009,17 @@ class LinuxProcessMemory(_RegionChunkScanMixin):
         region = self._region_containing(address)
 
         if region is None:
-            raise RuntimeError(f"Address 0x{address:X} is unmapped")
+            raise TransientMemoryReadError(f"Address 0x{address:X} is unmapped", address=address)
 
         if not region.readable:
-            raise RuntimeError(f"Address 0x{address:X} is not readable")
+            raise TransientMemoryReadError(f"Address 0x{address:X} is not readable", address=address)
 
         data = self._read_remote(region.start, region.size)
         if not data:
-            raise RuntimeError(f"Failed reading region 0x{region.start:X}-0x{region.end:X}")
+            raise TransientMemoryReadError(
+                    f"Failed reading region 0x{region.start:X}-0x{region.end:X}",
+                    address=region.start,
+                    size=region.size)
 
         self._cache.insert(region.start, region.start + len(data), data)
 
