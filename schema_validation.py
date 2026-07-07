@@ -52,7 +52,6 @@ from ctypes_utils import CStructureDataclass, C_Ptr
 from il2cpp_structs import Il2CppFieldDefinition, RuntimeIl2CppClass, RuntimeIl2CppObject, RuntimeIl2CppType
 from il2cpp_utils import Il2CppResolutionManager
 from logger import logger
-from memory import MemoryReader
 
 
 class RuntimeValidatableIl2CppClass(Protocol):
@@ -593,58 +592,3 @@ def _validate_registered_enums(resolver: Il2CppResolutionManager) -> None:
 def validate_registered_schema(resolver: Il2CppResolutionManager) -> None:
     _validate_registered_enums(resolver)
     _validate_registered_classes(resolver)
-
-
-# ---------------------------------------------------------------------------
-# Runtime validation
-# ---------------------------------------------------------------------------
-
-def _runtime_class_full_name(mem: MemoryReader,
-                             klass_ptr: C_Ptr[RuntimeIl2CppClass]) -> Optional[tuple[str, RuntimeIl2CppClass]]:
-    if not klass_ptr:
-        return None
-
-    runtime_class = klass_ptr.contents
-    if not runtime_class.name:
-        return None
-
-    class_name = runtime_class.name.as_string
-    namespace = runtime_class.namespaze.as_string
-    full_name = f"{namespace}.{class_name}" if namespace else class_name
-    return full_name, runtime_class
-
-
-def _validate_runtime_class_layout(mem: MemoryReader, instance_ptr: int, expected_full_name: str) -> None:
-    runtime_obj = C_Ptr[RuntimeIl2CppObject](instance_ptr).contents
-    runtime_info = _runtime_class_full_name(mem, runtime_obj.klass)
-    if runtime_info is None:
-        logger.warning("Could not resolve runtime class metadata for singleton instance")
-        return
-
-    runtime_full_name, runtime_class = runtime_info
-    if runtime_full_name != expected_full_name:
-        logger.warning("Runtime class-name mismatch: expected %s, got %s", expected_full_name, runtime_full_name)
-        return
-
-    registered_cls = RuntimeValidatableIl2CppClassManager._registered_schema_classes.get(expected_full_name)
-    if registered_cls is None:
-        logger.warning("Class %s is not registered for validation", expected_full_name)
-        return
-
-    logger.debug("Validated runtime class name: %s", expected_full_name)
-
-    fields_layout = None
-    for field_name, field_type in getattr(registered_cls, "_fields_", ()):  # object wrapper layout
-        if field_name == "fields":
-            fields_layout = field_type
-            break
-    if fields_layout is None:
-        return
-
-    expected_field_count = len(getattr(fields_layout, "_fields_", ()))
-    actual_field_count = int(runtime_class.field_count)
-    if expected_field_count != actual_field_count:
-        logger.warning("Field-count mismatch for %s: runtime=%d, registered=%d",
-                       expected_full_name, actual_field_count, expected_field_count)
-        return
-    logger.debug("Validated field count for %s: %d", expected_full_name, actual_field_count)
