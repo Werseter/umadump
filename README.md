@@ -118,6 +118,12 @@ Override with `--metadata-path` when using a minidump from a different machine.
 # Live mode (attaches to running game process)
 python main.py
 
+# Live mode, run once and exit
+python main.py --rerun-mode once
+
+# Live daemon mode, polling every 2 seconds and writing changed outputs
+python main.py --rerun-mode daemon --poll-interval 2
+
 # Dev mode from full-memory minidump
 python main.py --minidump "D:\path\to\dump.dmp" --metadata-path "D:\path\to\global-metadata.dat"
 

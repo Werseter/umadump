@@ -516,6 +516,10 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--metadata-path", help="global-metadata.dat path; required with --minidump")
     parser.add_argument("--no-update-check", action="store_true",
                         help="Skip the startup GitHub release check")
+    parser.add_argument("--rerun-mode", choices=("once", "prompt", "daemon"),
+                        help="Live rerun behavior. Defaults to prompt in live mode and once in minidump mode.")
+    parser.add_argument("--poll-interval", type=float, default=2.0,
+                        help="Seconds between daemon extraction passes")
     parser.add_argument("--validate-only", action="store_true",
                         help="Only validate registered classes and exit")
     parser.add_argument("-v", "--verbose", action="store_true",
@@ -523,6 +527,10 @@ def _parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if args.minidump and not args.metadata_path:
         parser.error("--metadata-path is required when using --minidump")
+    if args.minidump and args.rerun_mode in {"prompt", "daemon"}:
+        parser.error("--rerun-mode prompt/daemon requires live process mode")
+    if args.poll_interval <= 0:
+        parser.error("--poll-interval must be greater than 0")
     return args
 
 
@@ -534,7 +542,8 @@ def _run_live_reload_loop(
         mem: MemoryReader,
         resolver: Il2CppResolutionManager,
         singleton_index: dict[tuple[int, int], SingletonGenericClassMatch],
-        roots: ResolvedSingletonRoots) -> None:
+        roots: ResolvedSingletonRoots,
+        poll_interval: float) -> None:
     """Repeatedly rerun extractors using fixed singleton roots and fresh memory reads."""
     state = ExtractionRunState()
     pass_num = 1
@@ -553,14 +562,50 @@ def _run_live_reload_loop(
         logger.info("Reload extractor pass %d completed in %.2fs", pass_num, elapsed)
 
         try:
-            response = input("Press Enter to rescan, or type q then Enter to exit...")
+            response = input("Press Enter to rescan, type d for daemon mode, or type q then Enter to exit...")
         except EOFError:
             return
 
-        if response.strip().lower() in {"q", "quit", "exit"}:
+        response = response.strip().lower()
+        if response in {"q", "quit", "exit"}:
+            return
+        if response in {"d", "daemon"}:
+            _run_live_daemon_loop(mem, resolver, singleton_index, roots, poll_interval, state)
             return
 
         pass_num += 1
+
+
+def _run_live_daemon_loop(
+        mem: MemoryReader,
+        resolver: Il2CppResolutionManager,
+        singleton_index: dict[tuple[int, int], SingletonGenericClassMatch],
+        roots: ResolvedSingletonRoots,
+        poll_interval: float,
+        state: Optional[ExtractionRunState] = None) -> None:
+    """Run extractors repeatedly without prompting until the target exits."""
+    state = state or ExtractionRunState()
+    pass_num = 1
+    poll_interval = max(0.1, float(poll_interval))
+    logger.info("Daemon mode started; polling every %.2fs", poll_interval)
+    while mem.is_alive():
+        if pass_num > 1:
+            logger.debug("Clearing memory cache before daemon pass %d", pass_num)
+            mem.clear_cache()
+            _refresh_singleton_roots(resolver, singleton_index, roots)
+
+        logger.debug("Daemon extractor pass %d", pass_num)
+        elapsed = _dump_from_singleton_roots(roots, state)
+        logger.debug("Daemon extractor pass %d completed in %.2fs", pass_num, elapsed)
+
+        pass_num += 1
+        try:
+            time.sleep(poll_interval)
+        except KeyboardInterrupt:
+            logger.info("Stopping daemon mode")
+            return
+
+    logger.info("Target process has exited; stopping daemon mode")
 
 
 def main() -> None:
@@ -586,8 +631,11 @@ def main() -> None:
             singleton_index = _build_singleton_generic_index(resolver.meta_reg)
             roots = _init_singleton_roots()
             _refresh_singleton_roots(resolver, singleton_index, roots)
-            if not args.minidump:
-                _run_live_reload_loop(setup.mem, resolver, singleton_index, roots)
+            rerun_mode = args.rerun_mode or ("once" if args.minidump else "prompt")
+            if rerun_mode == "daemon":
+                _run_live_daemon_loop(setup.mem, resolver, singleton_index, roots, args.poll_interval)
+            elif rerun_mode == "prompt":
+                _run_live_reload_loop(setup.mem, resolver, singleton_index, roots, args.poll_interval)
             else:
                 elapsed = _dump_from_singleton_roots(roots)
                 logger.info("Extractor pass completed in %.2fs", elapsed)
