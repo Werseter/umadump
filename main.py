@@ -35,7 +35,7 @@ from json_encoders import (CardDataExtractionData, ExtractorFingerprint, Fingerp
                            resolve_trained_chara_extraction_data, resolve_trophy_data_extraction_data)
 from logger import configure_logging, logger
 from memory import MemoryReader, TransientMemoryReadError
-from schema_validation import TransientRuntimeValidationError
+from schema_validation import RuntimeValidatableIl2CppClassManager, TransientRuntimeValidationError
 from update_check import CURRENT_VERSION, notify_if_update_available
 
 
@@ -473,6 +473,49 @@ def _init_singleton_roots() -> ResolvedSingletonRoots:
     return roots
 
 
+def _invalidate_singleton_roots(roots: ResolvedSingletonRoots) -> None:
+    for name in roots:
+        roots[name] = None
+
+
+def _root_type_metadata_handle(root: C_Ptr[Any]) -> Optional[int]:
+    if not root:
+        return None
+    klass = root.contents._il2cpp_obj.klass
+    if not klass:
+        return None
+    type_metadata_handle = klass.contents.typeMetadataHandle.address
+    return int(type_metadata_handle) if type_metadata_handle else None
+
+
+def _cached_singleton_roots_are_valid(roots: ResolvedSingletonRoots) -> bool:
+    for spec in SINGLETON_SPEC_REGISTRY.values():
+        root = roots.get(spec.name)
+        if not root:
+            continue
+
+        expected_handle = RuntimeValidatableIl2CppClassManager.get_expected_type_metadata_handle(spec.output_type)
+        if expected_handle is None:
+            continue
+
+        try:
+            actual_handle = _root_type_metadata_handle(root)
+        except Exception as exc:
+            logger.debug("%s singleton root validation failed: %s", spec.name, exc)
+            return False
+
+        if actual_handle != expected_handle:
+            logger.info(
+                    "%s singleton root is stale; refreshing anchors (expected=0x%X, actual=%s)",
+                    spec.name,
+                    expected_handle,
+                    f"0x{actual_handle:X}" if actual_handle is not None else "null",
+            )
+            return False
+
+    return True
+
+
 def _refresh_singleton_roots(
         resolver: Il2CppResolutionManager,
         singleton_index: dict[tuple[int, int], SingletonGenericClassMatch],
@@ -492,6 +535,15 @@ def _refresh_singleton_roots(
             RaceManagerStaticFields,
             "get_RaceInfo",
     )
+
+
+def _refresh_live_singleton_roots(
+        resolver: Il2CppResolutionManager,
+        singleton_index: dict[tuple[int, int], SingletonGenericClassMatch],
+        roots: ResolvedSingletonRoots) -> None:
+    if not _cached_singleton_roots_are_valid(roots):
+        _invalidate_singleton_roots(roots)
+    _refresh_singleton_roots(resolver, singleton_index, roots)
 
 
 def _dump_from_singleton_roots(
@@ -565,7 +617,7 @@ def _run_live_reload_loop(
         _prepare_memory_pass(mem)
         if pass_num > 1:
             logger.info("Refreshing singleton roots before reload pass %d", pass_num)
-            _refresh_singleton_roots(resolver, singleton_index, roots)
+        _refresh_live_singleton_roots(resolver, singleton_index, roots)
 
         logger.info("Reload extractor pass %d", pass_num)
         try:
@@ -605,7 +657,7 @@ def _run_live_daemon_loop(
         _prepare_memory_pass(mem)
         if pass_num > 1:
             logger.debug("Refreshing singleton roots before daemon pass %d", pass_num)
-            _refresh_singleton_roots(resolver, singleton_index, roots)
+        _refresh_live_singleton_roots(resolver, singleton_index, roots)
 
         logger.debug("Daemon extractor pass %d", pass_num)
         try:
