@@ -235,6 +235,9 @@ def _run_extractors(extractors: tuple[Extractor[Any, Any], ...], data: Any) -> N
         logger.info("Running extractor: %s", extractor.name)
         try:
             payload = extractor.extract(data)
+            if _is_empty_payload(payload):
+                logger.debug("%s: empty payload; skipping write", extractor.name)
+                continue
             if extractor.output_path is not None:
                 _write_json_file(extractor.name, extractor.output_path, payload)
             elif extractor.output_folder is not None and extractor.key_fn is not None:
@@ -242,12 +245,23 @@ def _run_extractors(extractors: tuple[Extractor[Any, Any], ...], data: Any) -> N
                 writer = extractor.writer or _write_multi_output_json
                 payloads = payload if isinstance(payload, list) else [payload]
                 for item in payloads:
+                    if _is_empty_payload(item):
+                        logger.debug("%s: empty multi-output item; skipping write", extractor.name)
+                        continue
                     key = extractor.key_fn(item)
                     if not key:
                         continue
                     writer(extractor.output_folder, key, item)
         except Exception:
             logger.exception("Error in extractor %s", extractor.name)
+
+
+def _is_empty_payload(payload: Any) -> bool:
+    if payload is None:
+        return True
+    if isinstance(payload, (dict, list, tuple, set)) and not payload:
+        return True
+    return False
 
 
 def _extract_support_cards(ctx: ExtractionContext) -> list[dict[str, Any]]:
