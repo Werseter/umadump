@@ -12,7 +12,7 @@ import argparse
 import json
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Optional, cast as type_cast
 
@@ -23,9 +23,15 @@ from il2cpp_runtime import build_resolver, setup_memory
 from il2cpp_structs import (RuntimeIl2CppClass, RuntimeIl2CppGenericClass, RuntimeIl2CppGenericInst,
                             RuntimeIl2CppMetadataRegistration, RuntimeIl2CppType)
 from il2cpp_utils import Il2CppResolutionManager
-from json_encoders import (RaceReplayOutput, decode_card_data_dictionary, decode_friend_data, decode_race_info_replay,
-                           decode_support_card_dictionary, decode_team_stadium_replay, decode_trained_chara_dictionary,
-                           decode_trophy_data)
+from json_encoders import (CardDataExtractionData, ExtractorFingerprint, FingerprintableExtractionData,
+                           FriendDataExtractionData, RaceInfoReplayExtractionData, RaceReplayOutput,
+                           SupportCardExtractionData, TeamStadiumReplayExtractionData, TrainedCharaExtractionData,
+                           TrophyDataExtractionData, decode_card_data_dictionary, decode_friend_data,
+                           decode_race_info_replay, decode_support_card_dictionary, decode_team_stadium_replay,
+                           decode_trained_chara_dictionary, decode_trophy_data, resolve_card_data_extraction_data,
+                           resolve_friend_data_extraction_data, resolve_race_info_replay_extraction_data,
+                           resolve_support_card_extraction_data, resolve_team_stadium_replay_extraction_data,
+                           resolve_trained_chara_extraction_data, resolve_trophy_data_extraction_data)
 from logger import configure_logging, logger
 from memory import MemoryReader, TransientMemoryReadError
 from schema_validation import TransientRuntimeValidationError
@@ -196,7 +202,7 @@ def resolve_singleton[TSingletonObject: StructOrSimple](
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
-class Extractor[TExtractorInput, TMultiOutputPayload]:
+class Extractor[TExtractorInput, TExtractionData: FingerprintableExtractionData, TMultiOutputPayload]:
     """
     Unified extractor definition.
 
@@ -205,11 +211,23 @@ class Extractor[TExtractorInput, TMultiOutputPayload]:
                        the payload is written to ``output_folder/<key>.json``.
     """
     name: str
-    extract: Callable[[TExtractorInput], Any]
+    resolve: Callable[[TExtractorInput], Optional[TExtractionData]]
+    extract: Callable[[TExtractionData], Any]
     output_path: Optional[Path] = None
     output_folder: Optional[Path] = None
     key_fn: Optional[Callable[[TMultiOutputPayload], str]] = None
     writer: Optional[Callable[[Path, str, TMultiOutputPayload], None]] = None
+
+
+@dataclass
+class ExtractionRunState:
+    fingerprints: dict[str, ExtractorFingerprint] = field(default_factory=dict)
+
+    def should_run(self, name: str, fingerprint: ExtractorFingerprint) -> bool:
+        return self.fingerprints.get(name) != fingerprint
+
+    def record(self, name: str, fingerprint: ExtractorFingerprint) -> None:
+        self.fingerprints[name] = fingerprint
 
 
 ResolvedSingletonRoots = dict[str, Optional[C_Ptr[Any]]]
@@ -232,34 +250,73 @@ class ExtractionContext:
         return instance.contents
 
 
-def _run_extractors(extractors: tuple[Extractor[Any, Any], ...], data: Any) -> None:
+def _run_extractors(
+        extractors: tuple[Extractor[Any, Any, Any], ...],
+        data: Any,
+        state: Optional[ExtractionRunState] = None) -> None:
     """Run a sequence of extractors against *data*, writing output as configured."""
     for extractor in extractors:
+        _run_extractor(extractor, data, state)
+
+
+def _run_extractor[TExtractionData: FingerprintableExtractionData](
+        extractor: Extractor[Any, TExtractionData, Any],
+        data: Any,
+        state: Optional[ExtractionRunState]) -> None:
+    try:
+        extraction_data = extractor.resolve(data)
+        if extraction_data is None:
+            logger.debug("%s: extraction data unavailable; skipping write", extractor.name)
+            return
+
+        fingerprint = extraction_data.fingerprint()
+        if _skip_unchanged_extractor(extractor.name, fingerprint, state):
+            return
+
         logger.info("Running extractor: %s", extractor.name)
-        try:
-            payload = extractor.extract(data)
-            if _is_empty_payload(payload):
-                logger.debug("%s: empty payload; skipping write", extractor.name)
-                continue
-            if extractor.output_path is not None:
-                _write_json_file(extractor.name, extractor.output_path, payload)
-            elif extractor.output_folder is not None and extractor.key_fn is not None:
-                extractor.output_folder.mkdir(parents=True, exist_ok=True)
-                writer = extractor.writer or _write_multi_output_json
-                payloads = payload if isinstance(payload, list) else [payload]
-                for item in payloads:
-                    if _is_empty_payload(item):
-                        logger.debug("%s: empty multi-output item; skipping write", extractor.name)
-                        continue
-                    key = extractor.key_fn(item)
-                    if not key:
-                        continue
-                    writer(extractor.output_folder, key, item)
-        except (TransientMemoryReadError, TransientRuntimeValidationError) as exc:
-            logger.warning("%s: transient memory state; extraction skipped: %s", extractor.name, exc)
+        payload = extractor.extract(extraction_data)
+        if state is not None:
+            state.record(extractor.name, fingerprint)
+        _write_extractor_payload(extractor, payload)
+    except (TransientMemoryReadError, TransientRuntimeValidationError) as exc:
+        logger.warning("%s: transient memory state; extraction skipped: %s", extractor.name, exc)
+    except Exception:
+        logger.exception("Error in extractor %s", extractor.name)
+
+
+def _skip_unchanged_extractor(
+        name: str,
+        fingerprint: ExtractorFingerprint,
+        state: Optional[ExtractionRunState]) -> bool:
+    if state is None or state.should_run(name, fingerprint):
+        return False
+    logger.debug("%s: extraction data unchanged; skipping extractor", name)
+    return True
+
+
+def _write_extractor_payload(extractor: Extractor[Any, Any, Any], payload: Any) -> None:
+    if _is_empty_payload(payload):
+        logger.debug("%s: empty payload; skipping write", extractor.name)
+        return
+    if extractor.output_path is not None:
+        _write_json_file(extractor.name, extractor.output_path, payload)
+    elif extractor.output_folder is not None and extractor.key_fn is not None:
+        _write_multi_output_payloads(extractor, payload)
+
+
+def _write_multi_output_payloads(extractor: Extractor[Any, Any, Any], payload: Any) -> None:
+    if extractor.output_folder is None or extractor.key_fn is None:
+        return
+    extractor.output_folder.mkdir(parents=True, exist_ok=True)
+    writer = extractor.writer or _write_multi_output_json
+    payloads = payload if isinstance(payload, list) else [payload]
+    for item in payloads:
+        if _is_empty_payload(item):
+            logger.debug("%s: empty multi-output item; skipping write", extractor.name)
             continue
-        except Exception:
-            logger.exception("Error in extractor %s", extractor.name)
+        key = extractor.key_fn(item)
+        if key:
+            writer(extractor.output_folder, key, item)
 
 
 def _is_empty_payload(payload: Any) -> bool:
@@ -270,45 +327,69 @@ def _is_empty_payload(payload: Any) -> bool:
     return False
 
 
-def _extract_support_cards(ctx: ExtractionContext) -> list[dict[str, Any]]:
+def _resolve_support_cards(ctx: ExtractionContext) -> Optional[SupportCardExtractionData]:
     wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
-    support_cards = decode_support_card_dictionary(wdm)
+    return resolve_support_card_extraction_data(wdm)
+
+
+def _extract_support_cards(data: SupportCardExtractionData) -> list[dict[str, Any]]:
+    support_cards = decode_support_card_dictionary(data)
     logger.info("Decoded %d support cards", len(support_cards))
     return support_cards
 
 
-def _extract_trained_chara_data(ctx: ExtractionContext) -> list[dict[str, Any]]:
+def _resolve_trained_chara_data(ctx: ExtractionContext) -> Optional[TrainedCharaExtractionData]:
     wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
-    trained_charas = decode_trained_chara_dictionary(wdm)
+    return resolve_trained_chara_extraction_data(wdm)
+
+
+def _extract_trained_chara_data(data: TrainedCharaExtractionData) -> list[dict[str, Any]]:
+    trained_charas = decode_trained_chara_dictionary(data)
     logger.info("Decoded %d trained chara entries", len(trained_charas))
     return trained_charas
 
 
-def _extract_card_data(ctx: ExtractionContext) -> list[dict[str, Any]]:
+def _resolve_card_data(ctx: ExtractionContext) -> Optional[CardDataExtractionData]:
     wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
-    cards = decode_card_data_dictionary(wdm)
+    return resolve_card_data_extraction_data(wdm)
+
+
+def _extract_card_data(data: CardDataExtractionData) -> list[dict[str, Any]]:
+    cards = decode_card_data_dictionary(data)
     # game calls the owned character data "card" data, making a distinction between alternate costume variants this way
     logger.info("Decoded %d owned character entries", len(cards))
     return cards
 
 
-def _extract_friend_data(ctx: ExtractionContext) -> dict[str, Any]:
+def _resolve_friend_data(ctx: ExtractionContext) -> Optional[FriendDataExtractionData]:
     wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
-    friends = decode_friend_data(wdm)
+    return resolve_friend_data_extraction_data(wdm)
+
+
+def _extract_friend_data(data: FriendDataExtractionData) -> dict[str, Any]:
+    friends = decode_friend_data(data)
     logger.info("Decoded friend data with %d friend entries", len(friends.get('friend_list', [])))
     return friends
 
 
-def _extract_trophy_data(ctx: ExtractionContext) -> list[dict[str, Any]]:
+def _resolve_trophy_data(ctx: ExtractionContext) -> Optional[TrophyDataExtractionData]:
     wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
-    trophies = decode_trophy_data(wdm)
+    return resolve_trophy_data_extraction_data(wdm)
+
+
+def _extract_trophy_data(data: TrophyDataExtractionData) -> list[dict[str, Any]]:
+    trophies = decode_trophy_data(data)
     logger.info("Decoded trophy data with %d trophy entries", len(trophies))
     return trophies
 
 
-def _extract_team_stadium_replay(ctx: ExtractionContext) -> Optional[RaceReplayOutput]:
+def _resolve_team_stadium_replay(ctx: ExtractionContext) -> Optional[TeamStadiumReplayExtractionData]:
     wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
-    replay = decode_team_stadium_replay(wdm)
+    return resolve_team_stadium_replay_extraction_data(wdm)
+
+
+def _extract_team_stadium_replay(data: TeamStadiumReplayExtractionData) -> Optional[RaceReplayOutput]:
+    replay = decode_team_stadium_replay(data)
     logger.info("Decoded %d Team Stadium replay payloads", 1 if replay else 0)
     return replay
 
@@ -322,42 +403,52 @@ def _write_race_replay_json(output_folder: Path, key: str, replay: RaceReplayOut
     _write_json_file(f"{output_folder.name}[{key}]", output_path, replay.payload)
 
 
-def _extract_race_info_replay(ctx: ExtractionContext) -> Optional[RaceReplayOutput]:
+def _resolve_race_info_replay(ctx: ExtractionContext) -> Optional[RaceInfoReplayExtractionData]:
     race_manager_static = ctx.roots.get("racemanager_static")
     if not race_manager_static:
         return None
-    return decode_race_info_replay(race_manager_static.contents)
+    return resolve_race_info_replay_extraction_data(race_manager_static.contents)
 
 
-EXTRACTORS: tuple[Extractor[Any, Any], ...] = (
+def _extract_race_info_replay(data: RaceInfoReplayExtractionData) -> RaceReplayOutput:
+    return decode_race_info_replay(data)
+
+
+EXTRACTORS: tuple[Extractor[Any, Any, Any], ...] = (
     Extractor(
             name="support_cards",
             output_path=Path("support_card_data.json"),
+            resolve=_resolve_support_cards,
             extract=_extract_support_cards,
     ),
     Extractor(
             name="trained_chara_data",
             output_path=Path("trained_chara_data.json"),
+            resolve=_resolve_trained_chara_data,
             extract=_extract_trained_chara_data,
     ),
     Extractor(
             name="card_data",
             output_path=Path("card_data.json"),
+            resolve=_resolve_card_data,
             extract=_extract_card_data,
     ),
     Extractor(
             name="friend_data",
             output_path=Path("friend_data.json"),
+            resolve=_resolve_friend_data,
             extract=_extract_friend_data,
     ),
     Extractor(
             name="trophy_data",
             output_path=Path("trophy_data.json"),
+            resolve=_resolve_trophy_data,
             extract=_extract_trophy_data,
     ),
     Extractor(
             name="team_stadium_replay",
             output_folder=Path("race_replays"),
+            resolve=_resolve_team_stadium_replay,
             extract=_extract_team_stadium_replay,
             key_fn=_replay_output_key,
             writer=_write_race_replay_json,
@@ -365,6 +456,7 @@ EXTRACTORS: tuple[Extractor[Any, Any], ...] = (
     Extractor(
             name="race_info_replay",
             output_folder=Path("race_replays"),
+            resolve=_resolve_race_info_replay,
             extract=_extract_race_info_replay,
             key_fn=_replay_output_key,
             writer=_write_race_replay_json,
@@ -401,10 +493,12 @@ def _refresh_singleton_roots(
     )
 
 
-def _dump_from_singleton_roots(roots: ResolvedSingletonRoots) -> float:
+def _dump_from_singleton_roots(
+        roots: ResolvedSingletonRoots,
+        state: Optional[ExtractionRunState] = None) -> float:
     """Run all extractors from already-resolved singleton roots and return elapsed seconds."""
     t_start = time.perf_counter()
-    _run_extractors(EXTRACTORS, ExtractionContext(roots))
+    _run_extractors(EXTRACTORS, ExtractionContext(roots), state)
     return time.perf_counter() - t_start
 
 
@@ -436,8 +530,13 @@ def _parse_args() -> argparse.Namespace:
 # Main
 # ---------------------------------------------------------------------------
 
-def _run_live_reload_loop(mem: MemoryReader, roots: ResolvedSingletonRoots) -> None:
+def _run_live_reload_loop(
+        mem: MemoryReader,
+        resolver: Il2CppResolutionManager,
+        singleton_index: dict[tuple[int, int], SingletonGenericClassMatch],
+        roots: ResolvedSingletonRoots) -> None:
     """Repeatedly rerun extractors using fixed singleton roots and fresh memory reads."""
+    state = ExtractionRunState()
     pass_num = 1
     while True:
         if not mem.is_alive():
@@ -450,7 +549,7 @@ def _run_live_reload_loop(mem: MemoryReader, roots: ResolvedSingletonRoots) -> N
             _refresh_singleton_roots(resolver, singleton_index, roots)
 
         logger.info("Reload extractor pass %d", pass_num)
-        elapsed = _dump_from_singleton_roots(roots)
+        elapsed = _dump_from_singleton_roots(roots, state)
         logger.info("Reload extractor pass %d completed in %.2fs", pass_num, elapsed)
 
         try:
@@ -488,7 +587,7 @@ def main() -> None:
             roots = _init_singleton_roots()
             _refresh_singleton_roots(resolver, singleton_index, roots)
             if not args.minidump:
-                _run_live_reload_loop(setup.mem, roots)
+                _run_live_reload_loop(setup.mem, resolver, singleton_index, roots)
             else:
                 elapsed = _dump_from_singleton_roots(roots)
                 logger.info("Extractor pass completed in %.2fs", elapsed)

@@ -427,7 +427,8 @@ class GenericArrayPtr[CDT: StructOrSimple](CStructureDataclass, RuntimeGenericMi
 class GenericListFields[CDT: StructOrSimple](CStructureDataclass, RuntimeGenericMixin[CDT]):
     items: GenericArrayPtr[CDT]
     size: C_Int[c_int32]
-    _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # _version, _syncRoot
+    version: C_Int[c_int32]
+    _ignored_1: C_UDeclPtr  # _syncRoot
 
 
 class GenericList[CDT: StructOrSimple](CStructureDataclass, RuntimeGenericMixin[CDT]):
@@ -475,7 +476,8 @@ class GenericDictionaryFields[CDT: StructOrSimple = GenericDictionaryEntry](CStr
     _ignored_1: C_UDeclPtr  # buckets
     entries: GenericArrayPtr[CDT]
     count: C_Int[c_int32]
-    _ignored_2: ArrayType[c_int32, L[3]]  # freeList, freeCount, version
+    _ignored_2: ArrayType[c_int32, L[2]]  # freeList, freeCount
+    version: C_Int[c_int32]
     _ignored_3: ArrayType[C_UDeclPtr, L[4]]  # comparer, keys, values, syncRoot
 
 

@@ -6,7 +6,7 @@ from ctypes import c_int32
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
 from enum import IntEnum
-from typing import Any, Optional
+from typing import Any, Optional, Protocol
 
 from ctypes_utils import C_Ptr
 from game_structs import (AcquiredSkillObject, BgSeason, CardDataDictionaryEntry, CardRarity, CharaGradeType,
@@ -20,14 +20,40 @@ from game_structs import (AcquiredSkillObject, BgSeason, CardDataDictionaryEntry
                           ResultBoardConditionType, Rotation, RunningStyleEx, SkillDataObject,
                           SuccessionCharaDataObject, SuccessionCharaPosition, SuccessionHistoryObject,
                           SupportCardDataDictionaryEntry, TeamStadiumRaceCharaResultObject, TeamStadiumRaceResultObject,
-                          TeamStadiumResultBonusDataObject, TeamStadiumResultObject, TeamStadiumResultScoreDataObject,
+                          TeamStadiumResultBonusDataObject, TeamStadiumResultScoreDataObject,
                           TrainedCharaDataDictionaryEntry, TrainedCharaDataObject, TrainedCharaSupportCardDataObject,
                           TrophyDataCharaIdListDictionaryEntry, TrophyDataDictionaryEntry, TurfVisionType,
-                          WorkDataManagerObject, WorkFriendDataObject, WorkTeamStadiumDataObject,
-                          WorkTeamStadiumOpponentDataObject)
+                          WorkDataManagerObject)
 from logger import logger
 
 JST = timezone(timedelta(hours=9), "JST")
+
+ExtractorFingerprint = tuple[object, ...]
+
+
+class FingerprintableExtractionData(Protocol):
+    def fingerprint(self) -> ExtractorFingerprint:
+        ...
+
+
+def _dictionary_fingerprint(dictionary: GenericDictionary[Any]) -> ExtractorFingerprint:
+    fields = dictionary.fields
+    return "dict", fields.entries.inner_ptr.address, fields.count, fields.version
+
+
+def _list_fingerprint(items: GenericList[Any]) -> ExtractorFingerprint:
+    fields = items.fields
+    return "list", fields.items.inner_ptr.address, fields.size, fields.version
+
+
+def _array_fingerprint(items: GenericArrayPtr[Any]) -> ExtractorFingerprint:
+    if not items.inner_ptr:
+        return "array", 0, 0
+    return "array", items.inner_ptr.address, items.inner_ptr.contents.max_length
+
+
+def _pointer_fingerprint(ptr: C_Ptr[Any]) -> ExtractorFingerprint:
+    return "ptr", ptr.address
 
 
 def _timestamp_to_str(timestamp: int, tz: timezone = UTC) -> str:
@@ -40,8 +66,15 @@ def _timestamp_to_str(timestamp: int, tz: timezone = UTC) -> str:
 # Support card extraction
 # ---------------------------------------------------------------------------
 
-def _support_card_entries_ptr_and_sizes(wdm: WorkDataManagerObject) \
-        -> Optional[GenericDictionary[SupportCardDataDictionaryEntry]]:
+@dataclass(frozen=True)
+class SupportCardExtractionData:
+    entries: GenericDictionary[SupportCardDataDictionaryEntry]
+
+    def fingerprint(self) -> ExtractorFingerprint:
+        return "support_cards", _dictionary_fingerprint(self.entries)
+
+
+def resolve_support_card_extraction_data(wdm: WorkDataManagerObject) -> Optional[SupportCardExtractionData]:
     """Resolve support-card entries pointer and dictionary sizes."""
     support_card_data_ptr = wdm.fields.supportCardData
     if not support_card_data_ptr:
@@ -54,7 +87,7 @@ def _support_card_entries_ptr_and_sizes(wdm: WorkDataManagerObject) \
         return None
 
     dictionary = dictionary_ptr.contents
-    return dictionary
+    return SupportCardExtractionData(entries=dictionary)
 
 
 def _decode_support_card_entry(entry: SupportCardDataDictionaryEntry) -> Optional[dict[str, Any]]:
@@ -78,14 +111,11 @@ def _decode_support_card_entry(entry: SupportCardDataDictionaryEntry) -> Optiona
     }
 
 
-def decode_support_card_dictionary(wdm: WorkDataManagerObject) -> list[dict[str, Any]]:
+def decode_support_card_dictionary(data: SupportCardExtractionData) -> list[dict[str, Any]]:
     """Descend WorkDataManager -> WorkSupportCardData -> Dictionary<int, SupportCardData>."""
     result: list[dict[str, Any]] = []
 
-    support_card_data_dict = _support_card_entries_ptr_and_sizes(wdm)
-    if support_card_data_dict is None:
-        return result
-
+    support_card_data_dict = data.entries
     logger.debug("SupportCard dictionary: count=%d", support_card_data_dict.fields.count)
 
     for entry in support_card_data_dict:
@@ -102,12 +132,19 @@ def decode_support_card_dictionary(wdm: WorkDataManagerObject) -> list[dict[str,
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
-class TrainedCharaEntriesInfo:
+class TrainedCharaExtractionData:
     entries: GenericDictionary[TrainedCharaDataDictionaryEntry]
     favorite_entries: GenericDictionary[FavoriteDataDictionaryEntry]
 
+    def fingerprint(self) -> ExtractorFingerprint:
+        return (
+            "trained_chara_data",
+            _dictionary_fingerprint(self.entries),
+            _dictionary_fingerprint(self.favorite_entries),
+        )
 
-def _trained_chara_entries_ptr_and_sizes(wdm: WorkDataManagerObject) -> Optional[TrainedCharaEntriesInfo]:
+
+def resolve_trained_chara_extraction_data(wdm: WorkDataManagerObject) -> Optional[TrainedCharaExtractionData]:
     """Resolve trained-chara entries pointer and dictionary sizes."""
     trained_chara_data_ptr = wdm.fields.trainedCharaData
     if not trained_chara_data_ptr:
@@ -126,7 +163,7 @@ def _trained_chara_entries_ptr_and_sizes(wdm: WorkDataManagerObject) -> Optional
 
     dictionary = dictionary_ptr.contents
     fav_dictionary = fav_dictionary_ptr.contents
-    return TrainedCharaEntriesInfo(dictionary, fav_dictionary)
+    return TrainedCharaExtractionData(entries=dictionary, favorite_entries=fav_dictionary)
 
 
 def _decode_acquired_skill_entry(entry: AcquiredSkillObject) -> dict[str, int]:
@@ -308,23 +345,19 @@ def _decode_favorite_entry(entry: FavoriteDataDictionaryEntry) -> dict[str, Any]
     }
 
 
-def decode_trained_chara_dictionary(wdm: WorkDataManagerObject) -> list[dict[str, Any]]:
+def decode_trained_chara_dictionary(data: TrainedCharaExtractionData) -> list[dict[str, Any]]:
     """Descend WorkDataManager -> WorkTrainedCharaData -> Dictionary<int, TrainedCharaData>."""
     result: dict[int, dict[str, Any]] = {}
 
-    entries_info = _trained_chara_entries_ptr_and_sizes(wdm)
-    if entries_info is None:
-        return []
-
     logger.debug("TrainedChara dictionary: count=%d, favorite_count=%d",
-                 entries_info.entries.fields.count, entries_info.favorite_entries.fields.count)
+                 data.entries.fields.count, data.favorite_entries.fields.count)
 
-    for entry in entries_info.entries:
+    for entry in data.entries:
         decoded = _decode_trained_chara_entry(entry)
         trained_chara_id: int = decoded['trained_chara_id']
         result[trained_chara_id] = decoded
 
-    for fav_entry in entries_info.favorite_entries:
+    for fav_entry in data.favorite_entries:
         decoded = _decode_favorite_entry(fav_entry)
         trained_chara_id = decoded['trained_chara_id']
         if trained_chara_id in result:
@@ -338,8 +371,15 @@ def decode_trained_chara_dictionary(wdm: WorkDataManagerObject) -> list[dict[str
 # Chara/card extraction
 # ---------------------------------------------------------------------------
 
-def _card_data_entries_ptr_and_sizes(wdm: WorkDataManagerObject) \
-        -> Optional[GenericDictionary[CardDataDictionaryEntry]]:
+@dataclass(frozen=True)
+class CardDataExtractionData:
+    entries: GenericDictionary[CardDataDictionaryEntry]
+
+    def fingerprint(self) -> ExtractorFingerprint:
+        return "card_data", _dictionary_fingerprint(self.entries)
+
+
+def resolve_card_data_extraction_data(wdm: WorkDataManagerObject) -> Optional[CardDataExtractionData]:
     """Resolve chara/card-data entries pointer and dictionary sizes."""
     card_data_data_ptr = wdm.fields.cardData
     if not card_data_data_ptr:
@@ -352,7 +392,7 @@ def _card_data_entries_ptr_and_sizes(wdm: WorkDataManagerObject) \
         return None
 
     dictionary = dictionary_ptr.contents
-    return dictionary
+    return CardDataExtractionData(entries=dictionary)
 
 
 def _decode_hint_level_dictionary_entry(entry: HintLevelDictionaryEntry) -> dict[str, int]:
@@ -375,14 +415,11 @@ def _decode_card_data_entry(entry: CardDataDictionaryEntry) -> dict[str, Any]:
     }
 
 
-def decode_card_data_dictionary(wdm: WorkDataManagerObject) -> list[dict[str, Any]]:
+def decode_card_data_dictionary(data: CardDataExtractionData) -> list[dict[str, Any]]:
     """Descend WorkDataManager -> WorkCardData -> Dictionary<int, CardData>."""
     result: list[dict[str, Any]] = []
 
-    card_data_dict = _card_data_entries_ptr_and_sizes(wdm)
-    if card_data_dict is None:
-        return []
-
+    card_data_dict = data.entries
     logger.debug("CardData dictionary: count=%d", card_data_dict.fields.count)
 
     for entry in card_data_dict:
@@ -396,7 +433,26 @@ def decode_card_data_dictionary(wdm: WorkDataManagerObject) -> list[dict[str, An
 # Friends extraction
 # ---------------------------------------------------------------------------
 
-def _resolve_work_friend_data_ptr(wdm: WorkDataManagerObject) -> Optional[WorkFriendDataObject]:
+@dataclass(frozen=True)
+class FriendDataExtractionData:
+    follow_list: GenericList[C_Ptr[FriendDataObject]]
+    follower_list: GenericList[C_Ptr[FriendDataObject]]
+    recommend_list: GenericList[C_Ptr[FriendDataObject]]
+    last_checked_time: int
+    follower_num: int
+
+    def fingerprint(self) -> ExtractorFingerprint:
+        return (
+            "friend_data",
+            _list_fingerprint(self.follow_list),
+            _list_fingerprint(self.follower_list),
+            _list_fingerprint(self.recommend_list),
+            self.last_checked_time,
+            self.follower_num,
+        )
+
+
+def resolve_friend_data_extraction_data(wdm: WorkDataManagerObject) -> Optional[FriendDataExtractionData]:
     """Resolve friend data pointer"""
     friend_data_data_ptr = wdm.fields.friendData
     if not friend_data_data_ptr:
@@ -417,7 +473,13 @@ def _resolve_work_friend_data_ptr(wdm: WorkDataManagerObject) -> Optional[WorkFr
         logger.warning("WorkFriendData.recommendList is null")
         return None
 
-    return data
+    return FriendDataExtractionData(
+            follow_list=data.fields.followList.contents,
+            follower_list=data.fields.followerList.contents,
+            recommend_list=data.fields.recommendList.contents,
+            last_checked_time=data.fields.lastCheckedTime.value,
+            follower_num=data.fields.followerNum.value,
+    )
 
 
 def _decode_follow_list_entry(entry: FriendDataObject) -> dict[str, Any]:
@@ -550,14 +612,13 @@ def _decode_follower_info_summary_list_entry(entry: FriendDataObject) -> dict[st
     }
 
 
-def _decode_work_friend_data(friend_data: WorkFriendDataObject) -> dict[str, Any]:
-    f = friend_data.fields
-    follows = f.followList.contents
+def _decode_work_friend_data(data: FriendDataExtractionData) -> dict[str, Any]:
+    follows = data.follow_list
     # filter to skip emitting mutuals twice
-    followers = [x for x in f.followerList.contents if x.contents.fields.friendState.value != 3]
-    recommends = f.recommendList.contents
+    followers = [x for x in data.follower_list if x.contents.fields.friendState.value != 3]
+    recommends = data.recommend_list
     return {
-        "last_friend_checked_time": _timestamp_to_str(f.lastCheckedTime.value),
+        "last_friend_checked_time": _timestamp_to_str(data.last_checked_time),
         "friend_list": [
             *[_decode_follow_list_entry(x.contents) for x in follows],
             *[_decode_follower_list_entry(x.contents) for x in followers]
@@ -569,21 +630,17 @@ def _decode_work_friend_data(friend_data: WorkFriendDataObject) -> dict[str, Any
             *[_decode_user_info_summary_list_entry(x.contents) for x in recommends]
         ],
         "follower_info_summary_list": [_decode_follower_info_summary_list_entry(x.contents) for x in followers],
-        "follower_num": f.followerNum.value
+        "follower_num": data.follower_num
     }
 
 
-def decode_friend_data(wdm: WorkDataManagerObject) -> dict[str, Any]:
+def decode_friend_data(data: FriendDataExtractionData) -> dict[str, Any]:
     """Descend WorkDataManager -> WorkFriendData"""
-    friend_data = _resolve_work_friend_data_ptr(wdm)
-    if friend_data is None:
-        return {}
-
     logger.debug("FriendData: follows=%d, followers=%d",
-                 friend_data.fields.followList.contents.fields.size,
-                 friend_data.fields.followerList.contents.fields.size)
+                 data.follow_list.fields.size,
+                 data.follower_list.fields.size)
 
-    result = _decode_work_friend_data(friend_data)
+    result = _decode_work_friend_data(data)
     return result
 
 
@@ -591,7 +648,40 @@ def decode_friend_data(wdm: WorkDataManagerObject) -> dict[str, Any]:
 # Trophies extraction
 # ---------------------------------------------------------------------------
 
-def _resolve_work_trophy_data_ptr(wdm: WorkDataManagerObject) -> Optional[GenericDictionary[TrophyDataDictionaryEntry]]:
+@dataclass(frozen=True)
+class TrophyDataExtractionData:
+    entries: GenericDictionary[TrophyDataDictionaryEntry]
+
+    def _trophy_entries_fingerprint(self) -> ExtractorFingerprint:
+        return tuple(self._trophy_entry_fingerprint(entry) for entry in self.entries if entry.value)
+
+    def _trophy_entry_fingerprint(self, entry: TrophyDataDictionaryEntry) -> ExtractorFingerprint:
+        f = entry.value.contents.fields
+        return (
+            entry.key,
+            f.trophyId.value,
+            self._trophy_chara_id_list_fingerprint(f.charaIdList),
+            self._trophy_race_chara_data_dic_fingerprint(f.raceCharaDataDic),
+        )
+
+    def _trophy_chara_id_list_fingerprint(self, chara_id_list: C_Ptr[GenericList[c_int32]]) -> ExtractorFingerprint:
+        if not chara_id_list:
+            return "chara_id_list", 0
+        return "chara_id_list", _list_fingerprint(chara_id_list.contents)
+
+    def _trophy_race_chara_data_dic_fingerprint(
+            self,
+            race_chara_data_dic: C_Ptr[GenericDictionary[TrophyDataCharaIdListDictionaryEntry]]) \
+            -> ExtractorFingerprint:
+        if not race_chara_data_dic:
+            return "race_chara_data_dic", 0
+        return "race_chara_data_dic", _dictionary_fingerprint(race_chara_data_dic.contents)
+
+    def fingerprint(self) -> ExtractorFingerprint:
+        return "trophy_data", _dictionary_fingerprint(self.entries), self._trophy_entries_fingerprint()
+
+
+def resolve_trophy_data_extraction_data(wdm: WorkDataManagerObject) -> Optional[TrophyDataExtractionData]:
     """Resolve trophy data pointer"""
     trophy_data_ptr = wdm.fields.trophy
     if not trophy_data_ptr:
@@ -603,7 +693,7 @@ def _resolve_work_trophy_data_ptr(wdm: WorkDataManagerObject) -> Optional[Generi
         logger.warning("WorkTrophyData.dataDic is null")
         return None
 
-    return dictionary_ptr.contents
+    return TrophyDataExtractionData(entries=dictionary_ptr.contents)
 
 
 def _build_trophy_room_race_instance_info_array(
@@ -652,12 +742,9 @@ def _decode_work_trophy_data_entry(entry: TrophyDataDictionaryEntry) -> dict[str
     }
 
 
-def decode_trophy_data(wdm: WorkDataManagerObject) -> list[dict[str, Any]]:
+def decode_trophy_data(data: TrophyDataExtractionData) -> list[dict[str, Any]]:
     """Descend WorkDataManager -> WorkTrophyData"""
-    trophy_data = _resolve_work_trophy_data_ptr(wdm)
-    if trophy_data is None:
-        return []
-
+    trophy_data = data.entries
     logger.debug("WorkTrophyData dictionary: count=%d", trophy_data.fields.count)
 
     return [_decode_work_trophy_data_entry(entry) for entry in trophy_data]
@@ -671,6 +758,24 @@ def decode_trophy_data(wdm: WorkDataManagerObject) -> list[dict[str, Any]]:
 class RaceReplayOutput:
     key: str
     payload: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class TeamStadiumReplayExtractionData:
+    use_item_id_array: GenericArrayPtr[c_int32]
+    race_result_array: GenericArrayPtr[C_Ptr[TeamStadiumRaceResultObject]]
+    is_include_unsupported_race: bool
+    opponent_evaluate: int
+    winning_reward_guarantee_status: int
+    support_card_bonus: int
+
+    def fingerprint(self) -> ExtractorFingerprint:
+        return (
+            "team_stadium_replay",
+            _array_fingerprint(self.use_item_id_array),
+            _array_fingerprint(self.race_result_array),
+            self.opponent_evaluate,
+        )
 
 
 def _team_stadium_match_key() -> str:
@@ -750,23 +855,16 @@ def _decode_team_stadium_race_result(race_result_obj: TeamStadiumRaceResultObjec
     return race_start_params, race_result
 
 
-def _decode_team_stadium_replay_data(
-        team_stadium_data: WorkTeamStadiumDataObject,
-        team_stadium_opponent_data: WorkTeamStadiumOpponentDataObject,
-        team_stadium_result: TeamStadiumResultObject) -> Optional[RaceReplayOutput]:
-    support_card_bonus = 0
-    if support_card_bonus_info_ptr := team_stadium_data.fields.teamStadiumSupportCardBonusInfo:
-        support_card_bonus = support_card_bonus_info_ptr.contents.fields.totalSupportCardBonus
-
+def _decode_team_stadium_replay_data(data: TeamStadiumReplayExtractionData) -> Optional[RaceReplayOutput]:
     race_start_params_array: list[dict[str, Any]] = []
     race_result_array: list[dict[str, Any]] = []
-    for race_result_ptr in team_stadium_result.fields.raceResultArray:
+    for race_result_ptr in data.race_result_array:
         if not race_result_ptr:
             continue
         decoded = _decode_team_stadium_race_result(
                 race_result_ptr.contents,
                 self_evaluate=0,  # weighed sum of each team member's evaluationPoint, but not stored in WorkDataManager
-                opponent_evaluate=team_stadium_opponent_data.fields.evaluationPoint.value,
+                opponent_evaluate=data.opponent_evaluate,
         )
         if decoded is not None:
             race_start_params, race_result = decoded
@@ -777,16 +875,16 @@ def _decode_team_stadium_replay_data(
         return None
 
     match_payload = {
-        "use_item_id_array": [x.value for x in team_stadium_result.fields.useItemIdArray],
+        "use_item_id_array": [x.value for x in data.use_item_id_array],
         "race_start_params_array": race_start_params_array,
         "race_result_array": race_result_array,
         "rp_info": {},
         "item_info_array": [],
-        "is_include_unsupported_race": bool(team_stadium_result.fields.isIncludeUnsupportedRace),
+        "is_include_unsupported_race": data.is_include_unsupported_race,
         "winning_reward_info_array": [],
-        "winning_reward_guarantee_status": team_stadium_opponent_data.fields.winningRewardGuaranteeStatus.value,
+        "winning_reward_guarantee_status": data.winning_reward_guarantee_status,
         "last_checked_round": 0,
-        "support_card_bonus": support_card_bonus,
+        "support_card_bonus": data.support_card_bonus,
         "user_team_data_array_copy": [],
         "user_trained_chara_array_copy": [],
         "opponent_info_copy": {},
@@ -798,7 +896,8 @@ def _decode_team_stadium_replay_data(
     )
 
 
-def _decode_team_stadium_replay(wdm: WorkDataManagerObject) -> Optional[RaceReplayOutput]:
+def resolve_team_stadium_replay_extraction_data(wdm: WorkDataManagerObject) \
+        -> Optional[TeamStadiumReplayExtractionData]:
     if not (team_stadium_data_ptr := wdm.fields.teamStadiumData):
         return None
     team_stadium_data = team_stadium_data_ptr.contents
@@ -815,12 +914,23 @@ def _decode_team_stadium_replay(wdm: WorkDataManagerObject) -> Optional[RaceRepl
         return None
     team_stadium_result = team_stadium_result_ptr.contents
 
-    return _decode_team_stadium_replay_data(team_stadium_data, team_stadium_opponent_data, team_stadium_result)
+    support_card_bonus = 0
+    if support_card_bonus_info_ptr := team_stadium_data.fields.teamStadiumSupportCardBonusInfo:
+        support_card_bonus = support_card_bonus_info_ptr.contents.fields.totalSupportCardBonus
+
+    return TeamStadiumReplayExtractionData(
+            use_item_id_array=team_stadium_result.fields.useItemIdArray,
+            race_result_array=team_stadium_result.fields.raceResultArray,
+            is_include_unsupported_race=bool(team_stadium_result.fields.isIncludeUnsupportedRace),
+            opponent_evaluate=team_stadium_opponent_data.fields.evaluationPoint.value,
+            winning_reward_guarantee_status=team_stadium_opponent_data.fields.winningRewardGuaranteeStatus.value,
+            support_card_bonus=support_card_bonus,
+    )
 
 
-def decode_team_stadium_replay(wdm: WorkDataManagerObject) -> Optional[RaceReplayOutput]:
+def decode_team_stadium_replay(data: TeamStadiumReplayExtractionData) -> Optional[RaceReplayOutput]:
     """Decode the resident WorkDataManager TeamStadium replay payload, if present."""
-    return _decode_team_stadium_replay(wdm)
+    return _decode_team_stadium_replay_data(data)
 
 
 def _decode_skill_data_entry(entry: SkillDataObject) -> dict[str, int]:
@@ -1070,10 +1180,41 @@ def _race_info_replay_key(payload: dict[str, Any], winner: dict[str, Any]) -> st
     return f"{folder}/{_safe_filename_component(name)}-{raw_time:.4f}s-{date_str}"
 
 
-def decode_race_info_replay(race_manager_static: RaceManagerStaticFields) -> RaceReplayOutput:
+@dataclass(frozen=True)
+class RaceInfoReplayExtractionData:
+    race_info: C_Ptr[RaceInfoObject]
+    race_type: int
+    random_seed: int
+
+    def fingerprint(self) -> ExtractorFingerprint:
+        return (
+            "race_info_replay",
+            _pointer_fingerprint(self.race_info),
+            self.race_type,
+            self.random_seed,
+        )
+
+
+def resolve_race_info_replay_extraction_data(
+        race_manager_static: RaceManagerStaticFields) -> Optional[RaceInfoReplayExtractionData]:
+    if not race_manager_static.raceInfo:
+        return None
+    race_info = race_manager_static.raceInfo.contents
+    f = race_info.fields
+    if not f.simDataBase64.inner_ptr:
+        logger.debug("RaceInfo replay data is not ready: simDataBase64 is null")
+        return None
+    return RaceInfoReplayExtractionData(
+            race_info=race_manager_static.raceInfo,
+            race_type=f.raceType,
+            random_seed=f.randomSeed,
+    )
+
+
+def decode_race_info_replay(data: RaceInfoReplayExtractionData) -> RaceReplayOutput:
     """Decode the current live RaceInfo replay."""
 
-    payload = decode_race_info(race_manager_static.raceInfo.contents)
+    payload = decode_race_info(data.race_info.contents)
     winner = next(horse for horse in payload["raceHorse"] if horse["finishOrder"] == 0)
 
     return RaceReplayOutput(key=_race_info_replay_key(payload, winner), payload=payload)
