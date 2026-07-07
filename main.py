@@ -564,6 +564,27 @@ def _finish_memory_pass(mem: MemoryReader) -> None:
     gc.collect()
 
 
+def _run_live_extractor_pass(
+        mem: MemoryReader,
+        resolver: Il2CppResolutionManager,
+        singleton_index: dict[tuple[int, int], SingletonGenericClassMatch],
+        roots: ResolvedSingletonRoots,
+        state: ExtractionRunState,
+        pass_num: int,
+        label: str,
+        log: Callable[..., None]) -> float:
+    _prepare_memory_pass(mem)
+    try:
+        if pass_num > 1:
+            log("Refreshing singleton roots before %s pass %d", label.lower(), pass_num)
+        _refresh_live_singleton_roots(resolver, singleton_index, roots)
+
+        log("%s extractor pass %d", label, pass_num)
+        return _dump_from_singleton_roots(roots, state)
+    finally:
+        _finish_memory_pass(mem)
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -614,16 +635,8 @@ def _run_live_reload_loop(
             logger.info("Target process has exited; stopping live reload")
             return
 
-        _prepare_memory_pass(mem)
-        if pass_num > 1:
-            logger.info("Refreshing singleton roots before reload pass %d", pass_num)
-        _refresh_live_singleton_roots(resolver, singleton_index, roots)
-
-        logger.info("Reload extractor pass %d", pass_num)
-        try:
-            elapsed = _dump_from_singleton_roots(roots, state)
-        finally:
-            _finish_memory_pass(mem)
+        elapsed = _run_live_extractor_pass(
+                mem, resolver, singleton_index, roots, state, pass_num, "Reload", logger.info)
         logger.info("Reload extractor pass %d completed in %.2fs", pass_num, elapsed)
 
         try:
@@ -654,16 +667,8 @@ def _run_live_daemon_loop(
     poll_interval = max(0.1, float(poll_interval))
     logger.info("Daemon mode started; polling every %.2fs", poll_interval)
     while mem.is_alive():
-        _prepare_memory_pass(mem)
-        if pass_num > 1:
-            logger.debug("Refreshing singleton roots before daemon pass %d", pass_num)
-        _refresh_live_singleton_roots(resolver, singleton_index, roots)
-
-        logger.debug("Daemon extractor pass %d", pass_num)
-        try:
-            elapsed = _dump_from_singleton_roots(roots, state)
-        finally:
-            _finish_memory_pass(mem)
+        elapsed = _run_live_extractor_pass(
+                mem, resolver, singleton_index, roots, state, pass_num, "Daemon", logger.debug)
         logger.debug("Daemon extractor pass %d completed in %.2fs", pass_num, elapsed)
 
         pass_num += 1
