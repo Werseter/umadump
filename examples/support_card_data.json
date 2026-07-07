@@ -1,0 +1,32 @@
+[
+  {
+    "viewer_id": 0,
+    "support_card_id": 10001,
+    "exp": 3175,
+    "limit_break_count": 4,
+    "favorite_flag": 0,
+    "stock": 0,
+    "possess_time": 0,
+    "create_time": "2025-07-08 16:11:25",
+    "extra_data": {
+      "level": 20,
+      "max_level": 40,
+      "best_training": 3
+    }
+  },
+  {
+    "viewer_id": 0,
+    "support_card_id": 10002,
+    "exp": 2910,
+    "limit_break_count": 4,
+    "favorite_flag": 0,
+    "stock": 0,
+    "possess_time": 0,
+    "create_time": "2025-07-08 16:11:25",
+    "extra_data": {
+      "level": 20,
+      "max_level": 40,
+      "best_training": 0
+    }
+  }
+]

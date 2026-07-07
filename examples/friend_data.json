@@ -1,0 +1,347 @@
+{
+  "last_friend_checked_time": "2026-07-07 20:06:01",
+  "friend_list": [
+    {
+      "friend_viewer_id": 481927364105,
+      "state": 1,
+      "follow_time": "2026-07-03 04:48:42",
+      "follower_time": "0000-00-00 00:00:00"
+    },
+    {
+      "friend_viewer_id": 729384650118,
+      "state": 1,
+      "follow_time": "2025-12-17 15:57:22",
+      "follower_time": "0000-00-00 00:00:00"
+    }
+  ],
+  "recommend_list": [
+    {
+      "friend_viewer_id": 604918273560,
+      "state": 0,
+      "follow_time": "",
+      "follower_time": ""
+    },
+    {
+      "friend_viewer_id": 918273640572,
+      "state": 0,
+      "follow_time": "",
+      "follower_time": ""
+    }
+  ],
+  "user_info_summary_list": [
+    {
+      "viewer_id": 481927364105,
+      "name": "Trainer",
+      "honor_id": 101604,
+      "honor_data": {
+        "honor_id": 101604
+      },
+      "last_login_time": "2026-07-07 17:51:58",
+      "leader_chara_id": 0,
+      "leader_chara_dress_id": 0,
+      "support_card_id": 30108,
+      "partner_chara_id": 0,
+      "comment": "Sample trainer profile comment.",
+      "fan": 545983748,
+      "rank_score": 0,
+      "team_stadium_win_count": 0,
+      "single_mode_play_count": 0,
+      "team_evaluation_point": 0,
+      "user_support_card": {
+        "support_card_id": 30108,
+        "exp": 118185,
+        "limit_break_count": 4
+      },
+      "user_trained_chara": {
+        "viewer_id": 481927364105,
+        "trained_chara_id": 0,
+        "card_id": 102001,
+        "rank_score": 16740,
+        "rank": 16,
+        "proper_ground_turf": 7,
+        "proper_ground_dirt": 1,
+        "proper_running_style_nige": 7,
+        "proper_running_style_senko": 6,
+        "proper_running_style_sashi": 4,
+        "proper_running_style_oikomi": 3,
+        "proper_distance_short": 1,
+        "proper_distance_mile": 8,
+        "proper_distance_middle": 7,
+        "proper_distance_long": 7,
+        "rarity": 4,
+        "talent_level": 5,
+        "register_time": "2026-06-05 12:27:29",
+        "factor_info_array": [
+          {
+            "factor_id": 302,
+            "level": 0
+          },
+          {
+            "factor_id": 3202,
+            "level": 0
+          }
+        ],
+        "factor_extend_array": [],
+        "skill_count": 20
+      },
+      "circle_info": {
+        "circle_id": 908210590,
+        "name": "Sample Circle"
+      },
+      "circle_user": {
+        "viewer_id": 481927364105,
+        "circle_id": 908210590,
+        "membership": 0,
+        "join_time": "",
+        "penalty_end_time": "",
+        "item_request_end_time": "",
+        "last_check_post_id": 0,
+        "ranking_result_check_time": ""
+      },
+      "friend_state": 1
+    },
+    {
+      "viewer_id": 729384650118,
+      "name": "Another Trainer",
+      "honor_id": 100101,
+      "honor_data": {
+        "honor_id": 100101
+      },
+      "last_login_time": "2026-01-09 04:38:04",
+      "leader_chara_id": 0,
+      "leader_chara_dress_id": 0,
+      "support_card_id": 30016,
+      "partner_chara_id": 0,
+      "comment": "Another sample profile comment.",
+      "fan": 167107513,
+      "rank_score": 0,
+      "team_stadium_win_count": 0,
+      "single_mode_play_count": 0,
+      "team_evaluation_point": 0,
+      "user_support_card": {
+        "support_card_id": 30016,
+        "exp": 118185,
+        "limit_break_count": 4
+      },
+      "user_trained_chara": {
+        "viewer_id": 729384650118,
+        "trained_chara_id": 0,
+        "card_id": 101401,
+        "rank_score": 11437,
+        "rank": 13,
+        "proper_ground_turf": 8,
+        "proper_ground_dirt": 6,
+        "proper_running_style_nige": 3,
+        "proper_running_style_senko": 7,
+        "proper_running_style_sashi": 7,
+        "proper_running_style_oikomi": 5,
+        "proper_distance_short": 2,
+        "proper_distance_mile": 7,
+        "proper_distance_middle": 7,
+        "proper_distance_long": 7,
+        "rarity": 3,
+        "talent_level": 2,
+        "register_time": "2025-10-10 23:08:46",
+        "factor_info_array": [
+          {
+            "factor_id": 203,
+            "level": 0
+          },
+          {
+            "factor_id": 3402,
+            "level": 0
+          }
+        ],
+        "factor_extend_array": [],
+        "skill_count": 14
+      },
+      "circle_info": null,
+      "circle_user": {
+        "viewer_id": 729384650118,
+        "circle_id": 0,
+        "membership": 0,
+        "join_time": "",
+        "penalty_end_time": "",
+        "item_request_end_time": "",
+        "last_check_post_id": 0,
+        "ranking_result_check_time": ""
+      },
+      "friend_state": 1
+    },
+    {
+      "viewer_id": 604918273560,
+      "name": "Recommended Trainer",
+      "honor_id": 103901,
+      "honor_data": {
+        "honor_id": 103901
+      },
+      "last_login_time": "2026-07-07 15:48:56",
+      "leader_chara_id": 0,
+      "leader_chara_dress_id": 0,
+      "support_card_id": 30015,
+      "partner_chara_id": 0,
+      "comment": "Recommended trainer sample comment.",
+      "fan": 180319983,
+      "rank_score": 0,
+      "team_stadium_win_count": 0,
+      "single_mode_play_count": 0,
+      "team_evaluation_point": 0,
+      "user_support_card": {
+        "support_card_id": 30015,
+        "exp": 118185,
+        "limit_break_count": 4
+      },
+      "user_trained_chara": {
+        "viewer_id": 604918273560,
+        "trained_chara_id": 0,
+        "card_id": 102701,
+        "rank_score": 11007,
+        "rank": 13,
+        "proper_ground_turf": 7,
+        "proper_ground_dirt": 1,
+        "proper_running_style_nige": 2,
+        "proper_running_style_senko": 7,
+        "proper_running_style_sashi": 7,
+        "proper_running_style_oikomi": 2,
+        "proper_distance_short": 3,
+        "proper_distance_mile": 6,
+        "proper_distance_middle": 7,
+        "proper_distance_long": 7,
+        "rarity": 4,
+        "talent_level": 2,
+        "register_time": "2025-11-19 21:20:44",
+        "factor_info_array": [
+          {
+            "factor_id": 102,
+            "level": 0
+          },
+          {
+            "factor_id": 2301,
+            "level": 0
+          }
+        ],
+        "factor_extend_array": [],
+        "skill_count": 11
+      },
+      "circle_info": {
+        "circle_id": 441966471,
+        "name": "Sample Circle"
+      },
+      "circle_user": {
+        "viewer_id": 604918273560,
+        "circle_id": 441966471,
+        "membership": 0,
+        "join_time": "",
+        "penalty_end_time": "",
+        "item_request_end_time": "",
+        "last_check_post_id": 0,
+        "ranking_result_check_time": ""
+      },
+      "friend_state": 0
+    },
+    {
+      "viewer_id": 918273640572,
+      "name": "Guest Trainer",
+      "honor_id": 100613,
+      "honor_data": {
+        "honor_id": 100613
+      },
+      "last_login_time": "2026-07-07 02:57:04",
+      "leader_chara_id": 0,
+      "leader_chara_dress_id": 0,
+      "support_card_id": 30074,
+      "partner_chara_id": 0,
+      "comment": "Guest trainer sample comment.",
+      "fan": 131622304,
+      "rank_score": 0,
+      "team_stadium_win_count": 0,
+      "single_mode_play_count": 0,
+      "team_evaluation_point": 0,
+      "user_support_card": {
+        "support_card_id": 30074,
+        "exp": 118185,
+        "limit_break_count": 4
+      },
+      "user_trained_chara": {
+        "viewer_id": 918273640572,
+        "trained_chara_id": 0,
+        "card_id": 102002,
+        "rank_score": 17626,
+        "rank": 17,
+        "proper_ground_turf": 7,
+        "proper_ground_dirt": 1,
+        "proper_running_style_nige": 7,
+        "proper_running_style_senko": 6,
+        "proper_running_style_sashi": 4,
+        "proper_running_style_oikomi": 3,
+        "proper_distance_short": 1,
+        "proper_distance_mile": 7,
+        "proper_distance_middle": 7,
+        "proper_distance_long": 7,
+        "rarity": 4,
+        "talent_level": 3,
+        "register_time": "2026-05-28 19:49:09",
+        "factor_info_array": [
+          {
+            "factor_id": 502,
+            "level": 0
+          },
+          {
+            "factor_id": 1102,
+            "level": 0
+          }
+        ],
+        "factor_extend_array": [],
+        "skill_count": 17
+      },
+      "circle_info": {
+        "circle_id": 965571475,
+        "name": "Sample Circle"
+      },
+      "circle_user": {
+        "viewer_id": 918273640572,
+        "circle_id": 965571475,
+        "membership": 0,
+        "join_time": "",
+        "penalty_end_time": "",
+        "item_request_end_time": "",
+        "last_check_post_id": 0,
+        "ranking_result_check_time": ""
+      },
+      "friend_state": 0
+    }
+  ],
+  "follower_info_summary_list": [
+    {
+      "viewer_id": 385729104866,
+      "honor_id": 100603,
+      "honor_data": {
+        "honor_id": 100603
+      },
+      "name": "Follower Trainer",
+      "last_login_time": "2025-07-10 05:58:58",
+      "support_card_id": 10002,
+      "user_support_card": {
+        "support_card_id": 10002,
+        "exp": 2910,
+        "limit_break_count": 0
+      }
+    },
+    {
+      "viewer_id": 846201739584,
+      "honor_id": 100101,
+      "honor_data": {
+        "honor_id": 100101
+      },
+      "name": "Another Follower",
+      "last_login_time": "2026-04-09 18:57:34",
+      "support_card_id": 10032,
+      "user_support_card": {
+        "support_card_id": 10032,
+        "exp": 0,
+        "limit_break_count": 0
+      }
+    }
+  ],
+  "follower_num": 2
+}

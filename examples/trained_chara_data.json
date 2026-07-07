@@ -1,0 +1,161 @@
+[
+  {
+    "viewer_id": 311943848596,
+    "trained_chara_id": 12,
+    "owner_viewer_id": 0,
+    "owner_trained_chara_id": 0,
+    "single_mode_chara_id": 0,
+    "chara_seed": 0,
+    "card_id": 100401,
+    "succession_trained_chara_id_1": 0,
+    "succession_trained_chara_id_2": 0,
+    "use_type": 0,
+    "speed": 987,
+    "stamina": 445,
+    "power": 608,
+    "wiz": 372,
+    "guts": 364,
+    "fans": 174051,
+    "rank_score": 7466,
+    "rank": 11,
+    "scenario_id": 1,
+    "route_id": 0,
+    "arrive_route_race_id": 0,
+    "proper_ground_turf": 7,
+    "proper_ground_dirt": 4,
+    "proper_running_style_nige": 7,
+    "proper_running_style_senko": 3,
+    "proper_running_style_sashi": 2,
+    "proper_running_style_oikomi": 1,
+    "proper_distance_short": 7,
+    "proper_distance_mile": 7,
+    "proper_distance_middle": 7,
+    "proper_distance_long": 6,
+    "succession_num": 2,
+    "rarity": 3,
+    "is_saved": 1,
+    "is_locked": 1,
+    "talent_level": 2,
+    "race_cloth_id": 0,
+    "chara_grade": 8,
+    "running_style": 1,
+    "nickname_id": 98,
+    "wins": -1,
+    "register_time": "2025-07-10 03:21:45",
+    "create_time": "2025-07-10 03:21:45",
+    "skill_array": [
+      {
+        "skill_id": 100041,
+        "level": 2
+      },
+      {
+        "skill_id": 200142,
+        "level": 1
+      }
+    ],
+    "support_card_list": [
+      {
+        "position": 1,
+        "support_card_id": 30002,
+        "exp": 23885,
+        "limit_break_count": 0
+      },
+      {
+        "position": 2,
+        "support_card_id": 20021,
+        "exp": 10740,
+        "limit_break_count": 0
+      }
+    ],
+    "race_result_list": [
+      {
+        "turn": 12,
+        "program_id": 676,
+        "weather": 2,
+        "ground_condition": 1,
+        "running_style": 1,
+        "popularity": 0,
+        "result_rank": 1,
+        "result_time": 0,
+        "prize_money": 0
+      },
+      {
+        "turn": 17,
+        "program_id": 631,
+        "weather": 1,
+        "ground_condition": 1,
+        "running_style": 1,
+        "popularity": 0,
+        "result_rank": 1,
+        "result_time": 0,
+        "prize_money": 0
+      }
+    ],
+    "win_saddle_id_array": [
+      12,
+      15
+    ],
+    "nickname_id_array": [
+      2,
+      7
+    ],
+    "factor_info_array": [
+      {
+        "factor_id": 101,
+        "level": 0
+      },
+      {
+        "factor_id": 3201,
+        "level": 0
+      }
+    ],
+    "factor_extend_array": [],
+    "succession_chara_array": [
+      {
+        "position_id": 10,
+        "card_id": 100901,
+        "rank": 3,
+        "rarity": 2,
+        "talent_level": 1,
+        "factor_info_array": [
+          {
+            "factor_id": 101,
+            "level": 0
+          },
+          {
+            "factor_id": 3301,
+            "level": 0
+          }
+        ],
+        "factor_extend_array": [],
+        "win_saddle_id_array": [],
+        "owner_viewer_id": 0
+      },
+      {
+        "position_id": 20,
+        "card_id": 100801,
+        "rank": 9,
+        "rarity": 2,
+        "talent_level": 1,
+        "factor_info_array": [
+          {
+            "factor_id": 301,
+            "level": 0
+          },
+          {
+            "factor_id": 2302,
+            "level": 0
+          }
+        ],
+        "factor_extend_array": [],
+        "win_saddle_id_array": [
+          24,
+          91
+        ],
+        "owner_viewer_id": 0
+      }
+    ],
+    "icon_type": 14,
+    "memo": "MemoExample"
+  }
+]

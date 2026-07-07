@@ -1,0 +1,16 @@
+[
+  {
+    "card_id": 100101,
+    "rarity": 3,
+    "talent_level": 1,
+    "create_time": "2026-02-06 00:04:24",
+    "skill_data_array": []
+  },
+  {
+    "card_id": 100102,
+    "rarity": 3,
+    "talent_level": 1,
+    "create_time": "2025-10-16 02:14:29",
+    "skill_data_array": []
+  }
+]
