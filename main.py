@@ -357,14 +357,19 @@ EXTRACTORS: tuple[Extractor[Any, Any], ...] = (
 )
 
 
-def _resolve_singleton_roots(
-        resolver: Il2CppResolutionManager,
-        singleton_index: dict[tuple[int, int], SingletonGenericClassMatch]) -> ResolvedSingletonRoots:
-    """Resolve singleton roots once so reload passes can skip the metadata/generic scan."""
-    roots: ResolvedSingletonRoots = {}
-    for spec in SINGLETON_SPEC_REGISTRY.values():
-        roots[spec.name] = resolve_singleton(resolver, spec, singleton_index)
+def _init_singleton_roots() -> ResolvedSingletonRoots:
+    roots: ResolvedSingletonRoots = {spec.name: None for spec in SINGLETON_SPEC_REGISTRY.values()}
     return roots
+
+
+def _refresh_singleton_roots(
+        resolver: Il2CppResolutionManager,
+        singleton_index: dict[tuple[int, int], SingletonGenericClassMatch],
+        roots: ResolvedSingletonRoots) -> None:
+    """Resolve roots that are not established yet, leaving non-null anchors unchanged."""
+    for spec in SINGLETON_SPEC_REGISTRY.values():
+        if roots.get(spec.name) is None:
+            roots[spec.name] = resolve_singleton(resolver, spec, singleton_index)
 
 
 def _dump_from_singleton_roots(roots: ResolvedSingletonRoots) -> float:
@@ -413,6 +418,7 @@ def _run_live_reload_loop(mem: MemoryReader, roots: ResolvedSingletonRoots) -> N
         if pass_num > 1:
             logger.info("Clearing memory cache before reload pass %d", pass_num)
             mem.clear_cache()
+            _refresh_singleton_roots(resolver, singleton_index, roots)
 
         logger.info("Reload extractor pass %d", pass_num)
         elapsed = _dump_from_singleton_roots(roots)
@@ -450,7 +456,8 @@ def main() -> None:
 
             logger.info("Scanning %d generic class instantiations...", resolver.meta_reg.genericClassesCount)
             singleton_index = _build_singleton_generic_index(resolver.meta_reg)
-            roots = _resolve_singleton_roots(resolver, singleton_index)
+            roots = _init_singleton_roots()
+            _refresh_singleton_roots(resolver, singleton_index, roots)
             if not args.minidump:
                 _run_live_reload_loop(setup.mem, roots)
             else:
