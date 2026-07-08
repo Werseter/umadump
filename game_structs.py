@@ -1059,7 +1059,6 @@ class TrophyDataCharaIdListDictionaryEntry(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
-
 # Gallop.WorkTrophyData.TrophyData
 # ---------------------------------------------------------------------------
 
@@ -1495,19 +1494,19 @@ class HorseDataObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class RaceCourseSetFields(CStructureDataclass):
-    Id: C_Int[c_int32]
-    RaceTrackId: C_Int[c_int32]
-    Distance: C_Int[c_int32]
-    Ground: C_Int[c_int32]
-    Inout: C_Int[c_int32]
-    Turn: C_Int[c_int32]
-    FenceSet: C_Int[c_int32]
-    FloatLaneMax: C_Int[c_int32]
-    CourseSetStatusId: C_Int[c_int32]
-    FinishTimeMin: C_Int[c_int32]
-    FinishTimeMinRandomRange: C_Int[c_int32]
-    FinishTimeMax: C_Int[c_int32]
-    FinishTimeMaxRandomRange: C_Int[c_int32]
+    id: C_Int[c_int32]
+    raceTrackId: C_Int[c_int32]
+    distance: C_Int[c_int32]
+    ground: C_Int[c_int32]
+    inout: C_Int[c_int32]
+    turn: C_Int[c_int32]
+    fenceSet: C_Int[c_int32]
+    floatLaneMax: C_Int[c_int32]
+    courseSetStatusId: C_Int[c_int32]
+    finishTimeMin: C_Int[c_int32]
+    finishTimeMinRandomRange: C_Int[c_int32]
+    finishTimeMax: C_Int[c_int32]
+    finishTimeMaxRandomRange: C_Int[c_int32]
 
 
 @register_runtime_validatable('Gallop::MasterRaceCourseSet.RaceCourseSet')

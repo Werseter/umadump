@@ -1020,19 +1020,19 @@ def _decode_race_course_set(value: RaceCourseSetObject) -> dict[str, int]:
     f = value.fields
 
     return {
-        "id": f.Id,
-        "raceTrackId": f.RaceTrackId,
-        "distance": f.Distance,
-        "ground": f.Ground,
-        "inout": f.Inout,
-        "turn": f.Turn,
-        "fenceSet": f.FenceSet,
-        "floatLaneMax": f.FloatLaneMax,
-        "courseSetStatusId": f.CourseSetStatusId,
-        "finishTimeMin": f.FinishTimeMin,
-        "finishTimeMinRandomRange": f.FinishTimeMinRandomRange,
-        "finishTimeMax": f.FinishTimeMax,
-        "finishTimeMaxRandomRange": f.FinishTimeMaxRandomRange,
+        "id": f.id,
+        "raceTrackId": f.raceTrackId,
+        "distance": f.distance,
+        "ground": f.ground,
+        "inout": f.inout,
+        "turn": f.turn,
+        "fenceSet": f.fenceSet,
+        "floatLaneMax": f.floatLaneMax,
+        "courseSetStatusId": f.courseSetStatusId,
+        "finishTimeMin": f.finishTimeMin,
+        "finishTimeMinRandomRange": f.finishTimeMinRandomRange,
+        "finishTimeMax": f.finishTimeMax,
+        "finishTimeMaxRandomRange": f.finishTimeMaxRandomRange,
     }
 
 
