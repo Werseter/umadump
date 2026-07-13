@@ -5,7 +5,6 @@ import re
 from ctypes import c_int32
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
-from enum import IntEnum
 from typing import Any, Optional, Protocol
 
 from ctypes_utils import C_Ptr
@@ -1008,14 +1007,6 @@ def _decode_race_horse_data_entry(entry: RaceHorseDataObject) -> dict[str, Any]:
     }
 
 
-def _enum_name(enum_cls: type[IntEnum], value: int) -> str:
-    try:
-        member = enum_cls(value)
-    except ValueError:
-        return "UNKNOWN"
-    return member.name
-
-
 def _decode_race_course_set(value: RaceCourseSetObject) -> dict[str, int]:
     f = value.fields
 
@@ -1050,7 +1041,7 @@ def _decode_race_parameter(value: RaceParameterObject) -> dict[str, int | float 
         "basePow": f.basePow,
         "baseGuts": f.baseGuts,
         "baseWiz": f.baseWiz,
-        "motivation": _enum_name(RaceMotivation, f.motivation),
+        "motivation": RaceMotivation.value_to_name(f.motivation),
         "motivationCoef": f.motivationCoef,
     }
 
@@ -1074,17 +1065,17 @@ def _decode_horse_data_entry(entry: HorseDataObject) -> dict[str, Any]:
         "popularityRankCenter": f.popularityRankCenter,
         "popularityRankRight": f.popularityRankRight,
         "gateInPopularity": f.gateInPopularity,
-        "rarity": _enum_name(CardRarity, f.rarity),
+        "rarity": CardRarity.value_to_name(f.rarity),
         "trainerName": f.trainerName.value if f.responseHorseData.contents.fields.viewer_id != 0 else "",
         "isGhost": bool(f.isGhost),
         "isRunningStyleExInitialized": bool(f.isRunningStyleExInitialized),
-        "runningStyleEx": _enum_name(RunningStyleEx, f.runningStyleEx),
-        "defeat": _enum_name(DefeatType, f.defeat),
+        "runningStyleEx": RunningStyleEx.value_to_name(f.runningStyleEx),
+        "defeat": DefeatType.value_to_name(f.defeat),
         "raceDressId": f.raceDressId,
         "raceDressIdWithOption": f.raceDressIdWithOption,
-        "runningType": _enum_name(RaceRunningType, f.runningType),
-        "activeProperDistance": _enum_name(ProperGrade, f.activeProperDistance),
-        "activeProperGroundType": _enum_name(ProperGrade, f.activeProperGroundType),
+        "runningType": RaceRunningType.value_to_name(f.runningType),
+        "activeProperDistance": ProperGrade.value_to_name(f.activeProperDistance),
+        "activeProperGroundType": ProperGrade.value_to_name(f.activeProperGroundType),
         "mobId": f.mobId,
         "raceRecord": {},
         "finishOrderRawScore": f.finishOrderRawScore,
@@ -1096,7 +1087,7 @@ def decode_race_info(race_info_obj: RaceInfoObject) -> dict[str, Any]:
     f = race_info_obj.fields
 
     return {
-        "raceType": _enum_name(RaceType, f.raceType),
+        "raceType": RaceType.value_to_name(f.raceType),
         "isExistPlayerRace": bool(f.isExistPlayerRace),
         "isExistGhostRace": bool(f.isExistGhostRace),
         "isExistFollowRace": bool(f.isExistFollowRace),
@@ -1113,22 +1104,22 @@ def decode_race_info(race_info_obj: RaceInfoObject) -> dict[str, Any]:
         "raceTrack": {},
         "goalGate": f.goalGate,
         "goalGateFlower": f.goalGateFlower,
-        "initialLaneType": _enum_name(InitialLaneType, f.initialLaneType),
-        "rotationCategory": _enum_name(Rotation, f.rotationCategory),
-        "resultBoardConditionType": _enum_name(ResultBoardConditionType, f.resultBoardConditionType),
+        "initialLaneType": InitialLaneType.value_to_name(f.initialLaneType),
+        "rotationCategory": Rotation.value_to_name(f.rotationCategory),
+        "resultBoardConditionType": ResultBoardConditionType.value_to_name(f.resultBoardConditionType),
         "courseSectionDistance": f.courseSectionDistance,
-        "courseDistanceType": _enum_name(CourseDistanceType, f.courseDistanceType),
+        "courseDistanceType": CourseDistanceType.value_to_name(f.courseDistanceType),
         "courseFurlongNum": f.courseFurlongNum,
         "isHalfGate": bool(f.isHalfGate),
         "isHorseNumVariationGate": bool(f.isHorseNumVariationGate),
-        "turfVisionType": _enum_name(TurfVisionType, f.turfVisionType),
-        "groundCondition": _enum_name(RaceGroundCondition, f.groundCondition),
-        "weather": _enum_name(RaceWeather, f.weather),
-        "season": _enum_name(BgSeason, f.season),
-        "time": _enum_name(RaceTime, f.time),
+        "turfVisionType": TurfVisionType.value_to_name(f.turfVisionType),
+        "groundCondition": RaceGroundCondition.value_to_name(f.groundCondition),
+        "weather": RaceWeather.value_to_name(f.weather),
+        "season": BgSeason.value_to_name(f.season),
+        "time": RaceTime.value_to_name(f.time),
         "baseSpeed": f.baseSpeed,
         "borderTimeScaled": f.borderTimeScaled,
-        "challengeMatchDifficulty": _enum_name(RaceDifficulty, f.challengeMatchDifficulty),
+        "challengeMatchDifficulty": RaceDifficulty.value_to_name(f.challengeMatchDifficulty),
         "numRaceHorses": f.numRaceHorses,
         "postNumberMax": f.postNumberMax,
         "playerHorseIndex": f.playerHorseIndex,
@@ -1153,8 +1144,8 @@ def decode_race_info(race_info_obj: RaceInfoObject) -> dict[str, Any]:
         "replayCheckInfoChallengeMatch": {},
         "raceRewardSingle": {},
         "resultHorseIndex": f.resultHorseIndex,
-        "prevGradeType": _enum_name(CharaGradeType, f.prevGradeType),
-        "mainStoryRaceGimmickType": _enum_name(MainStoryRaceGimmickType, f.mainStoryRaceGimmickType),
+        "prevGradeType": CharaGradeType.value_to_name(f.prevGradeType),
+        "mainStoryRaceGimmickType": MainStoryRaceGimmickType.value_to_name(f.mainStoryRaceGimmickType),
         "isMainStoryRaceMatchGimmick": bool(f.isMainStoryRaceMatchGimmick),
         "unlockFlags": f.unlockFlags,
         "phaseCalculator": {},

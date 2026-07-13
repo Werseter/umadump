@@ -10,11 +10,10 @@ Contains:
 from __future__ import annotations
 
 from ctypes import c_bool, c_float, c_int32, c_int64, c_uint16, c_uint32, c_uint64, c_uint8
-from enum import IntEnum
 from typing import Annotated, Iterator, Literal as L, cast as type_cast
 
 from ctypes_utils import (ArrayType, CStructureDataclass, C_Float, C_Int, C_Ptr, C_UDeclPtr, C_VoidPtr,
-                          RuntimeGenericMixin, Span, StructOrSimple)
+                          RuntimeGenericMixin, SafeIntEnum, Span, StructOrSimple)
 from il2cpp_structs import RuntimeIl2CppObject
 from schema_validation import register_enum_validatable, register_runtime_validatable
 
@@ -24,14 +23,14 @@ from schema_validation import register_enum_validatable, register_runtime_valida
 # ---------------------------------------------------------------------------
 
 @register_enum_validatable('Gallop::WorkTrainedCharaData.TrainedCharaData.UseType')
-class TrainedCharaUseType(IntEnum):
+class TrainedCharaUseType(SafeIntEnum):
     NONE = 0
     RENTAL = 1
     GHOST = 2
 
 
 @register_enum_validatable('Gallop::WorkTrainedCharaData.TrainedCharaData.SuccessionCharaPosition')
-class SuccessionCharaPosition(IntEnum):
+class SuccessionCharaPosition(SafeIntEnum):
     SELF = 1
     FIRST_1 = 10
     FIRST_2 = 20
@@ -42,7 +41,7 @@ class SuccessionCharaPosition(IntEnum):
 
 
 @register_enum_validatable('Gallop::GameDefine.FinalTrainingRank')
-class FinalTrainingRank(IntEnum):
+class FinalTrainingRank(SafeIntEnum):
     NONE = 0
     G = 1
     G_PLUS = 2
@@ -147,7 +146,7 @@ class FinalTrainingRank(IntEnum):
 
 
 @register_enum_validatable('Gallop::GameDefine.FactorRarity')
-class FactorRarity(IntEnum):
+class FactorRarity(SafeIntEnum):
     NONE = 0
     RARE_1 = 1
     RARE_2 = 2
@@ -155,7 +154,7 @@ class FactorRarity(IntEnum):
 
 
 @register_enum_validatable('Gallop::RaceDefine.RaceType')
-class RaceType(IntEnum):
+class RaceType(SafeIntEnum):
     NONE = 0
     PvP = 1
     Tutorial = 2
@@ -175,7 +174,7 @@ class RaceType(IntEnum):
 
 
 @register_enum_validatable('Gallop::GameDefine.CardRarity')
-class CardRarity(IntEnum):
+class CardRarity(SafeIntEnum):
     NONE = 0
     Rare1 = 1
     Rare2 = 2
@@ -185,7 +184,7 @@ class CardRarity(IntEnum):
 
 
 @register_enum_validatable('Gallop::HorseInitialLaneCalculator.InitialLaneType')
-class InitialLaneType(IntEnum):
+class InitialLaneType(SafeIntEnum):
     ExtraSpaceAfter9 = 1
     Equidistant = 2
     ExtraSpaceAfter14 = 3
@@ -193,7 +192,7 @@ class InitialLaneType(IntEnum):
 
 
 @register_enum_validatable('Gallop::RaceDefine.Rotation')
-class Rotation(IntEnum):
+class Rotation(SafeIntEnum):
     Right = 1
     Left = 2
     StraightRight = 3
@@ -201,7 +200,7 @@ class Rotation(IntEnum):
 
 
 @register_enum_validatable('Gallop::RaceDefine.ResultBoardConditionType')
-class ResultBoardConditionType(IntEnum):
+class ResultBoardConditionType(SafeIntEnum):
     Turf_None = 1
     Turf_Dirt = 2
     Dirt_None = 3
@@ -209,7 +208,7 @@ class ResultBoardConditionType(IntEnum):
 
 
 @register_enum_validatable('Gallop::RaceDefine.CourseDistanceType')
-class CourseDistanceType(IntEnum):
+class CourseDistanceType(SafeIntEnum):
     Short = 1
     Mile = 2
     Middle = 3
@@ -217,14 +216,14 @@ class CourseDistanceType(IntEnum):
 
 
 @register_enum_validatable('Gallop::RaceDefine.TurfVisionType')
-class TurfVisionType(IntEnum):
+class TurfVisionType(SafeIntEnum):
     URA = 1
     NAU = 2
     Stand = 3
 
 
 @register_enum_validatable('Gallop::RaceDefine.GroundCondition')
-class RaceGroundCondition(IntEnum):
+class RaceGroundCondition(SafeIntEnum):
     Good = 1
     Soft = 2
     Hard = 3
@@ -232,7 +231,7 @@ class RaceGroundCondition(IntEnum):
 
 
 @register_enum_validatable('Gallop::RaceDefine.Weather')
-class RaceWeather(IntEnum):
+class RaceWeather(SafeIntEnum):
     NONE = 0
     Sunny = 1
     Cloudy = 2
@@ -243,7 +242,7 @@ class RaceWeather(IntEnum):
 
 
 @register_enum_validatable('Gallop::GameDefine.BgSeason')
-class BgSeason(IntEnum):
+class BgSeason(SafeIntEnum):
     NONE = 0
     Spring = 1
     Summer = 2
@@ -255,7 +254,7 @@ class BgSeason(IntEnum):
 
 
 @register_enum_validatable('Gallop::RaceDefine.Time')
-class RaceTime(IntEnum):
+class RaceTime(SafeIntEnum):
     NONE = 0
     Morning = 1
     Daytime = 2
@@ -266,13 +265,13 @@ class RaceTime(IntEnum):
 
 
 @register_enum_validatable('Gallop::RaceDefine.RunningStyleEx')
-class RunningStyleEx(IntEnum):
+class RunningStyleEx(SafeIntEnum):
     NONE = 0
     Oonige = 1
 
 
 @register_enum_validatable('Gallop::RaceDefine.Motivation')
-class RaceMotivation(IntEnum):
+class RaceMotivation(SafeIntEnum):
     NONE = 0
     Min = 1
     Low = 2
@@ -282,7 +281,7 @@ class RaceMotivation(IntEnum):
 
 
 @register_enum_validatable('Gallop::RaceDefine.DefeatType')
-class DefeatType(IntEnum):
+class DefeatType(SafeIntEnum):
     Null = 0
     Win = 1
     Lose = 2
@@ -301,14 +300,14 @@ class DefeatType(IntEnum):
 
 
 @register_enum_validatable('Gallop::ModelLoader.RaceRunningType')
-class RaceRunningType(IntEnum):
+class RaceRunningType(SafeIntEnum):
     Base = 1
     Pitch = 2
     Stride = 3
 
 
 @register_enum_validatable('Gallop::RaceDefine.ProperGrade')
-class ProperGrade(IntEnum):
+class ProperGrade(SafeIntEnum):
     Null = 0
     G = 1
     F = 2
@@ -321,7 +320,7 @@ class ProperGrade(IntEnum):
 
 
 @register_enum_validatable('Gallop::RaceDefine.Difficulty')
-class RaceDifficulty(IntEnum):
+class RaceDifficulty(SafeIntEnum):
     Easy = 1
     Normal = 2
     Hard = 3
@@ -330,7 +329,7 @@ class RaceDifficulty(IntEnum):
 
 
 @register_enum_validatable('Gallop::SingleModeDefine.CharaGradeType')
-class CharaGradeType(IntEnum):
+class CharaGradeType(SafeIntEnum):
     NONE = 0
     Debut = 1
     NoWin = 2
@@ -346,7 +345,7 @@ class CharaGradeType(IntEnum):
 
 
 @register_enum_validatable('Gallop::MainStoryDefine.RaceGimmickType')
-class MainStoryRaceGimmickType(IntEnum):
+class MainStoryRaceGimmickType(SafeIntEnum):
     NONE = 0
     Special_00 = 1
 

@@ -14,6 +14,7 @@ from __future__ import annotations
 import ctypes
 from ctypes import Array, Structure, c_char, c_uint64, c_void_p, sizeof
 from dataclasses import dataclass, fields
+from enum import IntEnum
 from typing import (Any, Callable, ClassVar, Generic, Iterator, Literal as L, Optional, Sequence, TYPE_CHECKING,
                     TypeAlias, TypeVar, cast as type_cast, get_args, get_origin, get_type_hints, no_type_check)
 
@@ -401,3 +402,13 @@ class C_CharPtr(C_Ptr[c_char]):
 C_VoidPtr = C_Ptr[None]
 # Alias for unreflected fields (for documentation purposes only)
 C_UDeclPtr = C_VoidPtr
+
+
+class SafeIntEnum(IntEnum):
+    @classmethod
+    def value_to_name(cls, value: int) -> str:
+        try:
+            member = cls(value)
+        except ValueError:
+            return "UNKNOWN"
+        return member.name
