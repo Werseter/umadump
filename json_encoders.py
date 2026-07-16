@@ -272,8 +272,8 @@ def _decode_succession_history_entry(entry: SuccessionHistoryObject) -> dict[str
     }
 
 
-def _decode_trained_chara_entry(entry: TrainedCharaDataDictionaryEntry) -> dict[str, Any]:
-    f = entry.value.contents.fields
+def _decode_trained_chara_entry(entry: TrainedCharaDataObject) -> dict[str, Any]:
+    f = entry.fields
     return {
         "viewer_id": f.viewerId.value,
         "trained_chara_id": f.id.value,
@@ -352,7 +352,7 @@ def decode_trained_chara_dictionary(data: TrainedCharaExtractionData) -> list[di
                  data.entries.fields.count, data.favorite_entries.fields.count)
 
     for entry in data.entries:
-        decoded = _decode_trained_chara_entry(entry)
+        decoded = _decode_trained_chara_entry(entry.value.contents)
         trained_chara_id: int = decoded['trained_chara_id']
         result[trained_chara_id] = decoded
 
@@ -1079,7 +1079,7 @@ def _decode_horse_data_entry(entry: HorseDataObject) -> dict[str, Any]:
         "mobId": f.mobId,
         "raceRecord": {},
         "finishOrderRawScore": f.finishOrderRawScore,
-        "trainedCharaData": {},  # this should be redundant with responseHorseData
+        "trainedCharaData": _decode_trained_chara_entry(f.trainedCharaData.contents) if f.trainedCharaData else {},
     }
 
 
