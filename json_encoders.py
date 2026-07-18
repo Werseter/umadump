@@ -335,6 +335,126 @@ def _decode_trained_chara_entry(entry: TrainedCharaDataObject) -> dict[str, Any]
     }
 
 
+def _decode_raw_factor_data(entry: FactorDataObject) -> dict[str, Any]:
+    """Decode reflected factor data without applying the external API schema."""
+    f = entry.fields
+    return {
+        "factorLv": f.factorLv.value,
+        "factorId": f.factorId.value,
+        "baseFactorId": f.baseFactorId.value,
+        "upgradeHistoryList": [],
+    }
+
+
+def _decode_raw_succession_chara_data(entry: SuccessionCharaDataObject) -> dict[str, Any]:
+    """Decode reflected succession data without applying the external API schema."""
+    f = entry.fields
+    return {
+        "positionId": f.positionId.value,
+        "cardId": f.cardId.value,
+        "rarity": f.rarity.value,
+        "level": f.level.value,
+        "rank": f.rank.value,
+        "factorDataArray": [_decode_raw_factor_data(item.contents) for item in f.factorDataArray],
+        "sortedFactorList": [],
+        "sortedFactorListForProfileCard": [],
+        "ownerViewerId": f.ownerViewerId.value,
+        "isPlayer": bool(f.isPlayer),
+        "winSaddleArray": [],
+        "winSaddleIdArray": [item.value for item in f.winSaddleIdArray],
+    }
+
+
+def _decode_raw_trained_chara_data(entry: TrainedCharaDataObject) -> dict[str, Any]:
+    """Decode reflected trained chara data without applying the external API schema."""
+    f = entry.fields
+    return {
+        "id": f.id.value,
+        "isSaved": f.isSaved.value,
+        "viewerId": f.viewerId.value,
+        "ownerViewerId": f.ownerViewerId.value,
+        "ownerTrainedCharaId": f.ownerTrainedCharaId.value,
+        "useType": int(f.useType),
+        "cardId": f.cardId.value,
+        "nickNameId": f.nickNameId.value,
+        "nickNameIdArray": [item.value for item in f.nickNameIdArray],
+        "stamina": f.stamina.value,
+        "speed": f.speed.value,
+        "power": f.power.value,
+        "guts": f.guts.value,
+        "wiz": f.wiz.value,
+        "fans": f.fans.value,
+        "rank": f.rank.value,
+        "rankScore": f.rankScore.value,
+        "runningStyle": f.runningStyle.value,
+        "properGroundTurf": f.properGroundTurf.value,
+        "properGroundDirt": f.properGroundDirt.value,
+        "properDistanceShort": f.properDistanceShort.value,
+        "properDistanceMile": f.properDistanceMile.value,
+        "properDistanceMiddle": f.properDistanceMiddle.value,
+        "properDistanceLong": f.properDistanceLong.value,
+        "properRunningStyleNige": f.properRunningStyleNige.value,
+        "properRunningStyleSenko": f.properRunningStyleSenko.value,
+        "properRunningStyleSashi": f.properRunningStyleSashi.value,
+        "properRunningStyleOikomi": f.properRunningStyleOikomi.value,
+        "successionCount": f.successionCount.value,
+        "factorDataArray": [_decode_raw_factor_data(item.contents) for item in f.factorDataArray],
+        "createTime": f.createTime.value,
+        "scenarioId": f.scenarioId.value,
+        "talentLevel": f.talentLevel.value,
+        "charaGrade": f.charaGrade.value,
+        "rarity": f.rarity.value,
+        "isLock": f.isLock.value,
+        "favoriteData": {},
+        "cachedCreateTimeTimeStamp": f.cachedCreateTimeTimeStamp.value,
+        "sortedFactorList": [],
+        "sortedFactorProfileCardList": [],
+        "factorListIncludingSuccession": [],
+        "successionCharaList": [
+            _decode_raw_succession_chara_data(item.contents) for item in f.successionCharaList.contents],
+        "isSuccessionHistoryInitialized": False,
+        "successionHistoryList": [],
+        "acquiredSkillArray": [
+            {
+                "masterId": item.contents.fields.masterId.value,
+                "level": item.contents.fields.level.value,
+                "master": {},
+            } for item in f.acquiredSkillArray
+        ],
+        "supportCardArray": [
+            {
+                "position": item.contents.fields.position.value,
+                "supportCardId": item.contents.fields.supportCardId.value,
+                "limitBreakCount": item.contents.fields.limitBreakCount.value,
+                "exp": item.contents.fields.exp.value,
+            } for item in f.supportCardArray
+        ],
+        "singleModeRaceResultArray": [
+            {
+                "turn": item.contents.fields.turn.value,
+                "programId": item.contents.fields.programId.value,
+                "raceInstanceId": 0,
+                "frameOrder": 0,
+                "npcCount": 0,
+                "weather": item.contents.fields.weather.value,
+                "groundCondition": item.contents.fields.groundCondition.value,
+                "runningStyle": item.contents.fields.runningStyle.value,
+                "resultRank": item.contents.fields.resultRank.value,
+                "scenarioId": 0,
+            } for item in f.singleModeRaceResultArray
+        ],
+        "winSaddleArray": [],
+        "winSaddleIdArray": [item.value for item in f.winSaddleIdArray],
+        "cacheCharaId": f.cacheCharaId.value,
+        "masterCardData": {},
+        "masterCharaData": {},
+        "masterCardRarityData": {},
+        "singleTotalRaceNum": f.singleTotalRaceNum,
+        "singleWinNum": f.singleWinNum.value,
+        "trainedCharaDataAccessor": {},
+    }
+
+
 def _decode_favorite_entry(entry: FavoriteDataDictionaryEntry) -> dict[str, Any]:
     f = entry.value.contents.fields
     return {
@@ -1079,7 +1199,7 @@ def _decode_horse_data_entry(entry: HorseDataObject) -> dict[str, Any]:
         "mobId": f.mobId,
         "raceRecord": {},
         "finishOrderRawScore": f.finishOrderRawScore,
-        "trainedCharaData": _decode_trained_chara_entry(f.trainedCharaData.contents) if f.trainedCharaData else {},
+        "trainedCharaData": _decode_raw_trained_chara_data(f.trainedCharaData.contents) if f.trainedCharaData else {},
     }
 
 
