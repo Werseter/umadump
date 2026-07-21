@@ -1296,6 +1296,7 @@ class RaceInfoReplayExtractionData:
     race_info: C_Ptr[RaceInfoObject]
     race_type: int
     random_seed: int
+    race_horse_trained_chara_pointers: tuple[tuple[int, int], ...]
 
     def fingerprint(self) -> ExtractorFingerprint:
         return (
@@ -1303,7 +1304,15 @@ class RaceInfoReplayExtractionData:
             _pointer_fingerprint(self.race_info),
             self.race_type,
             self.random_seed,
+            self.race_horse_trained_chara_pointers,
         )
+
+
+def _race_horse_trained_chara_pointer_signature(race_info: RaceInfoObject) -> tuple[tuple[int, int], ...]:
+    return tuple(
+        (horse.address, horse.contents.fields.trainedCharaData.address) if horse else (0, 0)
+        for horse in race_info.fields.raceHorse
+    )
 
 
 def resolve_race_info_replay_extraction_data(
@@ -1315,10 +1324,12 @@ def resolve_race_info_replay_extraction_data(
     if not f.simDataBase64.inner_ptr:
         logger.debug("RaceInfo replay data is not ready: simDataBase64 is null")
         return None
+    race_horse_trained_chara_pointers = _race_horse_trained_chara_pointer_signature(race_info)
     return RaceInfoReplayExtractionData(
             race_info=race_manager_static.raceInfo,
             race_type=f.raceType,
             random_seed=f.randomSeed,
+            race_horse_trained_chara_pointers=race_horse_trained_chara_pointers,
     )
 
 
