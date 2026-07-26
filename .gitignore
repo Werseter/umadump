@@ -1,3 +1,9 @@
 /__pycache__
 /build
 /dist
+card_data.json
+support_card_data.json
+trained_chara_data.json
+trophy_data.json
+race_replays/
+idle_single_mode/

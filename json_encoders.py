@@ -2,25 +2,25 @@
 from __future__ import annotations
 
 import re
-from ctypes import c_int32
+from ctypes import c_int32, c_int64
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
 from typing import Any, Optional, Protocol
 
 from ctypes_utils import C_Ptr
 from game_structs import (AcquiredSkillObject, BgSeason, CardDataDictionaryEntry, CardRarity, CharaGradeType,
-                          CourseDistanceType, DefeatType, FactorDataObject, FactorDataUpgradeHistoryObject,
+                          CourseDistanceType, DefeatType, EvaluationInfoObject, FactorDataObject, FactorDataUpgradeHistoryObject,
                           FactorInfoObject, FavoriteDataDictionaryEntry, FriendDataObject, GenericArrayPtr,
-                          GenericDictionary, GenericList, HintLevelDictionaryEntry, HorseDataObject, InitialLaneType,
-                          MainStoryRaceGimmickType, ProperGrade, RaceCourseSetObject, RaceDifficulty,
+                          GenericDictionary, GenericList, GroupOutingInfoObject, GuestOutingInfoObject, HintLevelDictionaryEntry, HorseDataObject, IdleSingleModeRaceHistoryObject, InitialLaneType,
+                          MainStoryRaceGimmickType, ObscuredCharaEffectLogObject, ObscuredFactorInfoObject, ObscuredIdleSingleModeGainInfoObject, ObscuredIdleSingleModeProgressLogInfoObject, ObscuredIdleSingleModeSignedIntObject, ObscuredIdleSingleModeSuccessionFactorGainInfoObject, ObscuredIdleSingleModeSupportCardGainInfoObject, ProperGrade, RaceCourseSetObject, RaceDifficulty,
                           RaceGroundCondition, RaceHistoryInfoObject, RaceHorseDataObject,
                           RaceHorseDataRaceResultObject, RaceInfoObject, RaceManagerStaticFields, RaceMotivation,
                           RaceParameterObject, RaceRunningType, RaceTime, RaceType, RaceWeather,
-                          ResultBoardConditionType, Rotation, RunningStyleEx, SkillDataObject,
+                          ResultBoardConditionType, Rotation, RunningStyleEx, SingleModeCharaObject, SingleModeSkillUpgradeObject, SingleModeSupportCardObject, SingleRaceHistoryObject, SkillDataObject, SkillTipsObject,
                           SuccessionCharaDataObject, SuccessionCharaPosition, SuccessionHistoryObject,
                           SupportCardDataDictionaryEntry, TeamStadiumRaceCharaResultObject, TeamStadiumRaceResultObject,
                           TeamStadiumResultBonusDataObject, TeamStadiumResultScoreDataObject,
-                          TrainedCharaDataDictionaryEntry, TrainedCharaDataObject, TrainedCharaSupportCardDataObject,
+                          TrainedCharaDataDictionaryEntry, TrainedCharaDataObject, TrainedCharaSupportCardDataObject, TrainingLevelInfoObject,
                           TrophyDataCharaIdListDictionaryEntry, TrophyDataDictionaryEntry, TurfVisionType,
                           WorkDataManagerObject)
 from logger import logger
@@ -1340,3 +1340,291 @@ def decode_race_info_replay(data: RaceInfoReplayExtractionData) -> RaceReplayOut
     winner = next(horse for horse in payload["raceHorse"] if horse["finishOrder"] == 0)
 
     return RaceReplayOutput(key=_race_info_replay_key(payload, winner), payload=payload)
+
+
+# ---------------------------------------------------------------------------
+# Independent training results extraction
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class IdleSingleModeOutput:
+    key: str
+    payload: dict[str, Any]
+
+@dataclass(frozen=True)
+class IdleSingleModeExtractionData:
+    charaInfo: C_Ptr[SingleModeCharaObject]
+    startTime: c_int64
+    endTime: c_int64
+    progressLogInfo: C_Ptr[ObscuredIdleSingleModeProgressLogInfoObject]
+
+    def fingerprint(self) -> ExtractorFingerprint:
+        return (
+            "idle_single_mode",
+            _pointer_fingerprint(self.charaInfo),
+            self.startTime,
+            self.endTime,
+            _pointer_fingerprint(self.progressLogInfo),
+        )
+
+def resolve_idle_single_mode(wdm: WorkDataManagerObject) -> Optional[IdleSingleModeExtractionData]:
+    idlePtr = wdm.fields.idleSingleModeData
+    if not idlePtr:
+        logger.debug("WorkDataManager.idleSingleModeData is null")
+        return None
+
+    c = idlePtr.contents.fields
+    checks = [
+        (c.charaInfo, "charaInfo"),
+        (c.endTime, "endTime"),
+        (c.progressLogInfo, "progressLogInfo"),
+    ]
+    for (f, name) in checks:
+        if not f:
+            logger.debug(f"Idle single mode data is not ready: WorkDataManager.idleSingleModeData.{name} is null or zero")
+            return None
+
+    return IdleSingleModeExtractionData(
+        charaInfo=c.charaInfo,
+        startTime=c.startTime,
+        endTime=c.endTime,
+        progressLogInfo=c.progressLogInfo,
+    )
+
+def _idle_single_mode_key(chara: SingleModeCharaObject) -> str:
+    return f"{_safe_filename_component(chara.fields.start_time.value)}-{chara.fields.card_id}"
+
+def _decode_skill_tip_entry(s: SkillTipsObject) -> dict[str, Any]:
+    f = s.fields
+    return {
+        "group_id": f.group_id,
+        "rarity": f.rarity,
+        "level": f.level,
+    }
+
+def _decode_single_mode_support_card(s: SingleModeSupportCardObject) -> dict[str, Any]:
+    f = s.fields
+    return {
+        "position": f.position,
+        "support_card_id": f.support_card_id,
+        "limit_break_count": f.limit_break_count,
+        "exp": f.exp,
+        "training_partner_state": f.training_partner_state,
+        "owner_viewer_id": f.owner_viewer_id,
+        "rental_type": f.rental_type,
+    }
+
+def _decode_group_outing_info_entry(go: GroupOutingInfoObject) -> dict[str, Any]:
+    f = go.fields
+    return {
+        "chara_id": f.chara_id,
+        "is_outing": f.is_outing,
+        "story_step": f.story_step,
+    }
+
+def _decode_evaluation_info_entry(e: EvaluationInfoObject) -> dict[str, Any]:
+    f = e.fields
+    return {
+        "target_id": f.target_id,
+        "evaluation": f.evaluation,
+        "is_outing": f.is_outing,
+        "story_step": f.story_step,
+        "is_appear": f.is_appear,
+        "group_outing_info_array": [_decode_group_outing_info_entry(go.contents) for go in f.group_outing_info_array],
+    }
+
+def _decode_training_level_info_entry(t: TrainingLevelInfoObject) -> dict[str, Any]:
+    f = t.fields
+    return {
+        "command_id": f.command_id,
+        "level": f.level,
+    }
+
+def _decode_guest_outing_info_entry(o: GuestOutingInfoObject) -> dict[str, Any]:
+    f = o.fields
+    return {
+        "support_card_id": f.support_card_id,
+        "story_step": f.story_step,
+        "GroupOutingInfoList": [_decode_group_outing_info_entry(go.contents) for go in f.group_outing_info_array]
+    }
+
+def _decode_skill_upgrade_info_entry(u: SingleModeSkillUpgradeObject) -> dict[str, Any]:
+    f = u.fields
+    return {
+        "condition_id": f.condition_id,
+        "total_count": f.total_count,
+        "current_count": f.current_count,
+    }
+
+def _decode_single_mode_chara(chara: SingleModeCharaObject) -> dict[str, Any]:
+    f = chara.fields
+    return {
+        "single_mode_chara_id": f.single_mode_chara_id,
+        "card_id": f.card_id,
+        "chara_grade": f.chara_grade,
+        "speed": f.speed,
+        "stamina": f.stamina,
+        "power": f.power,
+        "wiz": f.wiz,
+        "guts": f.guts,
+        "vital": f.vital,
+        "max_speed": f.max_speed,
+        "max_stamina": f.max_stamina,
+        "max_power": f.max_power,
+        "max_wiz": f.max_wiz,
+        "max_guts": f.max_guts,
+        "default_max_speed": f.default_max_speed,
+        "default_max_stamina": f.default_max_stamina,
+        "default_max_power": f.default_max_power,
+        "default_max_wiz": f.default_max_wiz,
+        "default_max_guts": f.default_max_guts,
+        "max_vital": f.max_vital,
+        "motivation": f.motivation,
+        "fans": f.fans,
+        "rarity": f.rarity,
+        "race_program_id": f.race_program_id,
+        "reserve_race_program_id": f.reserve_race_program_id,
+        "race_running_style": f.race_running_style,
+        "is_short_race": f.is_short_race,
+        "talent_level": f.talent_level,
+        "skill_array": [_decode_skill_data_entry(s.contents) for s in f.skill_array],
+        "disable_skill_id_array": list(f.disable_skill_id_array),
+        "skill_tips_array": [_decode_skill_tip_entry(s.contents) for s in f.skill_tips_array],
+        "support_card_array": [_decode_single_mode_support_card(s.contents) for s in f.support_card_array],
+        "succession_trained_chara_id_1": f.succession_trained_chara_id_1,
+        "succession_trained_chara_id_2": f.succession_trained_chara_id_2,
+        "proper_distance_short": f.proper_distance_short,
+        "proper_distance_mile": f.proper_distance_mile,
+        "proper_distance_middle": f.proper_distance_middle,
+        "proper_distance_long": f.proper_distance_long,
+        "proper_running_style_nige": f.proper_running_style_nige,
+        "proper_running_style_senko": f.proper_running_style_senko,
+        "proper_running_style_sashi": f.proper_running_style_sashi,
+        "proper_running_style_oikomi": f.proper_running_style_oikomi,
+        "proper_ground_turf": f.proper_ground_turf,
+        "proper_ground_dirt": f.proper_ground_dirt,
+        "turn": f.turn,
+        "skill_point": f.skill_point,
+        "short_cut_state": f.short_cut_state,
+        "state": f.state,
+        "playing_state": f.playing_state,
+        "scenario_id": f.scenario_id,
+        "route_id": f.route_id,
+        "start_time": f.start_time.value,
+        "evaluation_info_array": [_decode_evaluation_info_entry(e.contents) for e in f.evaluation_info_array],
+        "training_level_info_array": [_decode_training_level_info_entry(t.contents) for t in f.training_level_info_array],
+        "nickname_id_array": list(f.nickname_id_array),
+        "chara_effect_id_array": list(f.chara_effect_id_array),
+        "route_race_id_array": [x.value for x in f.route_race_id_array],
+        "guest_outing_info_array": [_decode_guest_outing_info_entry(o.contents) for o in f.guest_outing_info_array],
+        "skill_upgrade_info_array": [_decode_skill_upgrade_info_entry(u.contents) for u in f.skill_upgrade_info_array],
+    }
+
+def _decode_obscured_chara_effect_log_entry(e: ObscuredCharaEffectLogObject) -> dict[str, Any]:
+    f = e.fields
+    return {
+        "charaEffectId": f.charaEffectId.value,
+        "isActive": f.isActive.value,
+    }
+
+def _decode_idle_single_mode_signed_int(v: ObscuredIdleSingleModeSignedIntObject) -> dict[str, Any]:
+    f = v.fields
+    return {
+        "sign": f.sign.value,
+        "value": f.value.value,
+    }
+
+def _decode_idle_single_mode_gain_info_entry(g: ObscuredIdleSingleModeGainInfoObject) -> dict[str, Any]:
+    f = g.fields
+    return {
+        "speed": _decode_idle_single_mode_signed_int(f.speed.contents),
+        "stamina": _decode_idle_single_mode_signed_int(f.stamina.contents),
+        "power": _decode_idle_single_mode_signed_int(f.power.contents),
+        "wiz": _decode_idle_single_mode_signed_int(f.wiz.contents),
+        "guts": _decode_idle_single_mode_signed_int(f.guts.contents),
+        "maxSpeed": f.maxSpeed.value,
+        "maxStamina": f.maxStamina.value,
+        "maxPower": f.maxPower.value,
+        "maxWiz": f.maxWiz.value,
+        "maxGuts": f.maxGuts.value,
+        "properDistanceShort": f.properDistanceShort.value,
+        "properDistanceMile": f.properDistanceMile.value,
+        "properDistanceMiddle": f.properDistanceMiddle.value,
+        "properDistanceLong": f.properDistanceLong.value,
+        "properRunningStyleNige": f.properRunningStyleNige.value,
+        "properRunningStyleSenko": f.properRunningStyleSenko.value,
+        "properRunningStyleSashi": f.properRunningStyleSashi.value,
+        "properRunningStyleOikomi": f.properRunningStyleOikomi.value,
+        "properGroundTurf": f.properGroundTurf.value,
+        "properGroundDirt": f.properGroundDirt.value,
+        "skillPoint": f.skillPoint.value,
+        "skillTips": [_decode_skill_tip_entry(s.contents) for s in f.skillTipsArray],
+    }
+
+def _decode_idle_single_mode_support_card_gain_info_entry(g: ObscuredIdleSingleModeSupportCardGainInfoObject) -> dict[str, Any]:
+    f = g.fields
+    return {
+        "supportCardId": f.supportCardId.value,
+        "gainInfo": _decode_idle_single_mode_gain_info_entry(f.gainInfo.contents),
+    }
+
+def _decode_obscured_factor_info_entry(i: ObscuredFactorInfoObject) -> dict[str, Any]:
+    f = i.fields
+    return {
+        "factorId": f.factorId.value,
+        "level": f.level.value,
+    }
+
+def _decode_idle_single_mode_succession_factor_gain(sf: ObscuredIdleSingleModeSuccessionFactorGainInfoObject) -> dict[str, Any]:
+    f = sf.fields
+    return {
+        "year": f.year.value,
+        "gainFactorInfoArray": [_decode_obscured_factor_info_entry(i.contents) for i in f.gainFactorInfoArray],
+    }
+
+def _decode_single_race_history_entry(h: SingleRaceHistoryObject) -> dict[str, Any]:
+    f = h.fields
+    return {
+        "turn": f.turn,
+        "program_id": f.program_id,
+        "weather": f.weather,
+        "ground_condition": f.ground_condition,
+        "running_style": f.running_style,
+        "result_rank": f.result_rank,
+        "frame_order": f.frame_order,
+        "npc_count": f.npc_count,
+    }
+
+def _decode_idle_single_mode_race_history_entry(r: IdleSingleModeRaceHistoryObject) -> dict[str, Any]:
+    f = r.fields
+    return {
+        "race_history": _decode_single_race_history_entry(f.race_history.contents),
+        "lose_tips_id": f.lose_tips_id.value,
+    }
+
+def _decode_obscured_idle_single_mode_progress_log_info(progress: ObscuredIdleSingleModeProgressLogInfoObject) -> dict[str, Any]:
+    f = progress.fields
+    return {
+        "charaEffectLog": [_decode_obscured_chara_effect_log_entry(e.contents) for e in f.charaEffectLogArray],
+        "supportCardGainInfo": [_decode_idle_single_mode_support_card_gain_info_entry(g.contents) for g in f.supportCardGainInfoArray],
+        "eventGainInfo": _decode_idle_single_mode_gain_info_entry(f.eventGainInfo.contents),
+        "successionGainInfo": _decode_idle_single_mode_gain_info_entry(f.successionGainInfo.contents),
+        "successionFactorGainArray": [_decode_idle_single_mode_succession_factor_gain(sf.contents) for sf in f.successionFactorGainArray],
+        "raceHistoryArray": [_decode_idle_single_mode_race_history_entry(r.contents) for r in f.raceHistoryArray],
+        "gainSkillIdArray": [id.value for id in f.gainSkillIdArray],
+        "totalSkillPoint": f.totalSkillPoint.value,
+    }
+
+def _decode_idle_single_mode_data(data: IdleSingleModeExtractionData) -> dict[str, Any]:
+    return {
+        "charaInfo": _decode_single_mode_chara(data.charaInfo.contents),
+        "startTime": data.startTime,
+        "endTime": data.endTime,
+        "progressLogInfo": _decode_obscured_idle_single_mode_progress_log_info(data.progressLogInfo.contents),
+    }
+
+def decode_idle_single_mode(data: IdleSingleModeExtractionData) -> IdleSingleModeOutput:
+    return IdleSingleModeOutput(
+        key=_idle_single_mode_key(data.charaInfo.contents),
+        payload=_decode_idle_single_mode_data(data)
+    )
