@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import re
-from ctypes import c_int32
+from ctypes import c_int32, c_int64
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
 from typing import Any, Optional, Protocol
 
-from ctypes_utils import C_Ptr
+from ctypes_utils import C_Int, C_Ptr
 from game_structs import (AcquiredSkillObject, BgSeason, CardDataDictionaryEntry, CardRarity, CharaGradeType,
                           CourseDistanceType, DefeatType, EvaluationInfoObject, FactorDataObject,
                           FactorDataUpgradeHistoryObject, FactorInfoObject, FavoriteDataDictionaryEntry,
@@ -1362,8 +1362,8 @@ class IdleSingleModeOutput:
 @dataclass(frozen=True)
 class IdleSingleModeExtractionData:
     charaInfo: C_Ptr[SingleModeCharaObject]
-    startTime: int
-    endTime: int
+    startTime: C_Int[c_int64]
+    endTime: C_Int[c_int64]
     progressLogInfo: C_Ptr[ObscuredIdleSingleModeProgressLogInfoObject]
 
     def fingerprint(self) -> ExtractorFingerprint:
@@ -1402,8 +1402,8 @@ def resolve_idle_single_mode(wdm: WorkDataManagerObject) -> Optional[IdleSingleM
     )
 
 
-def _idle_single_mode_key(chara: SingleModeCharaObject) -> str:
-    return f"{_safe_filename_component(chara.fields.start_time.value)}-{chara.fields.card_id}"
+def _idle_single_mode_key(chara: SingleModeCharaObject, start_time: Any) -> str:
+    return f"{start_time}-{chara.fields.card_id}"
 
 
 def _decode_skill_tip_entry(s: SkillTipsObject) -> dict[str, Any]:
@@ -1661,6 +1661,6 @@ def _decode_idle_single_mode_data(data: IdleSingleModeExtractionData) -> dict[st
 
 def decode_idle_single_mode(data: IdleSingleModeExtractionData) -> IdleSingleModeOutput:
     return IdleSingleModeOutput(
-            key=_idle_single_mode_key(data.charaInfo.contents),
+            key=_idle_single_mode_key(data.charaInfo.contents, data.startTime),
             payload=_decode_idle_single_mode_data(data)
     )
