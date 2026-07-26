@@ -8,8 +8,8 @@ from datetime import UTC, datetime, timedelta, timezone
 from typing import Any, Optional, Protocol
 
 from ctypes_utils import C_Int, C_Ptr
-from game_structs import (AcquiredSkillObject, BgSeason, CardDataDictionaryEntry, CardRarity, CharaGradeType, CharaRaceRewardObject,
-                          CourseDistanceType, DefeatType, EvaluationInfoObject, FactorDataObject,
+from game_structs import (AcquiredSkillObject, BgSeason, CardDataDictionaryEntry, CardRarity, CharaGradeType,
+                          CharaRaceRewardObject, CourseDistanceType, DefeatType, EvaluationInfoObject, FactorDataObject,
                           FactorDataUpgradeHistoryObject, FactorInfoObject, FavoriteDataDictionaryEntry,
                           FriendDataObject, GenericArrayPtr, GenericDictionary, GenericList, GroupOutingInfoObject,
                           GuestOutingInfoObject, HintLevelDictionaryEntry, HorseDataObject,
@@ -20,16 +20,16 @@ from game_structs import (AcquiredSkillObject, BgSeason, CardDataDictionaryEntry
                           ObscuredIdleSingleModeSupportCardGainInfoObject, ProperGrade, RaceCourseSetObject,
                           RaceDifficulty, RaceGroundCondition, RaceHistoryInfoObject, RaceHorseDataObject,
                           RaceHorseDataRaceResultObject, RaceInfoObject, RaceManagerStaticFields, RaceMotivation,
-                          RaceParameterObject, RaceRewardDataObject, RaceRewardLimitDataObject, RaceRunningType, RaceTime, RaceType, RaceWeather,
-                          ResultBoardConditionType, Rotation, RunningStyleEx, SingleModeCharaObject,
-                          SingleModeSkillUpgradeObject, SingleModeSupportCardObject, SingleRaceHistoryObject,
-                          SkillDataObject, SkillTipsObject, SuccessionCharaDataObject, SuccessionCharaPosition,
-                          SuccessionHistoryObject, SupportCardDataDictionaryEntry, TeamStadiumRaceCharaResultObject,
-                          TeamStadiumRaceResultObject, TeamStadiumResultBonusDataObject,
-                          TeamStadiumResultScoreDataObject, TrainedCharaDataDictionaryEntry, TrainedCharaDataObject,
-                          TrainedCharaSupportCardDataObject, TrainingLevelInfoObject,
-                          TrophyDataCharaIdListDictionaryEntry, TrophyDataDictionaryEntry, TurfVisionType,
-                          WorkDataManagerObject)
+                          RaceParameterObject, RaceRewardDataObject, RaceRewardLimitDataObject, RaceRunningType,
+                          RaceTime, RaceType, RaceWeather, ResultBoardConditionType, Rotation, RunningStyleEx,
+                          SingleModeCharaObject, SingleModeSkillUpgradeObject, SingleModeSupportCardObject,
+                          SingleRaceHistoryObject, SkillDataObject, SkillTipsObject, SuccessionCharaDataObject,
+                          SuccessionCharaPosition, SuccessionHistoryObject, SupportCardDataDictionaryEntry,
+                          TeamStadiumRaceCharaResultObject, TeamStadiumRaceResultObject,
+                          TeamStadiumResultBonusDataObject, TeamStadiumResultScoreDataObject,
+                          TrainedCharaDataDictionaryEntry, TrainedCharaDataObject, TrainedCharaSupportCardDataObject,
+                          TrainingLevelInfoObject, TrophyDataCharaIdListDictionaryEntry, TrophyDataDictionaryEntry,
+                          TurfVisionType, WorkDataManagerObject)
 from logger import logger
 
 JST = timezone(timedelta(hours=9), "JST")
@@ -1656,7 +1656,8 @@ def _decode_chara_race_reward(rr: CharaRaceRewardObject) -> dict[str, Any]:
         "race_reward_bonus": [_decode_race_reward_data_entry(rd.contents) for rd in f.race_reward_bonus],
         "race_reward_plus_bonus": [_decode_race_reward_data_entry(rd.contents) for rd in f.race_reward_plus_bonus],
         "race_reward_bonus_win": [_decode_race_reward_data_entry(rd.contents) for rd in f.race_reward_bonus_win],
-        "race_reward_limit": None if not f.race_reward_limit.inner_ptr else [_decode_race_reward_limit_data_entry(ld.contents) for ld in f.race_reward_limit],
+        "race_reward_limit": None if not f.race_reward_limit.inner_ptr else [
+            _decode_race_reward_limit_data_entry(ld.contents) for ld in f.race_reward_limit],
         "gained_fans": f.gained_fans,
         "campaign_id_array": [x.value for x in f.campaign_id_array],
     }
