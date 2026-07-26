@@ -1677,12 +1677,68 @@ class SingleRaceHistoryObject(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
+# Gallop.RaceRewardData
+# ---------------------------------------------------------------------------
+
+class RaceRewardDataFields(CStructureDataclass):
+    item_type: C_Int[c_int32]
+    item_id: C_Int[c_int32]
+    item_num: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::RaceRewardData')
+class RaceRewardDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: RaceRewardDataFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.RaceRewardLimitData
+# ---------------------------------------------------------------------------
+
+class RaceRewardLimitDataFields(CStructureDataclass):
+    reward_id: C_Int[c_int32]
+    item_type: C_Int[c_int32]
+    item_id: C_Int[c_int32]
+    item_num: C_Int[c_int32]
+    rest_count: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::RaceRewardLimitData')
+class RaceRewardLimitDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: RaceRewardLimitDataFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.CharaRaceReward
+# ---------------------------------------------------------------------------
+
+class CharaRaceRewardFields(CStructureDataclass):
+    result_rank: C_Int[c_int32]
+    result_time: C_Int[c_int32]
+    race_reward: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
+    race_reward_bonus: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
+    race_reward_plus_bonus: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
+    race_reward_bonus_win: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
+    race_reward_limit: GenericArrayPtr[C_Ptr[RaceRewardLimitDataObject]]
+    gained_fans: C_Int[c_int32]
+    campaign_id_array: GenericArrayPtr[c_int32]
+
+
+@register_runtime_validatable('Gallop::CharaRaceReward')
+class CharaRaceRewardObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: CharaRaceRewardFields
+
+
+# ---------------------------------------------------------------------------
 # Gallop.IdleSingleModeRaceHistory
 # ---------------------------------------------------------------------------
 
 class IdleSingleModeRaceHistoryFields(CStructureDataclass):
     race_history: C_Ptr[SingleRaceHistoryObject]
-    _ignored_1: C_UDeclPtr  # race_reward_info
+    race_reward_info: C_Ptr[CharaRaceRewardObject]
     lose_tips_id: C_Int[c_int32]
 
 

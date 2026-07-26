@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta, timezone
 from typing import Any, Optional, Protocol
 
 from ctypes_utils import C_Int, C_Ptr
-from game_structs import (AcquiredSkillObject, BgSeason, CardDataDictionaryEntry, CardRarity, CharaGradeType,
+from game_structs import (AcquiredSkillObject, BgSeason, CardDataDictionaryEntry, CardRarity, CharaGradeType, CharaRaceRewardObject,
                           CourseDistanceType, DefeatType, EvaluationInfoObject, FactorDataObject,
                           FactorDataUpgradeHistoryObject, FactorInfoObject, FavoriteDataDictionaryEntry,
                           FriendDataObject, GenericArrayPtr, GenericDictionary, GenericList, GroupOutingInfoObject,
@@ -20,7 +20,7 @@ from game_structs import (AcquiredSkillObject, BgSeason, CardDataDictionaryEntry
                           ObscuredIdleSingleModeSupportCardGainInfoObject, ProperGrade, RaceCourseSetObject,
                           RaceDifficulty, RaceGroundCondition, RaceHistoryInfoObject, RaceHorseDataObject,
                           RaceHorseDataRaceResultObject, RaceInfoObject, RaceManagerStaticFields, RaceMotivation,
-                          RaceParameterObject, RaceRunningType, RaceTime, RaceType, RaceWeather,
+                          RaceParameterObject, RaceRewardDataObject, RaceRewardLimitDataObject, RaceRunningType, RaceTime, RaceType, RaceWeather,
                           ResultBoardConditionType, Rotation, RunningStyleEx, SingleModeCharaObject,
                           SingleModeSkillUpgradeObject, SingleModeSupportCardObject, SingleRaceHistoryObject,
                           SkillDataObject, SkillTipsObject, SuccessionCharaDataObject, SuccessionCharaPosition,
@@ -1627,10 +1627,46 @@ def _decode_single_race_history_entry(h: SingleRaceHistoryObject) -> dict[str, A
     }
 
 
+def _decode_race_reward_data_entry(rd: RaceRewardDataObject) -> dict[str, Any]:
+    f = rd.fields
+    return {
+        "item_type": f.item_type,
+        "item_id": f.item_id,
+        "item_num": f.item_num,
+    }
+
+
+def _decode_race_reward_limit_data_entry(ld: RaceRewardLimitDataObject) -> dict[str, Any]:
+    f = ld.fields
+    return {
+        "reward_id": f.reward_id,
+        "item_type": f.item_type,
+        "item_id": f.item_id,
+        "item_num": f.item_num,
+        "rest_count": f.rest_count,
+    }
+
+
+def _decode_chara_race_reward(rr: CharaRaceRewardObject) -> dict[str, Any]:
+    f = rr.fields
+    return {
+        "result_rank": f.result_rank,
+        "result_time": f.result_time,
+        "race_reward": [_decode_race_reward_data_entry(rd.contents) for rd in f.race_reward],
+        "race_reward_bonus": [_decode_race_reward_data_entry(rd.contents) for rd in f.race_reward_bonus],
+        "race_reward_plus_bonus": [_decode_race_reward_data_entry(rd.contents) for rd in f.race_reward_plus_bonus],
+        "race_reward_bonus_win": [_decode_race_reward_data_entry(rd.contents) for rd in f.race_reward_bonus_win],
+        "race_reward_limit": None if not f.race_reward_limit.inner_ptr else [_decode_race_reward_limit_data_entry(ld.contents) for ld in f.race_reward_limit],
+        "gained_fans": f.gained_fans,
+        "campaign_id_array": [x.value for x in f.campaign_id_array],
+    }
+
+
 def _decode_idle_single_mode_race_history_entry(r: IdleSingleModeRaceHistoryObject) -> dict[str, Any]:
     f = r.fields
     return {
         "race_history": _decode_single_race_history_entry(f.race_history.contents),
+        "race_reward_info": _decode_chara_race_reward(f.race_reward_info.contents),
         "lose_tips_id": f.lose_tips_id,
     }
 
