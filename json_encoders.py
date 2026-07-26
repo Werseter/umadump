@@ -1362,8 +1362,8 @@ class IdleSingleModeOutput:
 @dataclass(frozen=True)
 class IdleSingleModeExtractionData:
     charaInfo: C_Ptr[SingleModeCharaObject]
-    startTime: C_Int[c_int64]
-    endTime: C_Int[c_int64]
+    startTime: int
+    endTime: int
     progressLogInfo: C_Ptr[ObscuredIdleSingleModeProgressLogInfoObject]
 
     def fingerprint(self) -> ExtractorFingerprint:
