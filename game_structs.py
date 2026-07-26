@@ -1360,9 +1360,9 @@ class WorkTeamStadiumDataObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class SkillTipsFields(CStructureDataclass):
-    group_id: c_int32
-    rarity: c_int32
-    level: c_int32
+    group_id: C_Int[c_int32]
+    rarity: C_Int[c_int32]
+    level: C_Int[c_int32]
 
 
 @register_runtime_validatable('Gallop::SkillTips')
@@ -1376,13 +1376,13 @@ class SkillTipsObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class SingleModeSupportCardFields(CStructureDataclass):
-    position: c_int32
-    support_card_id: c_int32
-    limit_break_count: c_int32
-    exp: c_int32
-    training_partner_state: c_int32
-    owner_viewer_id: c_int64
-    rental_type: c_int32
+    position: C_Int[c_int32]
+    support_card_id: C_Int[c_int32]
+    limit_break_count: C_Int[c_int32]
+    exp: C_Int[c_int32]
+    training_partner_state: C_Int[c_int32]
+    owner_viewer_id: C_Int[c_int64]
+    rental_type: C_Int[c_int32]
 
 
 @register_runtime_validatable('Gallop::SingleModeSupportCard')
@@ -1396,9 +1396,9 @@ class SingleModeSupportCardObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class GroupOutingInfoFields(CStructureDataclass):
-    chara_id: c_int32
-    is_outing: c_int32
-    story_step: c_int32
+    chara_id: C_Int[c_int32]
+    is_outing: C_Int[c_int32]
+    story_step: C_Int[c_int32]
 
 
 @register_runtime_validatable('Gallop::GroupOutingInfo')
@@ -1412,11 +1412,11 @@ class GroupOutingInfoObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class EvaluationInfoFields(CStructureDataclass):
-    target_id: c_int32
-    evaluation: c_int32
-    is_outing: c_int32
-    story_step: c_int32
-    is_appear: c_int32
+    target_id: C_Int[c_int32]
+    evaluation: C_Int[c_int32]
+    is_outing: C_Int[c_int32]
+    story_step: C_Int[c_int32]
+    is_appear: C_Int[c_int32]
     group_outing_info_array: GenericArrayPtr[C_Ptr[GroupOutingInfoObject]]
 
 
@@ -1431,8 +1431,8 @@ class EvaluationInfoObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class TrainingLevelInfoFields(CStructureDataclass):
-    command_id: c_int32
-    level: c_int32
+    command_id: C_Int[c_int32]
+    level: C_Int[c_int32]
 
 
 @register_runtime_validatable('Gallop::TrainingLevelInfo')
@@ -1446,8 +1446,8 @@ class TrainingLevelInfoObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class GuestOutingInfoFields(CStructureDataclass):
-    support_card_id: c_int32
-    story_step: c_int32
+    support_card_id: C_Int[c_int32]
+    story_step: C_Int[c_int32]
     group_outing_info_array: GenericArrayPtr[C_Ptr[GroupOutingInfoObject]]
 
 
@@ -1462,9 +1462,9 @@ class GuestOutingInfoObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class SingleModeSkillUpgradeFields(CStructureDataclass):
-	condition_id: c_int32
-	total_count: c_int32
-	current_count: c_int32
+    condition_id: C_Int[c_int32]
+    total_count: C_Int[c_int32]
+    current_count: C_Int[c_int32]
 
 
 @register_runtime_validatable('Gallop::SingleModeSkillUpgrade')
@@ -1478,57 +1478,57 @@ class SingleModeSkillUpgradeObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class SingleModeCharaFields(CStructureDataclass):
-    single_mode_chara_id: c_int32
-    card_id: c_int32
-    chara_grade: c_int32
-    speed: c_int32
-    stamina: c_int32
-    power: c_int32
-    wiz: c_int32
-    guts: c_int32
-    vital: c_int32
-    max_speed: c_int32
-    max_stamina: c_int32
-    max_power: c_int32
-    max_wiz: c_int32
-    max_guts: c_int32
-    default_max_speed: c_int32
-    default_max_stamina: c_int32
-    default_max_power: c_int32
-    default_max_wiz: c_int32
-    default_max_guts: c_int32
-    max_vital: c_int32
-    motivation: c_int32
-    fans: c_int32
-    rarity: c_int32
-    race_program_id: c_int32
-    reserve_race_program_id: c_int32
-    race_running_style: c_int32
-    is_short_race: c_int32
-    talent_level: c_int32
+    single_mode_chara_id: C_Int[c_int32]
+    card_id: C_Int[c_int32]
+    chara_grade: C_Int[c_int32]
+    speed: C_Int[c_int32]
+    stamina: C_Int[c_int32]
+    power: C_Int[c_int32]
+    wiz: C_Int[c_int32]
+    guts: C_Int[c_int32]
+    vital: C_Int[c_int32]
+    max_speed: C_Int[c_int32]
+    max_stamina: C_Int[c_int32]
+    max_power: C_Int[c_int32]
+    max_wiz: C_Int[c_int32]
+    max_guts: C_Int[c_int32]
+    default_max_speed: C_Int[c_int32]
+    default_max_stamina: C_Int[c_int32]
+    default_max_power: C_Int[c_int32]
+    default_max_wiz: C_Int[c_int32]
+    default_max_guts: C_Int[c_int32]
+    max_vital: C_Int[c_int32]
+    motivation: C_Int[c_int32]
+    fans: C_Int[c_int32]
+    rarity: C_Int[c_int32]
+    race_program_id: C_Int[c_int32]
+    reserve_race_program_id: C_Int[c_int32]
+    race_running_style: C_Int[c_int32]
+    is_short_race: C_Int[c_int32]
+    talent_level: C_Int[c_int32]
     skill_array: GenericArrayPtr[C_Ptr[SkillDataObject]]
     disable_skill_id_array: GenericArrayPtr[c_int32]
     skill_tips_array: GenericArrayPtr[C_Ptr[SkillTipsObject]]
     support_card_array: GenericArrayPtr[C_Ptr[SingleModeSupportCardObject]]
-    succession_trained_chara_id_1: c_int32
-    succession_trained_chara_id_2: c_int32
-    proper_distance_short: c_int32
-    proper_distance_mile: c_int32
-    proper_distance_middle: c_int32
-    proper_distance_long: c_int32
-    proper_running_style_nige: c_int32
-    proper_running_style_senko: c_int32
-    proper_running_style_sashi: c_int32
-    proper_running_style_oikomi: c_int32
-    proper_ground_turf: c_int32
-    proper_ground_dirt: c_int32
-    turn: c_int32
-    skill_point: c_int32
-    short_cut_state: c_int32
-    state: c_int32
-    playing_state: c_int32
-    scenario_id: c_int32
-    route_id: c_int32
+    succession_trained_chara_id_1: C_Int[c_int32]
+    succession_trained_chara_id_2: C_Int[c_int32]
+    proper_distance_short: C_Int[c_int32]
+    proper_distance_mile: C_Int[c_int32]
+    proper_distance_middle: C_Int[c_int32]
+    proper_distance_long: C_Int[c_int32]
+    proper_running_style_nige: C_Int[c_int32]
+    proper_running_style_senko: C_Int[c_int32]
+    proper_running_style_sashi: C_Int[c_int32]
+    proper_running_style_oikomi: C_Int[c_int32]
+    proper_ground_turf: C_Int[c_int32]
+    proper_ground_dirt: C_Int[c_int32]
+    turn: C_Int[c_int32]
+    skill_point: C_Int[c_int32]
+    short_cut_state: C_Int[c_int32]
+    state: C_Int[c_int32]
+    playing_state: C_Int[c_int32]
+    scenario_id: C_Int[c_int32]
+    route_id: C_Int[c_int32]
     start_time: SystemStringObjectPtr
     evaluation_info_array: GenericArrayPtr[C_Ptr[EvaluationInfoObject]]
     training_level_info_array: GenericArrayPtr[C_Ptr[TrainingLevelInfoObject]]
@@ -1660,14 +1660,14 @@ class ObscuredIdleSingleModeSuccessionFactorGainInfoObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class SingleRaceHistoryFields(CStructureDataclass):
-    turn: c_int32
-    program_id: c_int32
-    weather: c_int32
-    ground_condition: c_int32
-    running_style: c_int32
-    result_rank: c_int32
-    frame_order: c_int32
-    npc_count: c_int32
+    turn: C_Int[c_int32]
+    program_id: C_Int[c_int32]
+    weather: C_Int[c_int32]
+    ground_condition: C_Int[c_int32]
+    running_style: C_Int[c_int32]
+    result_rank: C_Int[c_int32]
+    frame_order: C_Int[c_int32]
+    npc_count: C_Int[c_int32]
 
 
 @register_runtime_validatable('Gallop::SingleRaceHistory')
@@ -1683,7 +1683,7 @@ class SingleRaceHistoryObject(CStructureDataclass):
 class IdleSingleModeRaceHistoryFields(CStructureDataclass):
     race_history: C_Ptr[SingleRaceHistoryObject]
     _ignored_1: C_UDeclPtr  # race_reward_info
-    lose_tips_id: ObscuredInt
+    lose_tips_id: C_Int[c_int32]
 
 
 @register_runtime_validatable('Gallop::IdleSingleModeRaceHistory')
@@ -1720,8 +1720,8 @@ class ObscuredIdleSingleModeProgressLogInfoObject(CStructureDataclass):
 class WorkIdleSingleModeDataFields(CStructureDataclass):
     _ignored_1: ObscuredInt  # state
     charaInfo: C_Ptr[SingleModeCharaObject]
-    startTime: c_int64
-    endTime: c_int64
+    startTime: C_Int[c_int64]
+    endTime: C_Int[c_int64]
     _ignored_2: ObscuredInt  # singleModePlayingState
     progressLogInfo: C_Ptr[ObscuredIdleSingleModeProgressLogInfoObject]
     _ignored_3: C_UDeclPtr  # workCharaData is always null

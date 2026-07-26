@@ -25,14 +25,16 @@ from il2cpp_structs import (RuntimeIl2CppClass, RuntimeIl2CppGenericClass, Runti
                             RuntimeIl2CppMetadataRegistration, RuntimeIl2CppType)
 from il2cpp_utils import Il2CppResolutionManager
 from json_encoders import (CardDataExtractionData, ExtractorFingerprint, FingerprintableExtractionData,
-                           FriendDataExtractionData, IdleSingleModeExtractionData, IdleSingleModeOutput, RaceInfoReplayExtractionData, RaceReplayOutput,
-                           SupportCardExtractionData, TeamStadiumReplayExtractionData, TrainedCharaExtractionData,
-                           TrophyDataExtractionData, decode_card_data_dictionary, decode_friend_data, decode_idle_single_mode,
+                           FriendDataExtractionData, IdleSingleModeExtractionData, IdleSingleModeOutput,
+                           RaceInfoReplayExtractionData, RaceReplayOutput, SupportCardExtractionData,
+                           TeamStadiumReplayExtractionData, TrainedCharaExtractionData, TrophyDataExtractionData,
+                           decode_card_data_dictionary, decode_friend_data, decode_idle_single_mode,
                            decode_race_info_replay, decode_support_card_dictionary, decode_team_stadium_replay,
                            decode_trained_chara_dictionary, decode_trophy_data, resolve_card_data_extraction_data,
-                           resolve_friend_data_extraction_data, resolve_idle_single_mode, resolve_race_info_replay_extraction_data,
-                           resolve_support_card_extraction_data, resolve_team_stadium_replay_extraction_data,
-                           resolve_trained_chara_extraction_data, resolve_trophy_data_extraction_data)
+                           resolve_friend_data_extraction_data, resolve_idle_single_mode,
+                           resolve_race_info_replay_extraction_data, resolve_support_card_extraction_data,
+                           resolve_team_stadium_replay_extraction_data, resolve_trained_chara_extraction_data,
+                           resolve_trophy_data_extraction_data)
 from logger import configure_logging, logger
 from memory import MemoryReader, TransientMemoryReadError
 from schema_validation import RuntimeValidatableIl2CppClassManager, TransientRuntimeValidationError
