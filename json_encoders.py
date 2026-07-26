@@ -1404,8 +1404,8 @@ def resolve_idle_single_mode(wdm: WorkDataManagerObject) -> Optional[IdleSingleM
 
 
 def _idle_single_mode_key(chara: SingleModeCharaObject, start_time: int) -> str:
-    dt = datetime.fromtimestamp(start_time, UTC).strftime('%Y%m%dT%H%M%SZ')
-    return f"{chara.fields.single_mode_chara_id}_{dt}_{chara.fields.card_id}"
+    dt = _timestamp_to_str(start_time)
+    return f"{chara.fields.single_mode_chara_id} {_safe_filename_component(dt)} {chara.fields.card_id}"
 
 
 def _decode_skill_tip_entry(s: SkillTipsObject) -> dict[str, Any]:
@@ -1656,7 +1656,7 @@ def _decode_chara_race_reward(rr: CharaRaceRewardObject) -> dict[str, Any]:
         "race_reward_bonus": [_decode_race_reward_data_entry(rd.contents) for rd in f.race_reward_bonus],
         "race_reward_plus_bonus": [_decode_race_reward_data_entry(rd.contents) for rd in f.race_reward_plus_bonus],
         "race_reward_bonus_win": [_decode_race_reward_data_entry(rd.contents) for rd in f.race_reward_bonus_win],
-        "race_reward_limit": None if not f.race_reward_limit.inner_ptr else [
+        "race_reward_limit": [] if not f.race_reward_limit.inner_ptr else [
             _decode_race_reward_limit_data_entry(ld.contents) for ld in f.race_reward_limit],
         "gained_fans": f.gained_fans,
         "campaign_id_array": [x.value for x in f.campaign_id_array],
