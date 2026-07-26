@@ -1385,6 +1385,7 @@ def resolve_idle_single_mode(wdm: WorkDataManagerObject) -> Optional[IdleSingleM
     c = idle_ptr.contents.fields
     checks = [
         (c.charaInfo, "charaInfo"),
+        (c.startTime, "startTime"),
         (c.endTime, "endTime"),
         (c.progressLogInfo, "progressLogInfo"),
     ]
@@ -1402,8 +1403,9 @@ def resolve_idle_single_mode(wdm: WorkDataManagerObject) -> Optional[IdleSingleM
     )
 
 
-def _idle_single_mode_key(chara: SingleModeCharaObject, start_time: Any) -> str:
-    return f"{start_time}-{chara.fields.card_id}"
+def _idle_single_mode_key(chara: SingleModeCharaObject, start_time: int) -> str:
+    dt = datetime.fromtimestamp(start_time, UTC).strftime('%Y%m%dT%H%M%SZ')
+    return f"{chara.fields.single_mode_chara_id}_{dt}_{chara.fields.card_id}"
 
 
 def _decode_skill_tip_entry(s: SkillTipsObject) -> dict[str, Any]:
