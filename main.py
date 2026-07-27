@@ -25,14 +25,16 @@ from il2cpp_structs import (RuntimeIl2CppClass, RuntimeIl2CppGenericClass, Runti
                             RuntimeIl2CppMetadataRegistration, RuntimeIl2CppType)
 from il2cpp_utils import Il2CppResolutionManager
 from json_encoders import (CardDataExtractionData, ExtractorFingerprint, FingerprintableExtractionData,
-                           FriendDataExtractionData, RaceInfoReplayExtractionData, RaceReplayOutput,
-                           SupportCardExtractionData, TeamStadiumReplayExtractionData, TrainedCharaExtractionData,
-                           TrophyDataExtractionData, decode_card_data_dictionary, decode_friend_data,
+                           FriendDataExtractionData, IdleSingleModeExtractionData, IdleSingleModeOutput,
+                           RaceInfoReplayExtractionData, RaceReplayOutput, SupportCardExtractionData,
+                           TeamStadiumReplayExtractionData, TrainedCharaExtractionData, TrophyDataExtractionData,
+                           decode_card_data_dictionary, decode_friend_data, decode_idle_single_mode,
                            decode_race_info_replay, decode_support_card_dictionary, decode_team_stadium_replay,
                            decode_trained_chara_dictionary, decode_trophy_data, resolve_card_data_extraction_data,
-                           resolve_friend_data_extraction_data, resolve_race_info_replay_extraction_data,
-                           resolve_support_card_extraction_data, resolve_team_stadium_replay_extraction_data,
-                           resolve_trained_chara_extraction_data, resolve_trophy_data_extraction_data)
+                           resolve_friend_data_extraction_data, resolve_idle_single_mode,
+                           resolve_race_info_replay_extraction_data, resolve_support_card_extraction_data,
+                           resolve_team_stadium_replay_extraction_data, resolve_trained_chara_extraction_data,
+                           resolve_trophy_data_extraction_data)
 from logger import configure_logging, logger
 from memory import MemoryReader, TransientMemoryReadError
 from schema_validation import RuntimeValidatableIl2CppClassManager, TransientRuntimeValidationError
@@ -422,6 +424,24 @@ def _extract_race_info_replay(data: RaceInfoReplayExtractionData) -> RaceReplayO
     return decode_race_info_replay(data)
 
 
+def _resolve_idle_single_mode(ctx: ExtractionContext) -> Optional[IdleSingleModeExtractionData]:
+    wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
+    return resolve_idle_single_mode(wdm)
+
+
+def _extract_idle_single_mode(data: IdleSingleModeExtractionData) -> IdleSingleModeOutput:
+    return decode_idle_single_mode(data)
+
+
+def _idle_single_mode_key(ism: IdleSingleModeOutput) -> str:
+    return ism.key
+
+
+def _write_idle_single_mode_json(output_folder: Path, key: str, ism: IdleSingleModeOutput) -> None:
+    output_path = output_folder / f"{key}.json"
+    _write_json_file(f"{output_folder.name}[{key}]", output_path, ism.payload)
+
+
 EXTRACTORS: tuple[Extractor[Any, Any, Any], ...] = (
     Extractor(
             name="support_cards",
@@ -468,6 +488,14 @@ EXTRACTORS: tuple[Extractor[Any, Any, Any], ...] = (
             extract=_extract_race_info_replay,
             key_fn=_replay_output_key,
             writer=_write_race_replay_json,
+    ),
+    Extractor(
+            name="idle_single_mode",
+            output_folder=Path("idle_single_mode"),
+            resolve=_resolve_idle_single_mode,
+            extract=_extract_idle_single_mode,
+            key_fn=_idle_single_mode_key,
+            writer=_write_idle_single_mode_json,
     ),
 )
 

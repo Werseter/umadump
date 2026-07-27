@@ -1356,6 +1356,440 @@ class WorkTeamStadiumDataObject(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
+# Gallop.SkillTips
+# ---------------------------------------------------------------------------
+
+class SkillTipsFields(CStructureDataclass):
+    group_id: C_Int[c_int32]
+    rarity: C_Int[c_int32]
+    level: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::SkillTips')
+class SkillTipsObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SkillTipsFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleModeSupportCard
+# ---------------------------------------------------------------------------
+
+class SingleModeSupportCardFields(CStructureDataclass):
+    position: C_Int[c_int32]
+    support_card_id: C_Int[c_int32]
+    limit_break_count: C_Int[c_int32]
+    exp: C_Int[c_int32]
+    training_partner_state: C_Int[c_int32]
+    owner_viewer_id: C_Int[c_int64]
+    rental_type: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::SingleModeSupportCard')
+class SingleModeSupportCardObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeSupportCardFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.GroupOutingInfo
+# ---------------------------------------------------------------------------
+
+class GroupOutingInfoFields(CStructureDataclass):
+    chara_id: C_Int[c_int32]
+    is_outing: C_Int[c_int32]
+    story_step: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::GroupOutingInfo')
+class GroupOutingInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: GroupOutingInfoFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.EvaluationInfo
+# ---------------------------------------------------------------------------
+
+class EvaluationInfoFields(CStructureDataclass):
+    target_id: C_Int[c_int32]
+    evaluation: C_Int[c_int32]
+    is_outing: C_Int[c_int32]
+    story_step: C_Int[c_int32]
+    is_appear: C_Int[c_int32]
+    group_outing_info_array: GenericArrayPtr[C_Ptr[GroupOutingInfoObject]]
+
+
+@register_runtime_validatable('Gallop::EvaluationInfo')
+class EvaluationInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: EvaluationInfoFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.TrainingLevelInfo
+# ---------------------------------------------------------------------------
+
+class TrainingLevelInfoFields(CStructureDataclass):
+    command_id: C_Int[c_int32]
+    level: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::TrainingLevelInfo')
+class TrainingLevelInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: TrainingLevelInfoFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.GuestOutingInfo
+# ---------------------------------------------------------------------------
+
+class GuestOutingInfoFields(CStructureDataclass):
+    support_card_id: C_Int[c_int32]
+    story_step: C_Int[c_int32]
+    group_outing_info_array: GenericArrayPtr[C_Ptr[GroupOutingInfoObject]]
+
+
+@register_runtime_validatable('Gallop::GuestOutingInfo')
+class GuestOutingInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: GuestOutingInfoFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleModeSkillUpgrade
+# ---------------------------------------------------------------------------
+
+class SingleModeSkillUpgradeFields(CStructureDataclass):
+    condition_id: C_Int[c_int32]
+    total_count: C_Int[c_int32]
+    current_count: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::SingleModeSkillUpgrade')
+class SingleModeSkillUpgradeObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeSkillUpgradeFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleModeChara
+# ---------------------------------------------------------------------------
+
+class SingleModeCharaFields(CStructureDataclass):
+    single_mode_chara_id: C_Int[c_int32]
+    card_id: C_Int[c_int32]
+    chara_grade: C_Int[c_int32]
+    speed: C_Int[c_int32]
+    stamina: C_Int[c_int32]
+    power: C_Int[c_int32]
+    wiz: C_Int[c_int32]
+    guts: C_Int[c_int32]
+    vital: C_Int[c_int32]
+    max_speed: C_Int[c_int32]
+    max_stamina: C_Int[c_int32]
+    max_power: C_Int[c_int32]
+    max_wiz: C_Int[c_int32]
+    max_guts: C_Int[c_int32]
+    default_max_speed: C_Int[c_int32]
+    default_max_stamina: C_Int[c_int32]
+    default_max_power: C_Int[c_int32]
+    default_max_wiz: C_Int[c_int32]
+    default_max_guts: C_Int[c_int32]
+    max_vital: C_Int[c_int32]
+    motivation: C_Int[c_int32]
+    fans: C_Int[c_int32]
+    rarity: C_Int[c_int32]
+    race_program_id: C_Int[c_int32]
+    reserve_race_program_id: C_Int[c_int32]
+    race_running_style: C_Int[c_int32]
+    is_short_race: C_Int[c_int32]
+    talent_level: C_Int[c_int32]
+    skill_array: GenericArrayPtr[C_Ptr[SkillDataObject]]
+    disable_skill_id_array: GenericArrayPtr[c_int32]
+    skill_tips_array: GenericArrayPtr[C_Ptr[SkillTipsObject]]
+    support_card_array: GenericArrayPtr[C_Ptr[SingleModeSupportCardObject]]
+    succession_trained_chara_id_1: C_Int[c_int32]
+    succession_trained_chara_id_2: C_Int[c_int32]
+    proper_distance_short: C_Int[c_int32]
+    proper_distance_mile: C_Int[c_int32]
+    proper_distance_middle: C_Int[c_int32]
+    proper_distance_long: C_Int[c_int32]
+    proper_running_style_nige: C_Int[c_int32]
+    proper_running_style_senko: C_Int[c_int32]
+    proper_running_style_sashi: C_Int[c_int32]
+    proper_running_style_oikomi: C_Int[c_int32]
+    proper_ground_turf: C_Int[c_int32]
+    proper_ground_dirt: C_Int[c_int32]
+    turn: C_Int[c_int32]
+    skill_point: C_Int[c_int32]
+    short_cut_state: C_Int[c_int32]
+    state: C_Int[c_int32]
+    playing_state: C_Int[c_int32]
+    scenario_id: C_Int[c_int32]
+    route_id: C_Int[c_int32]
+    start_time: SystemStringObjectPtr
+    evaluation_info_array: GenericArrayPtr[C_Ptr[EvaluationInfoObject]]
+    training_level_info_array: GenericArrayPtr[C_Ptr[TrainingLevelInfoObject]]
+    nickname_id_array: GenericArrayPtr[c_int32]
+    chara_effect_id_array: GenericArrayPtr[c_int32]
+    route_race_id_array: GenericArrayPtr[c_int32]
+    guest_outing_info_array: GenericArrayPtr[C_Ptr[GuestOutingInfoObject]]
+    skill_upgrade_info_array: GenericArrayPtr[C_Ptr[SingleModeSkillUpgradeObject]]
+
+
+@register_runtime_validatable('Gallop::SingleModeChara')
+class SingleModeCharaObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeCharaFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.ObscuredCharaEffectLog
+# ---------------------------------------------------------------------------
+
+class ObscuredCharaEffectLogFields(CStructureDataclass):
+    charaEffectId: ObscuredInt
+    isActive: ObscuredBool
+
+
+@register_runtime_validatable('Gallop::ObscuredCharaEffectLog')
+class ObscuredCharaEffectLogObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: ObscuredCharaEffectLogFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.ObscuredIdleSingleModeSignedInt
+# ---------------------------------------------------------------------------
+
+class ObscuredIdleSingleModeSignedIntFields(CStructureDataclass):
+    sign: ObscuredInt
+    value: ObscuredInt
+
+
+@register_runtime_validatable('Gallop::ObscuredIdleSingleModeSignedInt')
+class ObscuredIdleSingleModeSignedIntObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: ObscuredIdleSingleModeSignedIntFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.ObscuredIdleSingleModeGainInfo
+# ---------------------------------------------------------------------------
+
+class ObscuredIdleSingleModeGainInfoFields(CStructureDataclass):
+    speed: C_Ptr[ObscuredIdleSingleModeSignedIntObject]
+    stamina: C_Ptr[ObscuredIdleSingleModeSignedIntObject]
+    power: C_Ptr[ObscuredIdleSingleModeSignedIntObject]
+    wiz: C_Ptr[ObscuredIdleSingleModeSignedIntObject]
+    guts: C_Ptr[ObscuredIdleSingleModeSignedIntObject]
+    maxSpeed: ObscuredInt
+    maxStamina: ObscuredInt
+    maxPower: ObscuredInt
+    maxWiz: ObscuredInt
+    maxGuts: ObscuredInt
+    properDistanceShort: ObscuredInt
+    properDistanceMile: ObscuredInt
+    properDistanceMiddle: ObscuredInt
+    properDistanceLong: ObscuredInt
+    properRunningStyleNige: ObscuredInt
+    properRunningStyleSenko: ObscuredInt
+    properRunningStyleSashi: ObscuredInt
+    properRunningStyleOikomi: ObscuredInt
+    properGroundTurf: ObscuredInt
+    properGroundDirt: ObscuredInt
+    skillPoint: ObscuredInt
+    skillTipsArray: GenericArrayPtr[C_Ptr[SkillTipsObject]]
+
+
+@register_runtime_validatable('Gallop::ObscuredIdleSingleModeGainInfo')
+class ObscuredIdleSingleModeGainInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: ObscuredIdleSingleModeGainInfoFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.ObscuredIdleSingleModeSupportCardGainInfo
+# ---------------------------------------------------------------------------
+
+class ObscuredIdleSingleModeSupportCardGainInfoFields(CStructureDataclass):
+    supportCardId: ObscuredInt
+    gainInfo: C_Ptr[ObscuredIdleSingleModeGainInfoObject]
+
+
+@register_runtime_validatable('Gallop::ObscuredIdleSingleModeSupportCardGainInfo')
+class ObscuredIdleSingleModeSupportCardGainInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: ObscuredIdleSingleModeSupportCardGainInfoFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.ObscuredFactorInfo
+# ---------------------------------------------------------------------------
+
+class ObscuredFactorInfoFields(CStructureDataclass):
+    factorId: ObscuredInt
+    level: ObscuredInt
+
+
+@register_runtime_validatable('Gallop::ObscuredFactorInfo')
+class ObscuredFactorInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: ObscuredFactorInfoFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.ObscuredIdleSingleModeSuccessionFactorGainInfo
+# ---------------------------------------------------------------------------
+
+class ObscuredIdleSingleModeSuccessionFactorGainInfoFields(CStructureDataclass):
+    year: ObscuredInt
+    gainFactorInfoArray: GenericArrayPtr[C_Ptr[ObscuredFactorInfoObject]]
+
+
+@register_runtime_validatable('Gallop::ObscuredIdleSingleModeSuccessionFactorGainInfo')
+class ObscuredIdleSingleModeSuccessionFactorGainInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: ObscuredIdleSingleModeSuccessionFactorGainInfoFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleRaceHistory
+# ---------------------------------------------------------------------------
+
+class SingleRaceHistoryFields(CStructureDataclass):
+    turn: C_Int[c_int32]
+    program_id: C_Int[c_int32]
+    weather: C_Int[c_int32]
+    ground_condition: C_Int[c_int32]
+    running_style: C_Int[c_int32]
+    result_rank: C_Int[c_int32]
+    frame_order: C_Int[c_int32]
+    npc_count: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::SingleRaceHistory')
+class SingleRaceHistoryObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleRaceHistoryFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.RaceRewardData
+# ---------------------------------------------------------------------------
+
+class RaceRewardDataFields(CStructureDataclass):
+    item_type: C_Int[c_int32]
+    item_id: C_Int[c_int32]
+    item_num: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::RaceRewardData')
+class RaceRewardDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: RaceRewardDataFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.RaceRewardLimitData
+# ---------------------------------------------------------------------------
+
+class RaceRewardLimitDataFields(CStructureDataclass):
+    reward_id: C_Int[c_int32]
+    item_type: C_Int[c_int32]
+    item_id: C_Int[c_int32]
+    item_num: C_Int[c_int32]
+    rest_count: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::RaceRewardLimitData')
+class RaceRewardLimitDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: RaceRewardLimitDataFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.CharaRaceReward
+# ---------------------------------------------------------------------------
+
+class CharaRaceRewardFields(CStructureDataclass):
+    result_rank: C_Int[c_int32]
+    result_time: C_Int[c_int32]
+    race_reward: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
+    race_reward_bonus: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
+    race_reward_plus_bonus: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
+    race_reward_bonus_win: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
+    race_reward_limit: GenericArrayPtr[C_Ptr[RaceRewardLimitDataObject]]
+    gained_fans: C_Int[c_int32]
+    campaign_id_array: GenericArrayPtr[c_int32]
+
+
+@register_runtime_validatable('Gallop::CharaRaceReward')
+class CharaRaceRewardObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: CharaRaceRewardFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.IdleSingleModeRaceHistory
+# ---------------------------------------------------------------------------
+
+class IdleSingleModeRaceHistoryFields(CStructureDataclass):
+    race_history: C_Ptr[SingleRaceHistoryObject]
+    race_reward_info: C_Ptr[CharaRaceRewardObject]
+    lose_tips_id: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::IdleSingleModeRaceHistory')
+class IdleSingleModeRaceHistoryObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: IdleSingleModeRaceHistoryFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.ObscuredIdleSingleModeProgressLogInfo
+# ---------------------------------------------------------------------------
+
+class ObscuredIdleSingleModeProgressLogInfoFields(CStructureDataclass):
+    charaEffectLogArray: GenericArrayPtr[C_Ptr[ObscuredCharaEffectLogObject]]
+    supportCardGainInfoArray: GenericArrayPtr[C_Ptr[ObscuredIdleSingleModeSupportCardGainInfoObject]]
+    eventGainInfo: C_Ptr[ObscuredIdleSingleModeGainInfoObject]
+    successionGainInfo: C_Ptr[ObscuredIdleSingleModeGainInfoObject]
+    successionFactorGainArray: GenericArrayPtr[C_Ptr[ObscuredIdleSingleModeSuccessionFactorGainInfoObject]]
+    raceHistoryArray: GenericArrayPtr[C_Ptr[IdleSingleModeRaceHistoryObject]]
+    gainSkillIdArray: GenericArrayPtr[ObscuredInt]
+    totalSkillPoint: ObscuredInt
+
+
+@register_runtime_validatable('Gallop::ObscuredIdleSingleModeProgressLogInfo')
+class ObscuredIdleSingleModeProgressLogInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: ObscuredIdleSingleModeProgressLogInfoFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.WorkIdleSingleMode
+# ---------------------------------------------------------------------------
+
+class WorkIdleSingleModeDataFields(CStructureDataclass):
+    _ignored_1: ObscuredInt  # state
+    charaInfo: C_Ptr[SingleModeCharaObject]
+    startTime: C_Int[c_int64]
+    endTime: C_Int[c_int64]
+    _ignored_2: ObscuredInt  # singleModePlayingState
+    progressLogInfo: C_Ptr[ObscuredIdleSingleModeProgressLogInfoObject]
+    _ignored_3: C_UDeclPtr  # workCharaData is always null
+
+
+@register_runtime_validatable('Gallop::WorkIdleSingleModeData')
+class WorkIdleSingleModeDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: WorkIdleSingleModeDataFields
+
+
+# ---------------------------------------------------------------------------
 # Gallop.WorkDataManager object hierarchy
 # ---------------------------------------------------------------------------
 
@@ -1370,7 +1804,8 @@ class WorkDataManagerFields(CStructureDataclass):
     trophy: C_Ptr[WorkTrophyDataObject]
     _ignored_4: ArrayType[C_UDeclPtr, L[4]]
     teamStadiumData: C_Ptr[WorkTeamStadiumDataObject]
-    _ignored_5: ArrayType[C_UDeclPtr, L[30]]  # directoryData … factorResearchData
+    _ignored_5: ArrayType[C_UDeclPtr, L[31]]  # directoryData … optionData
+    idleSingleModeData: C_Ptr[WorkIdleSingleModeDataObject]
 
 
 @register_runtime_validatable('Gallop::WorkDataManager')
