@@ -5,9 +5,9 @@ import re
 from ctypes import c_int32, c_int64
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
-from typing import Any, Optional, Protocol
+from typing import Any, Iterator, Optional, Protocol
 
-from ctypes_utils import C_Int, C_Ptr
+from ctypes_utils import C_Int, C_Ptr, StructOrSimple
 from game_structs import (AcquiredSkillObject, BgSeason, CardDataDictionaryEntry, CardRarity, CharaGradeType,
                           CharaRaceRewardObject, CourseDistanceType, DefeatType, EvaluationInfoObject, FactorDataObject,
                           FactorDataUpgradeHistoryObject, FactorInfoObject, FavoriteDataDictionaryEntry,
@@ -1477,6 +1477,11 @@ def _decode_skill_upgrade_info_entry(u: SingleModeSkillUpgradeObject) -> dict[st
     }
 
 
+def _safe_clist[T: StructOrSimple](l: GenericArrayPtr[T]) -> Iterator[T]:
+    if l.inner_ptr:
+        return iter(l)
+    return iter([])
+
 def _decode_single_mode_chara(chara: SingleModeCharaObject) -> dict[str, Any]:
     f = chara.fields
     return {
@@ -1508,10 +1513,10 @@ def _decode_single_mode_chara(chara: SingleModeCharaObject) -> dict[str, Any]:
         "race_running_style": f.race_running_style,
         "is_short_race": f.is_short_race,
         "talent_level": f.talent_level,
-        "skill_array": [_decode_skill_data_entry(s.contents) for s in f.skill_array],
-        "disable_skill_id_array": list(f.disable_skill_id_array),
-        "skill_tips_array": [_decode_skill_tip_entry(s.contents) for s in f.skill_tips_array],
-        "support_card_array": [_decode_single_mode_support_card(s.contents) for s in f.support_card_array],
+        "skill_array": [_decode_skill_data_entry(s.contents) for s in _safe_clist(f.skill_array)],
+        "disable_skill_id_array": list(_safe_clist(f.disable_skill_id_array)),
+        "skill_tips_array": [_decode_skill_tip_entry(s.contents) for s in _safe_clist(f.skill_tips_array)],
+        "support_card_array": [_decode_single_mode_support_card(s.contents) for s in _safe_clist(f.support_card_array)],
         "succession_trained_chara_id_1": f.succession_trained_chara_id_1,
         "succession_trained_chara_id_2": f.succession_trained_chara_id_2,
         "proper_distance_short": f.proper_distance_short,
@@ -1531,15 +1536,15 @@ def _decode_single_mode_chara(chara: SingleModeCharaObject) -> dict[str, Any]:
         "playing_state": f.playing_state,
         "scenario_id": f.scenario_id,
         "route_id": f.route_id,
-        "start_time": f.start_time.value,
-        "evaluation_info_array": [_decode_evaluation_info_entry(e.contents) for e in f.evaluation_info_array],
+        "start_time": f.start_time.value if f.start_time.inner_ptr else "",
+        "evaluation_info_array": [_decode_evaluation_info_entry(e.contents) for e in _safe_clist(f.evaluation_info_array)],
         "training_level_info_array": [
-            _decode_training_level_info_entry(t.contents) for t in f.training_level_info_array],
-        "nickname_id_array": list(f.nickname_id_array),
-        "chara_effect_id_array": list(f.chara_effect_id_array),
-        "route_race_id_array": [x.value for x in f.route_race_id_array],
-        "guest_outing_info_array": [_decode_guest_outing_info_entry(o.contents) for o in f.guest_outing_info_array],
-        "skill_upgrade_info_array": [_decode_skill_upgrade_info_entry(u.contents) for u in f.skill_upgrade_info_array],
+            _decode_training_level_info_entry(t.contents) for t in _safe_clist(f.training_level_info_array)],
+        "nickname_id_array": list(_safe_clist(f.nickname_id_array)),
+        "chara_effect_id_array": list(_safe_clist(f.chara_effect_id_array)),
+        "route_race_id_array": [x.value for x in _safe_clist(f.route_race_id_array)],
+        "guest_outing_info_array": [_decode_guest_outing_info_entry(o.contents) for o in _safe_clist(f.guest_outing_info_array)],
+        "skill_upgrade_info_array": [_decode_skill_upgrade_info_entry(u.contents) for u in _safe_clist(f.skill_upgrade_info_array)],
     }
 
 
