@@ -344,6 +344,14 @@ class CharaGradeType(SafeIntEnum):
     Max = 10
 
 
+@register_enum_validatable('Gallop::WorkIdleSingleModeData.PlayingState')
+class IdleSingleModePlayingState(SafeIntEnum):
+    None_ = 0
+    Playing = 1
+    Finished = 2
+    LogChecked = 3
+
+
 @register_enum_validatable('Gallop::MainStoryDefine.RaceGimmickType')
 class MainStoryRaceGimmickType(SafeIntEnum):
     NONE = 0
@@ -1756,20 +1764,66 @@ class ObscuredIdleSingleModeProgressLogInfoObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class WorkIdleSingleModeDataFields(CStructureDataclass):
-    _ignored_1: ObscuredInt  # state
+    state: Annotated[ObscuredInt, IdleSingleModePlayingState]
     charaInfo: C_Ptr[SingleModeCharaObject]
     startTime: C_Int[c_int64]
     endTime: C_Int[c_int64]
-    _ignored_2: ObscuredInt  # singleModePlayingState
-    _ignored_3: c_int32  # trainingEventType
+    _ignored_1: ObscuredInt  # singleModePlayingState
+    _ignored_2: c_int32  # trainingEventType
     progressLogInfo: C_Ptr[ObscuredIdleSingleModeProgressLogInfoObject]
-    _ignored_4: C_UDeclPtr  # workCharaData
+    _ignored_3: C_UDeclPtr  # workCharaData
 
 
 @register_runtime_validatable('Gallop::WorkIdleSingleModeData')
 class WorkIdleSingleModeDataObject(CStructureDataclass):
     _il2cpp_obj: RuntimeIl2CppObject
     fields: WorkIdleSingleModeDataFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.WorkSingleModeData.RaceStartResultInfo
+# ---------------------------------------------------------------------------
+
+class WorkSingleModeDataRaceStartResultInfoFields(CStructureDataclass):
+    _ignored_1: ArrayType[C_UDeclPtr, L[3]]  # startInfo, raceScenario, rewardInfo
+    charaInfo: C_Ptr[SingleModeCharaObject]
+    _ignored_2: ArrayType[C_UDeclPtr, L[2]]  # addTrophyInfo, trophyRewardInfo
+    _ignored_3: c_int32  # prevCharaGrade
+
+
+@register_runtime_validatable('Gallop::WorkSingleModeData.RaceStartResultInfo')
+class WorkSingleModeDataRaceStartResultInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: WorkSingleModeDataRaceStartResultInfoFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.WorkSingleModeData
+# ---------------------------------------------------------------------------
+
+class WorkSingleModeDataFields(CStructureDataclass):
+    _ignored_1: C_UDeclPtr  # storyInfoListDic
+    _ignored_2: ArrayType[c_bool, L[2]]  # isExistPlayingData, isPlaying
+    totalTurnNum: ObscuredInt
+    _ignored_3: ArrayType[C_UDeclPtr, L[3]]  # character, raceConditions, homeInfo
+    _ignored_4: ArrayType[ObscuredInt, L[3]]  # addMusicId, state, playingState
+    _ignored_5: ArrayType[C_UDeclPtr, L[6]]  # scenarioIdList … groupLogPool
+    _ignored_6: ArrayType[ObscuredBool, L[4]]  # isStepTurn … isForceChangeViewMonthStartView
+    _ignored_7: ArrayType[ObscuredInt, L[2]]  # selectedTrainingCommandId, rentalCount
+    _ignored_8: ObscuredLong  # prevFreeRentalTime
+    _ignored_9: C_UDeclPtr  # successionEventInfo
+    raceStartResultInfoData: C_Ptr[WorkSingleModeDataRaceStartResultInfoObject]
+    _ignored_10: ArrayType[C_UDeclPtr, L[5]]  # racePieceCampaignInfoList … eventChoiceRewardDict
+    _ignored_11: c_int32  # cachedRewardEventId
+    _ignored_12: C_UDeclPtr  # defaultRunningStyleArray
+    _ignored_13: ObscuredBool  # isUmaplan
+    _ignored_14: C_UDeclPtr  # logAdditiveBuffer
+
+
+@register_runtime_validatable('Gallop::WorkSingleModeData')
+class WorkSingleModeDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: WorkSingleModeDataFields
 
 
 # ---------------------------------------------------------------------------
@@ -1783,7 +1837,8 @@ class WorkDataManagerFields(CStructureDataclass):
     supportCardData: C_Ptr[WorkSupportCardDataObject]
     _ignored_2: ArrayType[C_UDeclPtr, L[4]]  # charaData … itemData
     trainedCharaData: C_Ptr[WorkTrainedCharaDataObject]
-    _ignored_3: ArrayType[C_UDeclPtr, L[9]]  # singleMode … announceData
+    singleMode: C_Ptr[WorkSingleModeDataObject]
+    _ignored_3: ArrayType[C_UDeclPtr, L[8]]  # paymentItemData … announceData
     trophy: C_Ptr[WorkTrophyDataObject]
     _ignored_4: ArrayType[C_UDeclPtr, L[4]]
     teamStadiumData: C_Ptr[WorkTeamStadiumDataObject]

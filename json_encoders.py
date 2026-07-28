@@ -12,7 +12,7 @@ from game_structs import (AcquiredSkillObject, BgSeason, CardDataDictionaryEntry
                           CharaRaceRewardObject, CourseDistanceType, DefeatType, EvaluationInfoObject, FactorDataObject,
                           FactorDataUpgradeHistoryObject, FactorInfoObject, FavoriteDataDictionaryEntry,
                           FriendDataObject, GenericArrayPtr, GenericDictionary, GenericList, GroupOutingInfoObject,
-                          GuestOutingInfoObject, HintLevelDictionaryEntry, HorseDataObject,
+                          GuestOutingInfoObject, HintLevelDictionaryEntry, HorseDataObject, IdleSingleModePlayingState,
                           IdleSingleModeRaceHistoryObject, InitialLaneType, MainStoryRaceGimmickType,
                           ObscuredCharaEffectLogObject, ObscuredFactorInfoObject, ObscuredIdleSingleModeGainInfoObject,
                           ObscuredIdleSingleModeProgressLogInfoObject, ObscuredIdleSingleModeSignedIntObject,
@@ -29,7 +29,7 @@ from game_structs import (AcquiredSkillObject, BgSeason, CardDataDictionaryEntry
                           TeamStadiumResultScoreDataObject, TrainedCharaDataDictionaryEntry, TrainedCharaDataObject,
                           TrainedCharaSupportCardDataObject, TrainingLevelInfoObject,
                           TrophyDataCharaIdListDictionaryEntry, TrophyDataDictionaryEntry, TurfVisionType,
-                          WorkDataManagerObject)
+                          WorkDataManagerObject, WorkIdleSingleModeDataObject, WorkSingleModeDataObject)
 from logger import logger
 
 JST = timezone(timedelta(hours=9), "JST")
@@ -1350,6 +1350,23 @@ def decode_race_info_replay(data: RaceInfoReplayExtractionData) -> RaceReplayOut
 
 
 # ---------------------------------------------------------------------------
+# Career extraction stub
+# ---------------------------------------------------------------------------
+
+def _resolve_career_data_ptr(wdm: WorkDataManagerObject) -> Optional[C_Ptr[WorkSingleModeDataObject]]:
+    career_data_ptr = wdm.fields.singleMode
+    if not career_data_ptr:
+        logger.warning("WorkDataManager.singleMode is null")
+        return None
+
+    f = career_data_ptr.contents.fields
+    if f.totalTurnNum == 0:
+        return None
+
+    return career_data_ptr
+
+
+# ---------------------------------------------------------------------------
 # Independent training results extraction
 # ---------------------------------------------------------------------------
 
@@ -1361,45 +1378,62 @@ class IdleSingleModeOutput:
 
 @dataclass(frozen=True)
 class IdleSingleModeExtractionData:
-    charaInfo: C_Ptr[SingleModeCharaObject]
-    startTime: int
-    endTime: int
-    progressLogInfo: C_Ptr[ObscuredIdleSingleModeProgressLogInfoObject]
+    state: IdleSingleModePlayingState
+    chara_info: C_Ptr[SingleModeCharaObject]
+    start_time: int
+    end_time: int
+    progress_log_info: C_Ptr[ObscuredIdleSingleModeProgressLogInfoObject]
+    finalized_chara_info: C_Ptr[SingleModeCharaObject]
 
     def fingerprint(self) -> ExtractorFingerprint:
         return (
             "idle_single_mode",
-            _pointer_fingerprint(self.charaInfo),
-            self.startTime,
-            self.endTime,
-            _pointer_fingerprint(self.progressLogInfo),
+            self.state,
+            _pointer_fingerprint(self.chara_info),
+            self.start_time,
+            self.end_time,
+            _pointer_fingerprint(self.progress_log_info),
+            _pointer_fingerprint(self.finalized_chara_info),
         )
 
 
-def resolve_idle_single_mode(wdm: WorkDataManagerObject) -> Optional[IdleSingleModeExtractionData]:
-    idle_ptr = wdm.fields.idleSingleModeData
-    if not idle_ptr:
-        logger.debug("WorkDataManager.idleSingleModeData is null")
+def _resolve_idle_career_data_ptr(wdm: WorkDataManagerObject) -> Optional[C_Ptr[WorkIdleSingleModeDataObject]]:
+    idle_career_data_ptr = wdm.fields.idleSingleModeData
+    if not idle_career_data_ptr:
+        logger.warning("WorkDataManager.idleSingleModeData is null")
         return None
 
-    c = idle_ptr.contents.fields
-    checks = [
-        (c.charaInfo, "charaInfo"),
-        (c.startTime, "startTime"),
-        (c.endTime, "endTime"),
-        (c.progressLogInfo, "progressLogInfo"),
-    ]
-    for (f, name) in checks:
-        if not f:
-            logger.debug(
-                    f"Idle single mode data is not ready: WorkDataManager.idleSingleModeData.{name} is null or zero")
-            return None
+    f = idle_career_data_ptr.contents.fields
+    if f.state.value == IdleSingleModePlayingState.None_:
+        return None
+
+    return idle_career_data_ptr
+
+
+def resolve_idle_single_mode(wdm: WorkDataManagerObject) -> Optional[IdleSingleModeExtractionData]:
+    if not (idle_career_data_ptr := _resolve_idle_career_data_ptr(wdm)):
+        return None
+    idle_career_data = idle_career_data_ptr.contents.fields
+
+    if not (career_data_ptr := _resolve_career_data_ptr(wdm)):
+        return None
+    career_data = career_data_ptr.contents
+
+    if not (race_start_result_info_data_ptr := career_data.fields.raceStartResultInfoData):
+        return None
+    race_start_result_info_data = race_start_result_info_data_ptr.contents
+
+    # idle mode makes a confusing datapath reuse here - this retrieval is intentional
+    if not (finalized_chara_info_ptr := race_start_result_info_data.fields.charaInfo):
+        return None
 
     return IdleSingleModeExtractionData(
-            charaInfo=c.charaInfo,
-            startTime=c.startTime,
-            endTime=c.endTime,
-            progressLogInfo=c.progressLogInfo,
+            state=IdleSingleModePlayingState(idle_career_data.state.value),
+            chara_info=idle_career_data.charaInfo,
+            start_time=idle_career_data.startTime,
+            end_time=idle_career_data.endTime,
+            progress_log_info=idle_career_data.progressLogInfo,
+            finalized_chara_info=finalized_chara_info_ptr,
     )
 
 
@@ -1637,9 +1671,9 @@ def _decode_race_reward_data_entry(rd: RaceRewardDataObject) -> dict[str, Any]:
 
 def _decode_idle_single_mode_progress_info(data: IdleSingleModeExtractionData) -> dict[str, Any]:
     return {
-        "chara_info": _decode_single_mode_chara(data.charaInfo.contents),
-        "start_time": _timestamp_to_str(data.startTime),
-        "end_time": _timestamp_to_str(data.endTime),
+        "chara_info": _decode_single_mode_chara(data.chara_info.contents),
+        "start_time": _timestamp_to_str(data.start_time),
+        "end_time": _timestamp_to_str(data.end_time),
         "dress_id": 0,
     }
 
@@ -1656,6 +1690,28 @@ def _decode_chara_race_reward(rr: CharaRaceRewardObject) -> dict[str, Any]:
         "race_reward_plus_bonus": [_decode_race_reward_data_entry(rd.contents) for rd in f.race_reward_plus_bonus],
         "race_reward_bonus_win": [_decode_race_reward_data_entry(rd.contents) for rd in f.race_reward_bonus_win],
     }
+
+
+def _decode_idle_single_mode_race_reward_summary(
+        progress: ObscuredIdleSingleModeProgressLogInfoObject) -> dict[str, Any]:
+    reward_infos = [
+        reward_info.contents.fields
+        for history in progress.fields.raceHistoryArray
+        if (reward_info := history.contents.fields.race_reward_info)
+    ]
+    if not reward_infos:
+        return {}
+
+    item_counts: dict[int, int] = {}
+    for race_reward_fields in reward_infos:
+        for reward_array in (race_reward_fields.race_reward, race_reward_fields.race_reward_bonus,
+                             race_reward_fields.race_reward_plus_bonus, race_reward_fields.race_reward_bonus_win):
+            for reward in reward_array:
+                reward_data_fields = reward.contents.fields
+                item_count = item_counts.get(reward_data_fields.item_id, 0) + reward_data_fields.item_num
+                item_counts[reward_data_fields.item_id] = item_count
+
+    return {"add_item_list": [{"item_id": item_id, "number": number} for item_id, number in item_counts.items()]}
 
 
 def _decode_idle_single_mode_race_history_entry(r: IdleSingleModeRaceHistoryObject) -> dict[str, Any]:
@@ -1685,18 +1741,19 @@ def _decode_obscured_idle_single_mode_progress_log_info(progress: ObscuredIdleSi
 
 
 def _decode_idle_single_mode_data(data: IdleSingleModeExtractionData) -> dict[str, Any]:
-    progress_log_info = data.progressLogInfo.contents
+    progress_log_info = data.progress_log_info.contents
     return {
         "progress_info": _decode_idle_single_mode_progress_info(data),
         "progress_log_info": _decode_obscured_idle_single_mode_progress_log_info(progress_log_info),
         "end_info": {
-            "chara_info": _decode_single_mode_chara(data.chara_info.contents),
+            "chara_info": _decode_single_mode_chara(data.finalized_chara_info.contents),
+            "reward_summary_info": _decode_idle_single_mode_race_reward_summary(progress_log_info),
         }
     }
 
 
 def decode_idle_single_mode(data: IdleSingleModeExtractionData) -> IdleSingleModeOutput:
     return IdleSingleModeOutput(
-            key=_idle_single_mode_key(data.charaInfo.contents, data.startTime),
+            key=_idle_single_mode_key(data.finalized_chara_info.contents, data.start_time),
             payload=_decode_idle_single_mode_data(data)
     )
