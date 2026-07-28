@@ -1770,7 +1770,7 @@ class ObscuredIdleSingleModeProgressLogInfoObject(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
-# Gallop.WorkIdleSingleMode
+# Gallop.WorkIdleSingleModeData
 # ---------------------------------------------------------------------------
 
 class WorkIdleSingleModeDataFields(CStructureDataclass):

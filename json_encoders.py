@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import re
-from ctypes import c_int32, c_int64
+from ctypes import c_int32
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
 from typing import Any, Iterator, Optional, Protocol
 
-from ctypes_utils import C_Int, C_Ptr, StructOrSimple
+from ctypes_utils import C_Ptr, StructOrSimple
 from game_structs import (AcquiredSkillObject, BgSeason, CardDataDictionaryEntry, CardRarity, CharaGradeType,
                           CharaRaceRewardObject, CourseDistanceType, DefeatType, EvaluationInfoObject, FactorDataObject,
                           FactorDataUpgradeHistoryObject, FactorInfoObject, FavoriteDataDictionaryEntry,
@@ -1317,8 +1317,8 @@ class RaceInfoReplayExtractionData:
 
 def _race_horse_trained_chara_pointer_signature(race_info: RaceInfoObject) -> tuple[tuple[int, int], ...]:
     return tuple(
-        (horse.address, horse.contents.fields.trainedCharaData.address) if horse else (0, 0)
-        for horse in race_info.fields.raceHorse
+            (horse.address, horse.contents.fields.trainedCharaData.address) if horse else (0, 0)
+            for horse in race_info.fields.raceHorse
     )
 
 
@@ -1482,6 +1482,7 @@ def _safe_clist[T: StructOrSimple](l: GenericArrayPtr[T]) -> Iterator[T]:
         return iter(l)
     return iter([])
 
+
 def _decode_single_mode_chara(chara: SingleModeCharaObject) -> dict[str, Any]:
     f = chara.fields
     return {
@@ -1537,14 +1538,17 @@ def _decode_single_mode_chara(chara: SingleModeCharaObject) -> dict[str, Any]:
         "scenario_id": f.scenario_id,
         "route_id": f.route_id,
         "start_time": f.start_time.value if f.start_time.inner_ptr else "",
-        "evaluation_info_array": [_decode_evaluation_info_entry(e.contents) for e in _safe_clist(f.evaluation_info_array)],
+        "evaluation_info_array": [
+            _decode_evaluation_info_entry(e.contents) for e in _safe_clist(f.evaluation_info_array)],
         "training_level_info_array": [
             _decode_training_level_info_entry(t.contents) for t in _safe_clist(f.training_level_info_array)],
         "nickname_id_array": list(_safe_clist(f.nickname_id_array)),
         "chara_effect_id_array": list(_safe_clist(f.chara_effect_id_array)),
         "route_race_id_array": [x.value for x in _safe_clist(f.route_race_id_array)],
-        "guest_outing_info_array": [_decode_guest_outing_info_entry(o.contents) for o in _safe_clist(f.guest_outing_info_array)],
-        "skill_upgrade_info_array": [_decode_skill_upgrade_info_entry(u.contents) for u in _safe_clist(f.skill_upgrade_info_array)],
+        "guest_outing_info_array": [
+            _decode_guest_outing_info_entry(o.contents) for o in _safe_clist(f.guest_outing_info_array)],
+        "skill_upgrade_info_array": [
+            _decode_skill_upgrade_info_entry(u.contents) for u in _safe_clist(f.skill_upgrade_info_array)],
     }
 
 
