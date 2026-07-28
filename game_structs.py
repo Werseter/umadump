@@ -1380,9 +1380,9 @@ class SingleModeSupportCardFields(CStructureDataclass):
     support_card_id: C_Int[c_int32]
     limit_break_count: C_Int[c_int32]
     exp: C_Int[c_int32]
-    training_partner_state: C_Int[c_int32]
+    _ignored_1: c_int32  # training_partner_state
     owner_viewer_id: C_Int[c_int64]
-    rental_type: C_Int[c_int32]
+    _ignored_2: c_int32  # rental_type
 
 
 @register_runtime_validatable('Gallop::SingleModeSupportCard')
@@ -1693,24 +1693,6 @@ class RaceRewardDataObject(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
-# Gallop.RaceRewardLimitData
-# ---------------------------------------------------------------------------
-
-class RaceRewardLimitDataFields(CStructureDataclass):
-    reward_id: C_Int[c_int32]
-    item_type: C_Int[c_int32]
-    item_id: C_Int[c_int32]
-    item_num: C_Int[c_int32]
-    rest_count: C_Int[c_int32]
-
-
-@register_runtime_validatable('Gallop::RaceRewardLimitData')
-class RaceRewardLimitDataObject(CStructureDataclass):
-    _il2cpp_obj: RuntimeIl2CppObject
-    fields: RaceRewardLimitDataFields
-
-
-# ---------------------------------------------------------------------------
 # Gallop.CharaRaceReward
 # ---------------------------------------------------------------------------
 
@@ -1721,7 +1703,7 @@ class CharaRaceRewardFields(CStructureDataclass):
     race_reward_bonus: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
     race_reward_plus_bonus: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
     race_reward_bonus_win: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
-    race_reward_limit: GenericArrayPtr[C_Ptr[RaceRewardLimitDataObject]]
+    _ignored_1: C_UDeclPtr  # race_reward_limit
     gained_fans: C_Int[c_int32]
     campaign_id_array: GenericArrayPtr[c_int32]
 
@@ -1779,8 +1761,9 @@ class WorkIdleSingleModeDataFields(CStructureDataclass):
     startTime: C_Int[c_int64]
     endTime: C_Int[c_int64]
     _ignored_2: ObscuredInt  # singleModePlayingState
+    _ignored_3: c_int32  # trainingEventType
     progressLogInfo: C_Ptr[ObscuredIdleSingleModeProgressLogInfoObject]
-    _ignored_3: C_UDeclPtr  # workCharaData is always null
+    _ignored_4: C_UDeclPtr  # workCharaData
 
 
 @register_runtime_validatable('Gallop::WorkIdleSingleModeData')
