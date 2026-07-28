@@ -405,8 +405,8 @@ class GenericArrayPtr[CDT: StructOrSimple](CStructureDataclass, RuntimeGenericMi
     def span(self) -> Span[CDT]:
         """Return a ``Span`` over the array payload (``m_items``)."""
 
-        if not self.inner_ptr.contents:
-            raise ValueError("Cannot get span of null GenericArray pointer")
+        if not self.inner_ptr:
+            return Span(self.inner_ptr, 0)  # type: ignore[arg-type]
         count = self.inner_ptr.contents.max_length
         item_type = self._resolve_class_target_type()
         m_items_ptr = int(self.inner_ptr) + int(getattr(GenericArray, 'm_items').offset)
