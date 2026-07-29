@@ -462,7 +462,7 @@ h2 {
 }
 
 .tool-carousel-portrait .carousel-stage {
-  aspect-ratio: 7 / 8;
+  aspect-ratio: 4 / 3;
 }
 
 .tool-shot.carousel-slide {
@@ -575,6 +575,7 @@ h2 {
 }
 
 .tool-shot-trophy {
+  width: auto;
   aspect-ratio: 4 / 3;
   margin: 1rem 1.15rem 0;
 }
