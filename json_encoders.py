@@ -1407,6 +1407,9 @@ def _resolve_idle_career_data_ptr(wdm: WorkDataManagerObject) -> Optional[C_Ptr[
     if f.state.value == IdleSingleModePlayingState.None_:
         return None
 
+    if not f.progressLogInfo:
+        return None
+
     return idle_career_data_ptr
 
 
