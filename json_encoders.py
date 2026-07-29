@@ -1404,7 +1404,7 @@ def _resolve_idle_career_data_ptr(wdm: WorkDataManagerObject) -> Optional[C_Ptr[
         return None
 
     f = idle_career_data_ptr.contents.fields
-    if f.state.value == IdleSingleModePlayingState.None_:
+    if f.state.value not in (IdleSingleModePlayingState.Finished, IdleSingleModePlayingState.LogChecked):
         return None
 
     return idle_career_data_ptr
