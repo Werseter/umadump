@@ -3,9 +3,9 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Export your Uma data for the community tools you already use.">
+    <meta name="description" content="A simple exporter that writes Uma data as JSON for community tools.">
     <meta name="theme-color" content="#11121b">
-    <title>umadump — Your Uma data, unlocked</title>
+    <title>umadump — A small exporter for Uma data</title>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -18,8 +18,8 @@
           <span>umadump</span>
         </a>
         <nav aria-label="Primary navigation">
-          <a href="#uses">Uses</a>
-          <a href="#flow">How it works</a>
+          <a href="#tools">Community tools</a>
+          <a href="#quick-start">Quick start</a>
           <a href="https://github.com/Werseter/umadump" target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a>
         </nav>
       </div>
@@ -30,263 +30,214 @@
         <div class="shell hero-grid">
           <div class="hero-copy">
             <p class="eyebrow"><span class="eyebrow-dot"></span> Uma data exporter</p>
-            <h1>Your Uma data,<br><em>unlocked.</em></h1>
+            <h1>A small tool for<br><em>your Uma data.</em></h1>
             <p class="hero-lede">
-              Read live game state or a full-memory minidump, then export structured JSON for the community tools you already use.
+              umadump reads available game data and writes JSON files for compatible community tools. Run it once for a snapshot, or leave daemon mode open to update files while you play.
             </p>
             <div class="hero-actions">
               <a class="button button-primary" href="https://github.com/Werseter/umadump/releases/latest" target="_blank" rel="noreferrer">
                 Download latest release <span aria-hidden="true">↓</span>
               </a>
-              <a class="button button-secondary" href="https://github.com/Werseter/umadump" target="_blank" rel="noreferrer">
-                Browse the source <span aria-hidden="true">↗</span>
+              <a class="button button-secondary" href="https://github.com/Werseter/umadump#usage" target="_blank" rel="noreferrer">
+                Read the README <span aria-hidden="true">↗</span>
               </a>
             </div>
-            <ul class="proof-list" aria-label="Core capabilities">
-              <li>Live process</li>
-              <li>Minidump</li>
-              <li>Structured JSON</li>
-              <li>Schema-checked</li>
-            </ul>
+            <p class="hero-note">Use it with a live game or a prepared minidump.</p>
           </div>
 
-          <aside class="export-console" aria-label="Example umadump export files">
+          <aside class="export-console" aria-label="Examples of umadump export files">
             <div class="console-topline">
-              <span class="console-status"><i></i> export complete</span>
-              <span>local / read-only</span>
+              <span class="console-status"><i></i> example exports</span>
+              <span>JSON / UTF-8</span>
             </div>
             <div class="console-body">
-              <p class="console-path">~/umadump/output</p>
-              <div class="file-row file-row-featured">
+              <p class="console-path">Written relative to where you start umadump</p>
+              <div class="file-row">
                 <span class="file-symbol">✦</span>
                 <div>
                   <strong>trained_chara_data.json</strong>
-                  <small>veterans ready to share</small>
+                  <small>veterans</small>
                 </div>
-                <span class="file-state">saved</span>
               </div>
               <div class="file-row">
                 <span class="file-symbol">◌</span>
                 <div>
                   <strong>support_card_data.json</strong>
-                  <small>collection inventory</small>
+                  <small>collection data</small>
                 </div>
-                <span class="file-state">saved</span>
-              </div>
-              <div class="file-row">
-                <span class="file-symbol">⌁</span>
-                <div>
-                  <strong>race_replays/</strong>
-                  <small>results &amp; replay data</small>
-                </div>
-                <span class="file-state">saved</span>
               </div>
               <div class="file-row">
                 <span class="file-symbol">◇</span>
                 <div>
                   <strong>trophy_data.json</strong>
-                  <small>trophy completion progress</small>
+                  <small>trophy progress</small>
                 </div>
-                <span class="file-state">saved</span>
+              </div>
+              <div class="file-row">
+                <span class="file-symbol">⌁</span>
+                <div>
+                  <strong>race_replays/&lt;type&gt;/&lt;replay&gt;.json</strong>
+                  <small>supported replays</small>
+                </div>
+              </div>
+              <div class="file-row file-row-idle">
+                <span class="file-symbol">◒</span>
+                <div>
+                  <strong>idle_single_mode/&lt;chara-id&gt; &lt;start-time&gt; &lt;card-id&gt;.json</strong>
+                  <small>Independent Training</small>
+                </div>
               </div>
             </div>
-            <div class="console-footer">
-              <span>4 example exports</span>
-              <span>JSON / UTF-8</span>
-            </div>
+            <div class="console-footer">Available files depend on what is present in the game.</div>
           </aside>
         </div>
       </section>
 
-      <section class="uses section" id="uses">
+      <section class="tools section" id="tools" aria-labelledby="tools-heading">
         <div class="shell">
           <div class="section-heading">
-            <p class="eyebrow">Bring your data further</p>
-            <h2>One dumper, a growing<br>toolbox of uses.</h2>
-            <p>
-              umadump produces portable data files that fit into community tools, trackers, replay viewers, and your own experiments.
-            </p>
-          </div>
-
-          <div class="use-grid">
-            <article class="use-card tone-lilac">
-              <span class="use-glyph" aria-hidden="true">01</span>
-              <p class="use-kicker">Collection</p>
-              <h3>Characters &amp;<br>support cards</h3>
-              <p>Export owned character cards and supports for your GameTora collection.</p>
-              <a href="https://gametora.com/umamusume/collection-tracker" target="_blank" rel="noreferrer">Open GameTora <span aria-hidden="true">↗</span></a>
-            </article>
-
-            <article class="use-card tone-mint">
-              <span class="use-glyph" aria-hidden="true">02</span>
-              <p class="use-kicker">Veterans</p>
-              <h3>Trained Uma,<br>ready to share</h3>
-              <p>Export veteran data for use with uma.moe and the wider trainer community.</p>
-              <a href="https://uma.moe/" target="_blank" rel="noreferrer">Visit uma.moe <span aria-hidden="true">↗</span></a>
-            </article>
-
-            <article class="use-card tone-coral">
-              <span class="use-glyph" aria-hidden="true">03</span>
-              <p class="use-kicker">Race analysis</p>
-              <h3>Replays worth<br>rewatching</h3>
-              <p>Save supported race replay data for viewing and analysis in Hakuraku.</p>
-              <a href="https://hakuraku.moe/" target="_blank" rel="noreferrer">Open Hakuraku <span aria-hidden="true">↗</span></a>
-            </article>
-
-            <article class="use-card tone-gold">
-              <span class="use-glyph" aria-hidden="true">04</span>
-              <p class="use-kicker">Completion</p>
-              <h3>Every trophy,<br>on the calendar</h3>
-              <p>Take your trophy progress to the Completionist Tracker and plan the races still ahead.</p>
-              <a href="https://justwastingtime.github.io/TrophyTracker/" target="_blank" rel="noreferrer">Open Trophy Tracker <span aria-hidden="true">↗</span></a>
-            </article>
-
-            <article class="use-card tone-blue">
-              <span class="use-glyph" aria-hidden="true">05</span>
-              <p class="use-kicker">Career data</p>
-              <h3>Independent Training,<br>ready now</h3>
-              <p>Export Independent Training (Idle Mode) data today. Other career tools are coming soon.</p>
-              <a href="https://github.com/Werseter/umadump" target="_blank" rel="noreferrer">Explore the project <span aria-hidden="true">↗</span></a>
-            </article>
-
-            <article class="use-card tone-ink">
-              <span class="use-glyph" aria-hidden="true">+</span>
-              <p class="use-kicker">And more</p>
-              <h3>Useful data,<br>where you need it</h3>
-              <p>Friend lists, Team Stadium, raw structured exports, and a foundation for new community ideas.</p>
-              <a href="https://github.com/Werseter/umadump/releases/latest" target="_blank" rel="noreferrer">See the latest release <span aria-hidden="true">↗</span></a>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section class="showcase section" aria-labelledby="showcase-heading">
-        <div class="shell">
-          <div class="showcase-heading">
             <div>
-              <p class="eyebrow">The hand-off, in practice</p>
-              <h2 id="showcase-heading">More than a<br>file drop.</h2>
+              <p class="eyebrow">Community tools</p>
+              <h2 id="tools-heading">Use the files where they help.</h2>
             </div>
-            <p>
-              Keep the files local until you choose a community tool that turns them into a better plan, replay, collection, or lineage.
-            </p>
+            <p>These are a few community projects that can make use of umadump exports.</p>
           </div>
 
-          <div class="showcase-grid">
-            <article class="showcase-card showcase-card-race">
-              <div class="showcase-copy">
-                <p class="showcase-kicker">01 / Race replays</p>
-                <h3>Watch the race<br>tell its story.</h3>
-                <p>Open a supported replay in Hakuraku to inspect the field, skills, build, and race telemetry.</p>
-                <a href="https://hakuraku.moe/" target="_blank" rel="noreferrer">Explore Hakuraku <span aria-hidden="true">↗</span></a>
+          <div class="tool-grid">
+            <article class="tool-card tool-card-race">
+              <div class="tool-header">
+                <p class="tool-kicker">Race replays</p>
+                <h3>Hakuraku</h3>
               </div>
-              <div class="showcase-images showcase-images-race">
-                <a class="showcase-shot showcase-shot-race-results" href="https://hakuraku.moe/" target="_blank" rel="noreferrer" aria-label="Open Hakuraku race analysis (opens in a new tab)">
-                  <img src="assets/hakuraku-race-results.webp" width="1600" height="1111" alt="Hakuraku race analysis displaying results, skill activations, builds, and support cards" loading="lazy" decoding="async">
-                </a>
-                <a class="showcase-shot showcase-shot-race-timeline" href="https://hakuraku.moe/" target="_blank" rel="noreferrer" aria-label="Open Hakuraku race analysis (opens in a new tab)">
-                  <img src="assets/hakuraku-race-timeline.webp" width="1570" height="1600" alt="Hakuraku race analysis timeline with course position, skills, and telemetry charts" loading="lazy" decoding="async">
-                </a>
-              </div>
-            </article>
-
-            <article class="showcase-card showcase-card-veterans">
-              <div class="showcase-copy">
-                <p class="showcase-kicker">02 / Veterans</p>
-                <h3>Build a better<br>lineage.</h3>
-                <p>Bring trained Uma to uma.moe’s veteran browser and lineage planner to compare builds and map inheritance.</p>
-                <a href="https://uma.moe/" target="_blank" rel="noreferrer">Visit uma.moe <span aria-hidden="true">↗</span></a>
-              </div>
-              <div class="showcase-images showcase-images-veterans">
-                <a class="showcase-shot showcase-shot-veterans" href="https://uma.moe/" target="_blank" rel="noreferrer" aria-label="Visit uma.moe veterans browser (opens in a new tab)">
-                  <img src="assets/uma-moe-veterans.webp" width="1600" height="1329" alt="uma.moe veteran browser listing trained Uma and their skills" loading="lazy" decoding="async">
-                </a>
-                <a class="showcase-shot showcase-shot-lineage" href="https://uma.moe/" target="_blank" rel="noreferrer" aria-label="Visit uma.moe lineage planner (opens in a new tab)">
-                  <img src="assets/uma-moe-lineage-planner.webp" width="1600" height="1261" alt="uma.moe lineage planner visualizing a target Uma and its inheritance tree" loading="lazy" decoding="async">
-                </a>
+              <p class="tool-description">Open a supported replay to inspect the field, skills, build, and race data.</p>
+              <div class="tool-carousel" data-carousel role="group" aria-label="Hakuraku examples">
+                <div class="carousel-stage">
+                  <a class="tool-shot" data-carousel-slide href="https://hakuraku.moe/" target="_blank" rel="noreferrer" aria-label="Open Hakuraku race results example (opens in a new tab)">
+                    <img src="assets/hakuraku-race-results.webp" width="1600" height="1111" alt="Hakuraku race analysis displaying results, skill activations, builds, and support cards" loading="lazy" decoding="async">
+                  </a>
+                  <a class="tool-shot tool-shot-contain" data-carousel-slide href="https://hakuraku.moe/" target="_blank" rel="noreferrer" aria-label="Open Hakuraku race timeline example (opens in a new tab)" hidden>
+                    <img src="assets/hakuraku-race-timeline.webp" width="1570" height="1600" alt="Hakuraku race analysis timeline with course position, skills, and telemetry charts" loading="lazy" decoding="async">
+                  </a>
+                </div>
+                <div class="tool-card-footer">
+                  <div class="carousel-controls" role="group" aria-label="Hakuraku example controls">
+                    <button type="button" data-carousel-prev aria-label="Show previous Hakuraku example">←</button>
+                    <span data-carousel-status aria-live="polite">Example 1 of 2</span>
+                    <button type="button" data-carousel-next aria-label="Show next Hakuraku example">→</button>
+                  </div>
+                  <a class="tool-link" href="https://hakuraku.moe/" target="_blank" rel="noreferrer">Explore Hakuraku <span aria-hidden="true">↗</span></a>
+                </div>
               </div>
             </article>
 
-            <article class="showcase-card showcase-card-collection">
-              <div class="showcase-copy">
-                <p class="showcase-kicker">03 / Collection</p>
-                <h3>See your stable<br>at a glance.</h3>
-                <p>Send character cards and support cards to GameTora’s Collection Tracker, then spot exactly what is missing.</p>
-                <a href="https://gametora.com/umamusume/collection-tracker" target="_blank" rel="noreferrer">Open GameTora <span aria-hidden="true">↗</span></a>
+            <article class="tool-card tool-card-veterans">
+              <div class="tool-header">
+                <p class="tool-kicker">Veterans</p>
+                <h3>uma.moe</h3>
               </div>
-              <div class="showcase-images showcase-images-collection">
-                <a class="showcase-shot showcase-shot-collection" href="https://gametora.com/umamusume/collection-tracker" target="_blank" rel="noreferrer" aria-label="Open GameTora Collection Tracker trainees (opens in a new tab)">
-                  <img src="assets/gametora-trainees.webp" width="1142" height="1600" alt="GameTora Collection Tracker showing trainee collection and missing trainees" loading="lazy" decoding="async">
-                </a>
-                <a class="showcase-shot showcase-shot-collection" href="https://gametora.com/umamusume/collection-tracker" target="_blank" rel="noreferrer" aria-label="Open GameTora Collection Tracker supports (opens in a new tab)">
-                  <img src="assets/gametora-supports.webp" width="1110" height="1600" alt="GameTora Collection Tracker showing support-card collection and missing supports" loading="lazy" decoding="async">
-                </a>
+              <p class="tool-description">Browse trained Uma and use the lineage planner to explore inheritance.</p>
+              <div class="tool-carousel" data-carousel role="group" aria-label="uma.moe examples">
+                <div class="carousel-stage">
+                  <a class="tool-shot" data-carousel-slide href="https://uma.moe/" target="_blank" rel="noreferrer" aria-label="Visit uma.moe veterans browser (opens in a new tab)">
+                    <img src="assets/uma-moe-veterans.webp" width="1600" height="1329" alt="uma.moe veteran browser listing trained Uma and their skills" loading="lazy" decoding="async">
+                  </a>
+                  <a class="tool-shot" data-carousel-slide href="https://uma.moe/" target="_blank" rel="noreferrer" aria-label="Visit uma.moe lineage planner (opens in a new tab)" hidden>
+                    <img src="assets/uma-moe-lineage-planner.webp" width="1600" height="1261" alt="uma.moe lineage planner visualizing a target Uma and its inheritance tree" loading="lazy" decoding="async">
+                  </a>
+                </div>
+                <div class="tool-card-footer">
+                  <div class="carousel-controls" role="group" aria-label="uma.moe example controls">
+                    <button type="button" data-carousel-prev aria-label="Show previous uma.moe example">←</button>
+                    <span data-carousel-status aria-live="polite">Example 1 of 2</span>
+                    <button type="button" data-carousel-next aria-label="Show next uma.moe example">→</button>
+                  </div>
+                  <a class="tool-link" href="https://uma.moe/" target="_blank" rel="noreferrer">Visit uma.moe <span aria-hidden="true">↗</span></a>
+                </div>
               </div>
             </article>
 
-            <article class="showcase-card showcase-card-trophy">
-              <div class="showcase-copy">
-                <p class="showcase-kicker">04 / Completion</p>
-                <h3>Plan the trophies<br>left to win.</h3>
-                <p>Take trophy progress to the Completionist Tracker and turn a completed-race list into a usable calendar.</p>
-                <a href="https://justwastingtime.github.io/TrophyTracker/" target="_blank" rel="noreferrer">Open Trophy Tracker <span aria-hidden="true">↗</span></a>
+            <article class="tool-card tool-card-collection">
+              <div class="tool-header">
+                <p class="tool-kicker">Collection</p>
+                <h3>GameTora</h3>
               </div>
-              <a class="showcase-shot showcase-shot-trophy" href="https://justwastingtime.github.io/TrophyTracker/" target="_blank" rel="noreferrer" aria-label="Open Completionist Tracker (opens in a new tab)">
-                <img src="assets/trophy-calendar.webp" width="1600" height="923" alt="Completionist Tracker calendar with trophy progress, race cards, and filters" loading="lazy" decoding="async">
+              <p class="tool-description">Import character cards and supports, then see what is still missing.</p>
+              <div class="tool-carousel tool-carousel-portrait" data-carousel role="group" aria-label="GameTora Collection Tracker examples">
+                <div class="carousel-stage">
+                  <a class="tool-shot" data-carousel-slide href="https://gametora.com/umamusume/collection-tracker" target="_blank" rel="noreferrer" aria-label="Open GameTora Collection Tracker trainees (opens in a new tab)">
+                    <img src="assets/gametora-trainees.webp" width="1142" height="1600" alt="GameTora Collection Tracker showing trainee collection and missing trainees" loading="lazy" decoding="async">
+                  </a>
+                  <a class="tool-shot" data-carousel-slide href="https://gametora.com/umamusume/collection-tracker" target="_blank" rel="noreferrer" aria-label="Open GameTora Collection Tracker supports (opens in a new tab)" hidden>
+                    <img src="assets/gametora-supports.webp" width="1110" height="1600" alt="GameTora Collection Tracker showing support-card collection and missing supports" loading="lazy" decoding="async">
+                  </a>
+                </div>
+                <div class="tool-card-footer">
+                  <div class="carousel-controls" role="group" aria-label="GameTora example controls">
+                    <button type="button" data-carousel-prev aria-label="Show previous GameTora example">←</button>
+                    <span data-carousel-status aria-live="polite">Example 1 of 2</span>
+                    <button type="button" data-carousel-next aria-label="Show next GameTora example">→</button>
+                  </div>
+                  <a class="tool-link" href="https://gametora.com/umamusume/collection-tracker" target="_blank" rel="noreferrer">Open GameTora <span aria-hidden="true">↗</span></a>
+                </div>
+              </div>
+            </article>
+
+            <article class="tool-card tool-card-trophy">
+              <div class="tool-header">
+                <p class="tool-kicker">Trophies</p>
+                <h3>Completionist Tracker</h3>
+              </div>
+              <p class="tool-description">Turn trophy progress into a race calendar and see what is left to complete.</p>
+              <a class="tool-shot tool-shot-trophy" href="https://justwastingtime.github.io/TrophyTracker/" target="_blank" rel="noreferrer" aria-label="Open Completionist Tracker (opens in a new tab)">
+                <img src="assets/trophy-calendar.webp" width="1280" height="960" alt="Completionist Tracker in dark mode, showing trophy progress, race cards, and filters" loading="lazy" decoding="async">
               </a>
+              <div class="tool-card-footer">
+                <a class="tool-link" href="https://justwastingtime.github.io/TrophyTracker/" target="_blank" rel="noreferrer">Open Trophy Tracker <span aria-hidden="true">↗</span></a>
+              </div>
             </article>
           </div>
-          <p class="showcase-note">Interface previews are included for orientation. Their names and interfaces belong to their respective projects.</p>
+
+          <p class="career-note"><strong>Career exports:</strong> Independent Training (Idle Mode) is available. Other career support is still in progress.</p>
+          <p class="tool-note">Interface previews are included for orientation. Their names and interfaces belong to their respective projects.</p>
         </div>
       </section>
 
-      <section class="flow section" id="flow">
-        <div class="shell flow-layout">
-          <div class="flow-intro">
-            <p class="eyebrow">Easy by default</p>
-            <h2>Download it.<br>Run it your way.</h2>
-            <p>
-              No installer or setup marathon. Unzip the release, start umadump alongside the game, and choose a quick export or a hands-off watcher.
-            </p>
+      <section class="quick-start section" id="quick-start" aria-labelledby="quick-start-heading">
+        <div class="shell quick-start-layout">
+          <div class="quick-start-intro">
+            <p class="eyebrow">Quick start</p>
+            <h2 id="quick-start-heading">Four steps, then use your data.</h2>
           </div>
-          <ol class="flow-list">
+          <ol class="quick-list">
             <li>
-              <span class="flow-number">01</span>
-              <div>
-                <h3>Download &amp; run</h3>
-                <p>No installation required. Unzip the latest release and launch umadump when the game is open.</p>
-              </div>
+              <span>01</span>
+              <div><h3>Download</h3><p>Put the latest release in the folder where you want output files; extract it first if needed.</p></div>
             </li>
             <li>
-              <span class="flow-number">02</span>
-              <div>
-                <h3>Export once</h3>
-                <p>Need a quick snapshot? Run it once; umadump writes the available data and exits.</p>
-              </div>
+              <span>02</span>
+              <div><h3>Launch</h3><p>Open Uma, then start <code>umadump.exe</code>.</p></div>
             </li>
             <li>
-              <span class="flow-number">03</span>
-              <div>
-                <h3>Keep it watching</h3>
-                <p>Daemon mode stays running in the background, checks the live game at intervals, and writes updated outputs while you play. Stop it whenever you like.</p>
-              </div>
+              <span>03</span>
+              <div><h3>Snapshot or daemon</h3><p>For a snapshot, let the first pass finish. To keep exports current, type <code>d</code> at the prompt and leave the console open.</p></div>
+            </li>
+            <li>
+              <span>04</span>
+              <div><h3>Use the JSON</h3><p>Files are written relative to where you started umadump. Open a compatible export in the community tool you want to use.</p></div>
             </li>
           </ol>
         </div>
       </section>
 
-      <section class="closing section">
-        <div class="shell closing-card">
-          <div>
-            <p class="eyebrow">Ready when you are</p>
-            <h2>Make your next run<br>more useful.</h2>
-          </div>
-          <a class="button button-primary" href="https://github.com/Werseter/umadump/releases/latest" target="_blank" rel="noreferrer">
-            Get the latest release <span aria-hidden="true">↓</span>
-          </a>
+      <section class="download section" aria-label="Download umadump">
+        <div class="shell download-bar">
+          <p>Need the current build?</p>
+          <a class="button button-primary" href="https://github.com/Werseter/umadump/releases/latest" target="_blank" rel="noreferrer">Download umadump <span aria-hidden="true">↓</span></a>
         </div>
       </section>
     </main>
+
+    <script src="carousel.js" defer></script>
 
     <footer class="site-footer">
       <div class="shell footer-layout">
