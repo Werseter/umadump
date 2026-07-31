@@ -8,28 +8,36 @@ from datetime import UTC, datetime, timedelta, timezone
 from typing import Any, Optional, Protocol
 
 from ctypes_utils import C_Ptr
-from game_structs import (AcquiredSkillObject, BgSeason, CardDataDictionaryEntry, CardRarity, CharaGradeType,
-                          CharaRaceRewardObject, CourseDistanceType, DefeatType, EvaluationInfoObject, FactorDataObject,
-                          FactorDataUpgradeHistoryObject, FactorInfoObject, FavoriteDataDictionaryEntry,
-                          FriendDataObject, GenericArrayPtr, GenericDictionary, GenericList, GroupOutingInfoObject,
-                          GuestOutingInfoObject, HintLevelDictionaryEntry, HorseDataObject, IdleSingleModePlayingState,
-                          IdleSingleModeRaceHistoryObject, InitialLaneType, MainStoryRaceGimmickType,
-                          ObscuredCharaEffectLogObject, ObscuredFactorInfoObject, ObscuredIdleSingleModeGainInfoObject,
-                          ObscuredIdleSingleModeProgressLogInfoObject, ObscuredIdleSingleModeSignedIntObject,
-                          ObscuredIdleSingleModeSuccessionFactorGainInfoObject,
-                          ObscuredIdleSingleModeSupportCardGainInfoObject, ProperGrade, RaceCourseSetObject,
-                          RaceDifficulty, RaceGroundCondition, RaceHistoryInfoObject, RaceHorseDataObject,
-                          RaceHorseDataRaceResultObject, RaceInfoObject, RaceManagerStaticFields, RaceMotivation,
-                          RaceParameterObject, RaceRewardDataObject, RaceRunningType, RaceTime, RaceType, RaceWeather,
-                          ResultBoardConditionType, Rotation, RunningStyleEx, SingleModeCharaObject,
-                          SingleModeSkillUpgradeObject, SingleModeSupportCardObject, SingleRaceHistoryObject,
-                          SkillDataObject, SkillTipsObject, SuccessionCharaDataObject, SuccessionCharaPosition,
-                          SuccessionHistoryObject, SupportCardDataDictionaryEntry, TeamStadiumRaceCharaResultObject,
-                          TeamStadiumRaceResultObject, TeamStadiumResultBonusDataObject,
-                          TeamStadiumResultScoreDataObject, TrainedCharaDataDictionaryEntry, TrainedCharaDataObject,
-                          TrainedCharaSupportCardDataObject, TrainingLevelInfoObject,
-                          TrophyDataCharaIdListDictionaryEntry, TrophyDataDictionaryEntry, TurfVisionType,
-                          WorkDataManagerObject, WorkIdleSingleModeDataObject, WorkSingleModeDataObject)
+from game_structs.cards import CardDataDictionaryEntry, HintLevelDictionaryEntry, SupportCardDataDictionaryEntry
+from game_structs.collections import GenericArrayPtr, GenericDictionary, GenericList
+from game_structs.enums import (BgSeason, CardRarity, CharaGradeType, CourseDistanceType, DefeatType,
+                                IdleSingleModePlayingState, InitialLaneType, MainStoryRaceGimmickType, ProperGrade,
+                                RaceDifficulty, RaceGroundCondition, RaceMotivation, RaceRunningType, RaceTime,
+                                RaceType, RaceWeather, ResultBoardConditionType, Rotation, RunningStyleEx,
+                                SuccessionCharaPosition, TurfVisionType)
+from game_structs.friends import FriendDataObject
+from game_structs.idle_single_mode import (CharaRaceRewardObject, IdleSingleModeRaceHistoryObject,
+                                           ObscuredCharaEffectLogObject, ObscuredFactorInfoObject,
+                                           ObscuredIdleSingleModeGainInfoObject,
+                                           ObscuredIdleSingleModeProgressLogInfoObject,
+                                           ObscuredIdleSingleModeSignedIntObject,
+                                           ObscuredIdleSingleModeSuccessionFactorGainInfoObject,
+                                           ObscuredIdleSingleModeSupportCardGainInfoObject, RaceRewardDataObject,
+                                           SingleRaceHistoryObject, WorkIdleSingleModeDataObject)
+from game_structs.race import (HorseDataObject, RaceCourseSetObject, RaceHorseDataObject, RaceHorseDataRaceResultObject,
+                               RaceInfoObject, RaceManagerStaticFields, RaceParameterObject)
+from game_structs.single_mode import (EvaluationInfoObject, GroupOutingInfoObject, GuestOutingInfoObject,
+                                      SingleModeCharaObject, SingleModeSkillUpgradeObject, SingleModeSupportCardObject,
+                                      TrainingLevelInfoObject, WorkSingleModeDataObject)
+from game_structs.skills import AcquiredSkillObject, SkillDataObject, SkillTipsObject
+from game_structs.team_stadium import (TeamStadiumRaceCharaResultObject, TeamStadiumRaceResultObject,
+                                       TeamStadiumResultBonusDataObject, TeamStadiumResultScoreDataObject)
+from game_structs.trained_chara import (FactorDataObject, FactorDataUpgradeHistoryObject, FactorInfoObject,
+                                        FavoriteDataDictionaryEntry, RaceHistoryInfoObject, SuccessionCharaDataObject,
+                                        SuccessionHistoryObject, TrainedCharaDataDictionaryEntry,
+                                        TrainedCharaDataObject, TrainedCharaSupportCardDataObject)
+from game_structs.trophies import TrophyDataCharaIdListDictionaryEntry, TrophyDataDictionaryEntry
+from game_structs.work_data_manager import WorkDataManagerObject
 from logger import logger
 
 JST = timezone(timedelta(hours=9), "JST")

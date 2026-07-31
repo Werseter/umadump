@@ -52,7 +52,7 @@ structured JSON data.
 | `il2cpp_structs.py`    | IL2CPP ctypes struct definitions (metadata + runtime layouts, v31)                |
 | `il2cpp_utils.py`      | `Il2CppResolutionManager` — type/field lookup and runtime type pointer resolution |
 | `ctypes_utils.py`      | ctypes helpers: `CStructureDataclass`, `C_Ptr`, typed array, integer wrappers     |
-| `game_structs.py`      | Game-specific ctypes wrappers (`WorkDataManager`, `WorkSkillData`, …)             |
+| `game_structs/`        | Game-specific ctypes wrappers (`WorkDataManager`, `WorkSkillData`, …)             |
 | `schema_validation.py` | Schema and runtime validation framework (see below)                               |
 
 ---

@@ -18,8 +18,8 @@ from pathlib import Path
 from typing import Any, Callable, Optional, cast as type_cast
 
 from ctypes_utils import C_Ptr, StructOrSimple
-from game_structs import (RaceManagerObject, RaceManagerSingletonStaticFields, RaceManagerStaticFields,
-                          WorkDataManagerObject, WorkDataManagerSingletonStaticFields)
+from game_structs.race import RaceManagerObject, RaceManagerSingletonStaticFields, RaceManagerStaticFields
+from game_structs.work_data_manager import WorkDataManagerObject, WorkDataManagerSingletonStaticFields
 from il2cpp_runtime import build_resolver, setup_memory
 from il2cpp_structs import (RuntimeIl2CppClass, RuntimeIl2CppGenericClass, RuntimeIl2CppGenericInst,
                             RuntimeIl2CppMetadataRegistration, RuntimeIl2CppType)

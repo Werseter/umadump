@@ -1,0 +1,344 @@
+from __future__ import annotations
+
+from ctypes_utils import SafeIntEnum
+from schema_validation import register_enum_validatable
+
+
+# ---------------------------------------------------------------------------
+# Game enums
+# ---------------------------------------------------------------------------
+
+@register_enum_validatable('Gallop::WorkTrainedCharaData.TrainedCharaData.UseType')
+class TrainedCharaUseType(SafeIntEnum):
+    NONE = 0
+    RENTAL = 1
+    GHOST = 2
+
+
+@register_enum_validatable('Gallop::WorkTrainedCharaData.TrainedCharaData.SuccessionCharaPosition')
+class SuccessionCharaPosition(SafeIntEnum):
+    SELF = 1
+    FIRST_1 = 10
+    FIRST_2 = 20
+    SECOND_1_1 = 11
+    SECOND_1_2 = 12
+    SECOND_2_1 = 21
+    SECOND_2_2 = 22
+
+
+@register_enum_validatable('Gallop::GameDefine.FinalTrainingRank')
+class FinalTrainingRank(SafeIntEnum):
+    NONE = 0
+    G = 1
+    G_PLUS = 2
+    F = 3
+    F_PLUS = 4
+    E = 5
+    E_PLUS = 6
+    D = 7
+    D_PLUS = 8
+    C = 9
+    C_PLUS = 10
+    B = 11
+    B_PLUS = 12
+    A = 13
+    A_PLUS = 14
+    S = 15
+    S_PLUS = 16
+    SS = 17
+    SS_PLUS = 18
+    UG = 19
+    UG1 = 20
+    UG2 = 21
+    UG3 = 22
+    UG4 = 23
+    UG5 = 24
+    UG6 = 25
+    UG7 = 26
+    UG8 = 27
+    UG9 = 28
+    UF = 29
+    UF1 = 30
+    UF2 = 31
+    UF3 = 32
+    UF4 = 33
+    UF5 = 34
+    UF6 = 35
+    UF7 = 36
+    UF8 = 37
+    UF9 = 38
+    UE = 39
+    UE1 = 40
+    UE2 = 41
+    UE3 = 42
+    UE4 = 43
+    UE5 = 44
+    UE6 = 45
+    UE7 = 46
+    UE8 = 47
+    UE9 = 48
+    UD = 49
+    UD1 = 50
+    UD2 = 51
+    UD3 = 52
+    UD4 = 53
+    UD5 = 54
+    UD6 = 55
+    UD7 = 56
+    UD8 = 57
+    UD9 = 58
+    UC = 59
+    UC1 = 60
+    UC2 = 61
+    UC3 = 62
+    UC4 = 63
+    UC5 = 64
+    UC6 = 65
+    UC7 = 66
+    UC8 = 67
+    UC9 = 68
+    UB = 69
+    UB1 = 70
+    UB2 = 71
+    UB3 = 72
+    UB4 = 73
+    UB5 = 74
+    UB6 = 75
+    UB7 = 76
+    UB8 = 77
+    UB9 = 78
+    UA = 79
+    UA1 = 80
+    UA2 = 81
+    UA3 = 82
+    UA4 = 83
+    UA5 = 84
+    UA6 = 85
+    UA7 = 86
+    UA8 = 87
+    UA9 = 88
+    US = 89
+    US1 = 90
+    US2 = 91
+    US3 = 92
+    US4 = 93
+    US5 = 94
+    US6 = 95
+    US7 = 96
+    US8 = 97
+    US9 = 98
+    MIN = 1
+    MAX = 98
+
+
+@register_enum_validatable('Gallop::GameDefine.FactorRarity')
+class FactorRarity(SafeIntEnum):
+    NONE = 0
+    RARE_1 = 1
+    RARE_2 = 2
+    RARE_3 = 3
+
+
+@register_enum_validatable('Gallop::RaceDefine.RaceType')
+class RaceType(SafeIntEnum):
+    NONE = 0
+    PvP = 1
+    Tutorial = 2
+    Story = 3
+    StoryCondition = 4
+    Champions = 5
+    Single = 6
+    SingleModeScenarioTeamRace = 7
+    RoomMatch = 8
+    Practice = 9
+    Daily = 10
+    TeamBuilding = 11
+    Legend = 12
+    ChallengeMatch = 13
+    TeamStadium = 14
+    Heroes = 16
+
+
+@register_enum_validatable('Gallop::GameDefine.CardRarity')
+class CardRarity(SafeIntEnum):
+    NONE = 0
+    Rare1 = 1
+    Rare2 = 2
+    Rare3 = 3
+    Rare4 = 4
+    Rare5 = 5
+
+
+@register_enum_validatable('Gallop::HorseInitialLaneCalculator.InitialLaneType')
+class InitialLaneType(SafeIntEnum):
+    ExtraSpaceAfter9 = 1
+    Equidistant = 2
+    ExtraSpaceAfter14 = 3
+    ExtraSpaceAfter8 = 4
+
+
+@register_enum_validatable('Gallop::RaceDefine.Rotation')
+class Rotation(SafeIntEnum):
+    Right = 1
+    Left = 2
+    StraightRight = 3
+    StraightLeft = 4
+
+
+@register_enum_validatable('Gallop::RaceDefine.ResultBoardConditionType')
+class ResultBoardConditionType(SafeIntEnum):
+    Turf_None = 1
+    Turf_Dirt = 2
+    Dirt_None = 3
+    Dirt_Turf = 4
+
+
+@register_enum_validatable('Gallop::RaceDefine.CourseDistanceType')
+class CourseDistanceType(SafeIntEnum):
+    Short = 1
+    Mile = 2
+    Middle = 3
+    Long = 4
+
+
+@register_enum_validatable('Gallop::RaceDefine.TurfVisionType')
+class TurfVisionType(SafeIntEnum):
+    URA = 1
+    NAU = 2
+    Stand = 3
+
+
+@register_enum_validatable('Gallop::RaceDefine.GroundCondition')
+class RaceGroundCondition(SafeIntEnum):
+    Good = 1
+    Soft = 2
+    Hard = 3
+    Bad = 4
+
+
+@register_enum_validatable('Gallop::RaceDefine.Weather')
+class RaceWeather(SafeIntEnum):
+    NONE = 0
+    Sunny = 1
+    Cloudy = 2
+    Rainy = 3
+    Snow = 4
+    Max = 5
+    Min = 0
+
+
+@register_enum_validatable('Gallop::GameDefine.BgSeason')
+class BgSeason(SafeIntEnum):
+    NONE = 0
+    Spring = 1
+    Summer = 2
+    Fall = 3
+    Winter = 4
+    CherryBlossom = 5
+    Max = 6
+    Min = 0
+
+
+@register_enum_validatable('Gallop::RaceDefine.Time')
+class RaceTime(SafeIntEnum):
+    NONE = 0
+    Morning = 1
+    Daytime = 2
+    Evening = 3
+    Night = 4
+    Max = 5
+    Min = 0
+
+
+@register_enum_validatable('Gallop::RaceDefine.RunningStyleEx')
+class RunningStyleEx(SafeIntEnum):
+    NONE = 0
+    Oonige = 1
+
+
+@register_enum_validatable('Gallop::RaceDefine.Motivation')
+class RaceMotivation(SafeIntEnum):
+    NONE = 0
+    Min = 1
+    Low = 2
+    Middle = 3
+    High = 4
+    Max = 5
+
+
+@register_enum_validatable('Gallop::RaceDefine.DefeatType')
+class DefeatType(SafeIntEnum):
+    Null = 0
+    Win = 1
+    Lose = 2
+    RunningStyleMany = 3
+    Temptaion = 4
+    GutsOrder = 5
+    Stamina = 6
+    LastSpurtFalse = 7
+    LastSpurtTargetSpeedDec = 8
+    PassiveSkillNum = 9
+    BlockFrontTime = 10
+    Speed = 11
+    ProperDistance = 12
+    ProperGround = 13
+    Motivation = 14
+
+
+@register_enum_validatable('Gallop::ModelLoader.RaceRunningType')
+class RaceRunningType(SafeIntEnum):
+    Base = 1
+    Pitch = 2
+    Stride = 3
+
+
+@register_enum_validatable('Gallop::RaceDefine.ProperGrade')
+class ProperGrade(SafeIntEnum):
+    Null = 0
+    G = 1
+    F = 2
+    E = 3
+    D = 4
+    C = 5
+    B = 6
+    A = 7
+    S = 8
+
+
+@register_enum_validatable('Gallop::RaceDefine.Difficulty')
+class RaceDifficulty(SafeIntEnum):
+    Easy = 1
+    Normal = 2
+    Hard = 3
+    VeryHard = 4
+    Extreme = 5
+
+
+@register_enum_validatable('Gallop::SingleModeDefine.CharaGradeType')
+class CharaGradeType(SafeIntEnum):
+    NONE = 0
+    Debut = 1
+    NoWin = 2
+    Open = 3
+    G3Silver = 4
+    G3Gold = 5
+    G2Silver = 6
+    G2Gold = 7
+    G1Bronze = 8
+    G1Silver = 9
+    G1Gold = 10
+    Max = 10
+
+
+@register_enum_validatable('Gallop::WorkIdleSingleModeData.PlayingState')
+class IdleSingleModePlayingState(SafeIntEnum):
+    None_ = 0
+    Playing = 1
+    Finished = 2
+    LogChecked = 3
+
+
+@register_enum_validatable('Gallop::MainStoryDefine.RaceGimmickType')
+class MainStoryRaceGimmickType(SafeIntEnum):
+    NONE = 0
+    Special_00 = 1
