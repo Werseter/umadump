@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import json
 import tempfile
 import unittest
@@ -11,22 +10,35 @@ from torena_link import (TORENA_IMPORT_PARAM, TORENA_MAX_VALUE_LENGTH,
                          build_torena_import_url, encode_trained_chara_payload,
                          load_trained_charas)
 
+_EXAMPLE_PATH = Path(__file__).parent / "examples" / "trained_chara_data.json"
+_KNOWN_V1_PAYLOAD = "VUQBAAEYgxe2b1MBbC6ba55EGA6VICGGyUYbnEAC01lbW9FeGFtcGxl"
+
+
+def _example_trained_chara() -> dict[str, object]:
+    payload = json.loads(_EXAMPLE_PATH.read_text(encoding="utf-8"))
+    return payload[0]
+
 
 class TorenaLinkTest(unittest.TestCase):
-    def test_builds_v1_base64url_link_with_utf8_json(self) -> None:
-        trained_charas = [{"trained_chara_id": 7, "memo": "日本語 memo"}]
-
-        url = build_torena_import_url(trained_charas)
+    def test_builds_known_v1_bitvector_link(self) -> None:
+        url = build_torena_import_url([_example_trained_chara()])
         encoded = parse_qs(urlsplit(url).query)[TORENA_IMPORT_PARAM][0]
-        padding = "=" * (-len(encoded) % 4)
-        decoded = json.loads(base64.urlsafe_b64decode(encoded + padding).decode("utf-8"))
 
-        self.assertEqual(decoded, {"v": 1, "data": trained_charas})
+        self.assertEqual(encoded, _KNOWN_V1_PAYLOAD)
+        self.assertLess(len(encoded), 100)
         self.assertNotIn("=", encoded)
 
+    def test_rejects_values_outside_lossless_ranges(self) -> None:
+        trained_chara = {**_example_trained_chara(), "speed": 2048}
+
+        with self.assertRaisesRegex(ValueError, "speed must be an integer from 0 to 2047"):
+            encode_trained_chara_payload([trained_chara])
+
     def test_rejects_links_above_contract_limit(self) -> None:
+        trained_chara = {**_example_trained_chara(), "memo": "x" * TORENA_MAX_VALUE_LENGTH}
+
         with self.assertRaisesRegex(ValueError, "15,000-character"):
-            encode_trained_chara_payload([{"memo": "x" * TORENA_MAX_VALUE_LENGTH}])
+            encode_trained_chara_payload([trained_chara])
 
     def test_load_filters_requested_trained_character_ids(self) -> None:
         payload = [

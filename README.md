@@ -157,17 +157,19 @@ python torena_link.py trained_chara_data.json --trained-chara-id 123 --open
 The stable v1 contract is:
 
 ```text
-https://torena-sim.pages.dev/runners?from=<base64url-encoded UTF-8 JSON envelope>
+https://torena-sim.pages.dev/runners?from=<URL-safe Base64 BitVector>
 ```
 
-The decoded envelope is `{"v":1,"data":[...]}`, where `data` is the normal
-`trained_chara_data.json` array. The base64url payload has no `=` padding. Torena
-Sim validates `data` and opens its existing filtered/selected import preview.
+The BitVector starts with the `UD` magic bytes and a version, then packs only the
+Cygames-shaped fields Torena imports: card ID, stats, aptitudes, strategy, rank
+score, talent level, skills with levels, and UTF-8 memo. Values keep their API
+meaning and out-of-range values are rejected rather than clamped. Account IDs,
+support cards, parents, factors, and race history are not included.
 
-The encoded parameter is limited to 15,000 characters for reliable transport
-through browsers, proxies, and CDNs. Base64url adds roughly one third to the
-compact JSON size, so a complete library may be too large. Select specific IDs or
-use Torena Sim's JSON file import for bulk data.
+Torena reconstructs the minimal `trained_chara_data.json` projection and validates
+it with its normal parser before opening the filtered/selected import preview. The
+encoded parameter is limited to 15,000 characters; select specific IDs or use
+Torena Sim's JSON file import if a list exceeds that limit.
 
 ---
 
