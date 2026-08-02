@@ -54,6 +54,7 @@ structured JSON data.
 | `ctypes_utils.py`      | ctypes helpers: `CStructureDataclass`, `C_Ptr`, typed array, integer wrappers     |
 | `game_structs.py`      | Game-specific ctypes wrappers (`WorkDataManager`, `WorkSkillData`, …)             |
 | `schema_validation.py` | Schema and runtime validation framework (see below)                               |
+| `torena_link.py`       | Optional Torena Sim Veteran-import link generator                                 |
 
 ---
 
@@ -133,6 +134,42 @@ python main.py --minidump "D:\path\to\dump.dmp" --validate-only
 # Skip the startup GitHub release lookup
 python main.py --no-update-check
 ```
+
+---
+
+## Import Veterans into Torena Sim
+
+`torena_link.py` optionally converts `trained_chara_data.json` into a Torena Sim
+Veteran-import link. Link generation is separate from extraction; umadump never
+opens a browser unless `--open` is supplied.
+
+```powershell
+# Print a link for the complete export
+python torena_link.py trained_chara_data.json
+
+# Select fewer Veterans by trained_chara_id when the complete export is too large
+python torena_link.py trained_chara_data.json --trained-chara-id 123 --trained-chara-id 456
+
+# Print the link and open it in the default browser
+python torena_link.py trained_chara_data.json --trained-chara-id 123 --open
+```
+
+The stable v1 contract is:
+
+```text
+https://torena-sim.pages.dev/runners?from=<URL-safe Base64 BitVector>
+```
+
+The BitVector starts with the `UD` magic bytes and a version, then packs only the
+Cygames-shaped fields Torena imports: card ID, stats, aptitudes, strategy, rank
+score, talent level, skills with levels, and UTF-8 memo. Values keep their API
+meaning and out-of-range values are rejected rather than clamped. Account IDs,
+support cards, parents, factors, and race history are not included.
+
+Torena reconstructs the minimal `trained_chara_data.json` projection and validates
+it with its normal parser before opening the filtered/selected import preview. The
+encoded parameter is limited to 15,000 characters; select specific IDs or use
+Torena Sim's JSON file import if a list exceeds that limit.
 
 ---
 
