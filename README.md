@@ -54,6 +54,7 @@ structured JSON data.
 | `ctypes_utils.py`      | ctypes helpers: `CStructureDataclass`, `C_Ptr`, typed array, integer wrappers     |
 | `game_structs.py`      | Game-specific ctypes wrappers (`WorkDataManager`, `WorkSkillData`, …)             |
 | `schema_validation.py` | Schema and runtime validation framework (see below)                               |
+| `torena_link.py`       | Optional Torena Sim Veteran-import link generator                                 |
 
 ---
 
@@ -133,6 +134,40 @@ python main.py --minidump "D:\path\to\dump.dmp" --validate-only
 # Skip the startup GitHub release lookup
 python main.py --no-update-check
 ```
+
+---
+
+## Import Veterans into Torena Sim
+
+`torena_link.py` optionally converts `trained_chara_data.json` into a Torena Sim
+Veteran-import link. Link generation is separate from extraction; umadump never
+opens a browser unless `--open` is supplied.
+
+```powershell
+# Print a link for the complete export
+python torena_link.py trained_chara_data.json
+
+# Select fewer Veterans by trained_chara_id when the complete export is too large
+python torena_link.py trained_chara_data.json --trained-chara-id 123 --trained-chara-id 456
+
+# Print the link and open it in the default browser
+python torena_link.py trained_chara_data.json --trained-chara-id 123 --open
+```
+
+The stable v1 contract is:
+
+```text
+https://torena-sim.pages.dev/runners?from=<base64url-encoded UTF-8 JSON envelope>
+```
+
+The decoded envelope is `{"v":1,"data":[...]}`, where `data` is the normal
+`trained_chara_data.json` array. The base64url payload has no `=` padding. Torena
+Sim validates `data` and opens its existing filtered/selected import preview.
+
+The encoded parameter is limited to 15,000 characters for reliable transport
+through browsers, proxies, and CDNs. Base64url adds roughly one third to the
+compact JSON size, so a complete library may be too large. Select specific IDs or
+use Torena Sim's JSON file import for bulk data.
 
 ---
 
