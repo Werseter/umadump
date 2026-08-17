@@ -60,8 +60,20 @@ class RuntimeValidatableIl2CppClass(Protocol):
     _il2cpp_obj: RuntimeIl2CppObject
 
 
-class TransientRuntimeValidationError(RuntimeError):
+class RuntimeValidationError(RuntimeError):
+    """Base error raised when a live Il2Cpp object fails runtime validation."""
+
+
+class TransientRuntimeValidationError(RuntimeValidationError):
     """Raised when runtime validation observes an Il2Cpp object mid-update."""
+
+
+class RuntimeTypeMetadataHandleMismatchError(RuntimeValidationError):
+    """A live pointer does not name the expected Il2Cpp object type.
+
+    This can be a pointer observed during a lifecycle update or a persistent reflection
+    defect. Callers must keep it distinct from an unambiguously transient read failure.
+    """
 
 
 class RuntimeValidatableIl2CppClassManager:
@@ -133,7 +145,7 @@ def _runtime_validate_type_metadata_handle_access(instance: RuntimeValidatableIl
     expected_type_metadata_handle = RuntimeValidatableIl2CppClassManager.get_expected_type_metadata_handle(inst_type)
     if expected_type_metadata_handle is not None and runtime_type_metadata_handle != expected_type_metadata_handle:
         if not _runtime_class_is_or_inherits_from(runtime_class_ptr, expected_type_metadata_handle):
-            raise RuntimeError(
+            raise RuntimeTypeMetadataHandleMismatchError(
                     f"{inst_type.__name__} typeMetadataHandle mismatch while accessing '{attr_name}': "
                     f"expected=0x{expected_type_metadata_handle:X}, actual=0x{runtime_type_metadata_handle:X}"
             )

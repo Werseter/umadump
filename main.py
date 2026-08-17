@@ -37,7 +37,8 @@ from json_encoders import (CardDataExtractionData, ExtractorFingerprint, Fingerp
                            resolve_trophy_data_extraction_data)
 from logger import configure_logging, logger
 from memory import MemoryReader, TransientMemoryReadError
-from schema_validation import RuntimeValidatableIl2CppClassManager, TransientRuntimeValidationError
+from schema_validation import (RuntimeTypeMetadataHandleMismatchError, RuntimeValidatableIl2CppClassManager,
+                               TransientRuntimeValidationError)
 from update_check import CURRENT_VERSION, notify_if_update_available
 
 
@@ -222,9 +223,30 @@ class Extractor[TExtractorInput, TExtractionData: FingerprintableExtractionData,
     writer: Optional[Callable[[Path, str, TMultiOutputPayload], None]] = None
 
 
+@dataclass(frozen=True)
+class PreparedExtractorRun:
+    """Resolved extractor input and fingerprint, retained for one memory pass."""
+
+    extractor: Extractor[Any, Any, Any]
+    extraction_data: FingerprintableExtractionData
+    fingerprint: ExtractorFingerprint
+
+
+METADATA_HANDLE_MISMATCH_QUARANTINE_THRESHOLD = 3
+
+
 @dataclass
 class ExtractionRunState:
     fingerprints: dict[str, ExtractorFingerprint] = field(default_factory=dict)
+    metadata_handle_mismatch_streaks: dict[str, int] = field(default_factory=dict)
+
+    def note_metadata_handle_mismatch(self, name: str) -> int:
+        failures = self.metadata_handle_mismatch_streaks.get(name, 0) + 1
+        self.metadata_handle_mismatch_streaks[name] = failures
+        return failures
+
+    def clear_metadata_handle_mismatch(self, name: str) -> None:
+        self.metadata_handle_mismatch_streaks.pop(name, None)
 
     def should_run(self, name: str, fingerprint: ExtractorFingerprint) -> bool:
         return self.fingerprints.get(name) != fingerprint
@@ -253,35 +275,92 @@ class ExtractionContext:
         return instance.contents
 
 
-def _run_extractors(
+def _prepare_extractor_runs(
         extractors: tuple[Extractor[Any, Any, Any], ...],
         data: Any,
-        state: Optional[ExtractionRunState] = None) -> None:
-    """Run a sequence of extractors against *data*, writing output as configured."""
+        state: Optional[ExtractionRunState]) -> tuple[PreparedExtractorRun, ...]:
+    """Prepare one pass; transients defer it while persistent type mismatches are isolated."""
+    prepared_runs: list[PreparedExtractorRun] = []
     for extractor in extractors:
-        _run_extractor(extractor, data, state)
-
-
-def _run_extractor[TExtractionData: FingerprintableExtractionData](
-        extractor: Extractor[Any, TExtractionData, Any],
-        data: Any,
-        state: Optional[ExtractionRunState]) -> None:
-    try:
-        extraction_data = extractor.resolve(data)
-        if extraction_data is None:
-            logger.debug("%s: extraction data unavailable; skipping write", extractor.name)
-            return
-
-        fingerprint = extraction_data.fingerprint()
-        if _skip_unchanged_extractor(extractor.name, fingerprint, state):
-            return
-
-        logger.info("Running extractor: %s", extractor.name)
-        payload = extractor.extract(extraction_data)
+        try:
+            maybe_extraction_data = extractor.resolve(data)
+            if maybe_extraction_data is None:
+                if state is not None:
+                    state.clear_metadata_handle_mismatch(extractor.name)
+                logger.debug("%s: extraction data unavailable; skipping write", extractor.name)
+                continue
+            extraction_data = type_cast(FingerprintableExtractionData, maybe_extraction_data)
+            fingerprint = extraction_data.fingerprint()
+        except RuntimeTypeMetadataHandleMismatchError as exc:
+            failures = state.note_metadata_handle_mismatch(extractor.name) if state is not None else 1
+            if failures < METADATA_HANDLE_MISMATCH_QUARANTINE_THRESHOLD:
+                logger.warning(
+                        "%s: type metadata mismatch (%d/%d); extractor pass deferred: %s",
+                        extractor.name, failures, METADATA_HANDLE_MISMATCH_QUARANTINE_THRESHOLD, exc)
+                return ()
+            if failures == METADATA_HANDLE_MISMATCH_QUARANTINE_THRESHOLD:
+                logger.error(
+                        "%s: type metadata mismatch persisted across %d prechecks; "
+                        "quarantining extractor until it recovers: %s",
+                        extractor.name, METADATA_HANDLE_MISMATCH_QUARANTINE_THRESHOLD, exc)
+            else:
+                logger.debug("%s: quarantined type metadata mismatch persists: %s", extractor.name, exc)
+            continue
+        except (TransientMemoryReadError, TransientRuntimeValidationError) as exc:
+            logger.warning("%s: transient memory state; extractor pass deferred: %s", extractor.name, exc)
+            return ()
+        except Exception:
+            logger.exception("Error preparing extractor %s", extractor.name)
+            continue
         if state is not None:
-            state.record(extractor.name, fingerprint)
-        _write_extractor_payload(extractor, payload)
+            state.clear_metadata_handle_mismatch(extractor.name)
+        if _skip_unchanged_extractor(extractor.name, fingerprint, state):
+            continue
+        prepared_runs.append(PreparedExtractorRun(extractor, extraction_data, fingerprint))
+    return tuple(prepared_runs)
+
+
+def _prepared_fingerprint_is_current(prepared: PreparedExtractorRun) -> bool:
+    """Reject a payload if its live source changed after the access precheck."""
+    try:
+        current_fingerprint = prepared.extraction_data.fingerprint()
+    except RuntimeTypeMetadataHandleMismatchError as exc:
+        logger.warning("%s: post-decode type metadata mismatch; extraction skipped: %s",
+                       prepared.extractor.name, exc)
+        return False
     except (TransientMemoryReadError, TransientRuntimeValidationError) as exc:
+        logger.debug("%s: post-decode fingerprint check deferred: %s", prepared.extractor.name, exc)
+        return False
+    except Exception:
+        logger.exception("Error verifying extractor %s fingerprint", prepared.extractor.name)
+        return False
+    if current_fingerprint == prepared.fingerprint:
+        return True
+    logger.debug("%s: input changed after access precheck; extraction deferred", prepared.extractor.name)
+    return False
+
+
+def _run_extractor_runs(prepared_runs: tuple[PreparedExtractorRun, ...], state: Optional[ExtractionRunState]) -> None:
+    """Decode and persist every prepared run."""
+    for prepared in prepared_runs:
+        _run_extractor_run(prepared, state)
+
+
+def _run_extractor_run(prepared: PreparedExtractorRun, state: Optional[ExtractionRunState]) -> None:
+    """Decode, validate, and persist one already-prepared extractor run."""
+    extractor = prepared.extractor
+    try:
+        logger.info("Running extractor: %s", extractor.name)
+        payload = extractor.extract(prepared.extraction_data)
+        if not _prepared_fingerprint_is_current(prepared):
+            return
+        _write_extractor_payload(extractor, payload)
+        if state is not None:
+            state.record(extractor.name, prepared.fingerprint)
+    except RuntimeTypeMetadataHandleMismatchError as exc:
+        logger.warning("%s: type metadata mismatch; extraction skipped: %s", extractor.name, exc)
+    except (TransientMemoryReadError, TransientRuntimeValidationError) as exc:
+        # Pointers below the precheck boundary can still change before decode.
         logger.warning("%s: transient memory state; extraction skipped: %s", extractor.name, exc)
     except Exception:
         logger.exception("Error in extractor %s", extractor.name)
@@ -586,7 +665,9 @@ def _dump_from_singleton_roots(
         state: Optional[ExtractionRunState] = None) -> float:
     """Run all extractors from already-resolved singleton roots and return elapsed seconds."""
     t_start = time.perf_counter()
-    _run_extractors(EXTRACTORS, ExtractionContext(roots), state)
+    ctx = ExtractionContext(roots)
+    prepared_runs = _prepare_extractor_runs(EXTRACTORS, ctx, state)
+    _run_extractor_runs(prepared_runs, state)
     return time.perf_counter() - t_start
 
 
@@ -599,7 +680,7 @@ def _finish_memory_pass(mem: MemoryReader) -> None:
     gc.collect()
 
 
-def _run_live_extractor_pass(
+def _run_extractor_pass(
         mem: MemoryReader,
         resolver: Il2CppResolutionManager,
         singleton_index: dict[tuple[int, int], SingletonGenericClassMatch],
@@ -670,7 +751,7 @@ def _run_live_reload_loop(
             logger.info("Target process has exited; stopping live reload")
             return
 
-        elapsed = _run_live_extractor_pass(
+        elapsed = _run_extractor_pass(
                 mem, resolver, singleton_index, roots, state, pass_num, "Reload", logger.info)
         logger.info("Reload extractor pass %d completed in %.2fs", pass_num, elapsed)
 
@@ -695,14 +776,14 @@ def _run_live_daemon_loop(
         singleton_index: dict[tuple[int, int], SingletonGenericClassMatch],
         roots: ResolvedSingletonRoots,
         poll_interval: float,
-        state: Optional[ExtractionRunState] = None) -> None:
+        maybe_state: Optional[ExtractionRunState] = None) -> None:
     """Run extractors repeatedly without prompting until the target exits."""
-    state = state or ExtractionRunState()
+    state = maybe_state or ExtractionRunState()
     pass_num = 1
     poll_interval = max(0.1, float(poll_interval))
     logger.info("Daemon mode started; polling every %.2fs", poll_interval)
     while mem.is_alive():
-        elapsed = _run_live_extractor_pass(
+        elapsed = _run_extractor_pass(
                 mem, resolver, singleton_index, roots, state, pass_num, "Daemon", logger.debug)
         logger.debug("Daemon extractor pass %d completed in %.2fs", pass_num, elapsed)
 
@@ -754,11 +835,9 @@ def main() -> None:
             elif rerun_mode == "prompt":
                 _run_live_reload_loop(setup.mem, resolver, singleton_index, roots, args.poll_interval)
             else:
-                _prepare_memory_pass(setup.mem)
-                try:
-                    elapsed = _dump_from_singleton_roots(roots)
-                finally:
-                    _finish_memory_pass(setup.mem)
+                elapsed = _run_extractor_pass(
+                        setup.mem, resolver, singleton_index, roots, ExtractionRunState(), 1,
+                        "Minidump" if args.minidump else "Live", logger.info)
                 logger.info("Extractor pass completed in %.2fs", elapsed)
         finally:
             logger.info("Total time: %.2fs", time.perf_counter() - t_start)

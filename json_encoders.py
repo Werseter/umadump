@@ -5,7 +5,7 @@ import re
 from ctypes import c_int32
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
-from typing import Any, Optional, Protocol
+from typing import Any, Iterable, Optional, Protocol
 
 from ctypes_utils import C_Ptr
 from game_structs.cards import CardDataDictionaryEntry, HintLevelDictionaryEntry, SupportCardDataDictionaryEntry
@@ -70,6 +70,12 @@ def _pointer_fingerprint(ptr: C_Ptr[Any]) -> ExtractorFingerprint:
     return "ptr", ptr.address
 
 
+def _first[T](items: Iterable[T]) -> Optional[T]:
+    """Return one representative item without walking the remaining collection."""
+
+    return next(iter(items), None)
+
+
 def _timestamp_to_str(timestamp: int, tz: timezone = UTC) -> str:
     if not timestamp:
         return "0000-00-00 00:00:00"
@@ -85,7 +91,13 @@ class SupportCardExtractionData:
     entries: GenericDictionary[SupportCardDataDictionaryEntry]
 
     def fingerprint(self) -> ExtractorFingerprint:
-        return "support_cards", _dictionary_fingerprint(self.entries)
+        if (first_entry := _first(entry for entry in self.entries if entry.value)) is not None:
+            _ = first_entry.value.contents.fields
+        return (
+            "support_cards",
+            _dictionary_fingerprint(self.entries),
+            ("first_entry", first_entry.value.address if first_entry is not None else 0),
+        )
 
 
 def resolve_support_card_extraction_data(wdm: WorkDataManagerObject) -> Optional[SupportCardExtractionData]:
@@ -151,10 +163,18 @@ class TrainedCharaExtractionData:
     favorite_entries: GenericDictionary[FavoriteDataDictionaryEntry]
 
     def fingerprint(self) -> ExtractorFingerprint:
+        first_entry = _first(entry for entry in self.entries if entry.value)
+        first_favorite_entry = _first(entry for entry in self.favorite_entries if entry.value)
+        if first_entry is not None:
+            _ = first_entry.value.contents.fields
+        if first_favorite_entry is not None:
+            _ = first_favorite_entry.value.contents.fields
         return (
             "trained_chara_data",
             _dictionary_fingerprint(self.entries),
+            ("first_entry", first_entry.value.address if first_entry is not None else 0),
             _dictionary_fingerprint(self.favorite_entries),
+            ("first_entry", first_favorite_entry.value.address if first_favorite_entry is not None else 0),
         )
 
 
@@ -510,7 +530,14 @@ class CardDataExtractionData:
     entries: GenericDictionary[CardDataDictionaryEntry]
 
     def fingerprint(self) -> ExtractorFingerprint:
-        return "card_data", _dictionary_fingerprint(self.entries)
+        first_entry = _first(entry for entry in self.entries if entry.value)
+        if first_entry is not None:
+            _ = first_entry.value.contents.fields
+        return (
+            "card_data",
+            _dictionary_fingerprint(self.entries),
+            ("first_entry", first_entry.value.address if first_entry is not None else 0),
+        )
 
 
 def resolve_card_data_extraction_data(wdm: WorkDataManagerObject) -> Optional[CardDataExtractionData]:
@@ -576,11 +603,23 @@ class FriendDataExtractionData:
     follower_num: int
 
     def fingerprint(self) -> ExtractorFingerprint:
+        first_follow = _first(entry for entry in self.follow_list if entry)
+        first_follower = _first(entry for entry in self.follower_list if entry)
+        first_recommend = _first(entry for entry in self.recommend_list if entry)
+        if first_follow is not None:
+            _ = first_follow.contents.fields
+        if first_follower is not None:
+            _ = first_follower.contents.fields
+        if first_recommend is not None:
+            _ = first_recommend.contents.fields
         return (
             "friend_data",
             _list_fingerprint(self.follow_list),
+            ("first_follow", first_follow.address if first_follow is not None else 0),
             _list_fingerprint(self.follower_list),
+            ("first_follower", first_follower.address if first_follower is not None else 0),
             _list_fingerprint(self.recommend_list),
+            ("first_recommend", first_recommend.address if first_recommend is not None else 0),
             self.last_checked_time,
             self.follower_num,
         )
@@ -786,33 +825,64 @@ def decode_friend_data(data: FriendDataExtractionData) -> dict[str, Any]:
 class TrophyDataExtractionData:
     entries: GenericDictionary[TrophyDataDictionaryEntry]
 
-    def _trophy_entries_fingerprint(self) -> ExtractorFingerprint:
-        return tuple(self._trophy_entry_fingerprint(entry) for entry in self.entries if entry.value)
+    def _first_trophy_entry_probe(self) -> ExtractorFingerprint:
+        entry = _first(entry for entry in self.entries if entry.value)
+        if entry is None:
+            return "first_trophy", 0
 
-    def _trophy_entry_fingerprint(self, entry: TrophyDataDictionaryEntry) -> ExtractorFingerprint:
         f = entry.value.contents.fields
         return (
-            entry.key,
-            f.trophyId.value,
-            self._trophy_chara_id_list_fingerprint(f.charaIdList),
-            self._trophy_race_chara_data_dic_fingerprint(f.raceCharaDataDic),
+            "first_trophy",
+            entry.value.address,
+            self._trophy_chara_id_list_probe(f.charaIdList),
+            self._trophy_race_chara_data_dic_probe(f.raceCharaDataDic),
         )
 
-    def _trophy_chara_id_list_fingerprint(self, chara_id_list: C_Ptr[GenericList[c_int32]]) -> ExtractorFingerprint:
+    @staticmethod
+    def _trophy_chara_id_list_probe(chara_id_list: C_Ptr[GenericList[c_int32]]) -> ExtractorFingerprint:
         if not chara_id_list:
             return "chara_id_list", 0
-        return "chara_id_list", _list_fingerprint(chara_id_list.contents)
+        chara_ids = chara_id_list.contents
+        first_chara_id = _first(chara_ids)
+        return (
+            "chara_id_list",
+            _list_fingerprint(chara_ids),
+            first_chara_id.value if first_chara_id is not None else 0,
+        )
 
-    def _trophy_race_chara_data_dic_fingerprint(
-            self,
+    @staticmethod
+    def _trophy_race_chara_data_dic_probe(
             race_chara_data_dic: C_Ptr[GenericDictionary[TrophyDataCharaIdListDictionaryEntry]]) \
             -> ExtractorFingerprint:
         if not race_chara_data_dic:
             return "race_chara_data_dic", 0
-        return "race_chara_data_dic", _dictionary_fingerprint(race_chara_data_dic.contents)
+        race_entries = race_chara_data_dic.contents
+        first_race_entry = _first(entry for entry in race_entries if entry.value)
+        if first_race_entry is None:
+            return "race_chara_data_dic", _dictionary_fingerprint(race_entries), ("first_race", 0)
+
+        chara_entries = first_race_entry.value.contents
+        first_chara_entry = _first(entry for entry in chara_entries if entry.value)
+        if first_chara_entry is None:
+            return (
+                "race_chara_data_dic",
+                _dictionary_fingerprint(race_entries),
+                ("first_race", first_race_entry.value.address),
+                _dictionary_fingerprint(chara_entries),
+                ("first_chara", 0),
+            )
+
+        _ = first_chara_entry.value.contents.fields
+        return (
+            "race_chara_data_dic",
+            _dictionary_fingerprint(race_entries),
+            ("first_race", first_race_entry.value.address),
+            _dictionary_fingerprint(chara_entries),
+            ("first_chara", first_chara_entry.value.address),
+        )
 
     def fingerprint(self) -> ExtractorFingerprint:
-        return "trophy_data", _dictionary_fingerprint(self.entries), self._trophy_entries_fingerprint()
+        return "trophy_data", _dictionary_fingerprint(self.entries), self._first_trophy_entry_probe()
 
 
 def resolve_trophy_data_extraction_data(wdm: WorkDataManagerObject) -> Optional[TrophyDataExtractionData]:
@@ -904,10 +974,14 @@ class TeamStadiumReplayExtractionData:
     support_card_bonus: int
 
     def fingerprint(self) -> ExtractorFingerprint:
+        first_race_result = _first(result for result in self.race_result_array if result)
+        if first_race_result is not None:
+            _ = first_race_result.contents.fields
         return (
             "team_stadium_replay",
             _array_fingerprint(self.use_item_id_array),
             _array_fingerprint(self.race_result_array),
+            ("first_race_result", first_race_result.address if first_race_result is not None else 0),
             self.opponent_evaluate,
         )
 
@@ -1314,6 +1388,7 @@ class RaceInfoReplayExtractionData:
     race_horse_trained_chara_pointers: tuple[tuple[int, int], ...]
 
     def fingerprint(self) -> ExtractorFingerprint:
+        _ = self.race_info.contents.fields
         return (
             "race_info_replay",
             _pointer_fingerprint(self.race_info),
@@ -1394,6 +1469,12 @@ class IdleSingleModeExtractionData:
     finalized_chara_info: C_Ptr[SingleModeCharaObject]
 
     def fingerprint(self) -> ExtractorFingerprint:
+        if self.chara_info:
+            _ = self.chara_info.contents.fields
+        if self.progress_log_info:
+            _ = self.progress_log_info.contents.fields
+        if self.finalized_chara_info:
+            _ = self.finalized_chara_info.contents.fields
         return (
             "idle_single_mode",
             self.state,
