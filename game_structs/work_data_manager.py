@@ -5,6 +5,7 @@ from typing import Literal as L
 from ctypes_utils import ArrayType, CStructureDataclass, C_Ptr, C_UDeclPtr
 from game_structs.cards import WorkCardDataObject, WorkSupportCardDataObject
 from game_structs.friends import WorkFriendDataObject
+from game_structs.honors import WorkHonorDataObject
 from game_structs.idle_single_mode import WorkIdleSingleModeDataObject
 from game_structs.single_mode import WorkSingleModeDataObject
 from game_structs.team_stadium import WorkTeamStadiumDataObject
@@ -30,7 +31,9 @@ class WorkDataManagerFields(CStructureDataclass):
     trophy: C_Ptr[WorkTrophyDataObject]
     _ignored_4: ArrayType[C_UDeclPtr, L[4]]
     teamStadiumData: C_Ptr[WorkTeamStadiumDataObject]
-    _ignored_5: ArrayType[C_UDeclPtr, L[31]]  # directoryData … optionData
+    _ignored_5: ArrayType[C_UDeclPtr, L[5]]  # directoryData … dailyLegendRaceData
+    honorData: C_Ptr[WorkHonorDataObject]
+    _ignored_6: ArrayType[C_UDeclPtr, L[25]]  # limitedSalesData … optionData
     idleSingleModeData: C_Ptr[WorkIdleSingleModeDataObject]
 
 

@@ -25,13 +25,14 @@ from il2cpp_structs import (RuntimeIl2CppClass, RuntimeIl2CppGenericClass, Runti
                             RuntimeIl2CppMetadataRegistration, RuntimeIl2CppType)
 from il2cpp_utils import Il2CppResolutionManager
 from json_encoders import (CardDataExtractionData, ExtractorFingerprint, FingerprintableExtractionData,
-                           FriendDataExtractionData, IdleSingleModeExtractionData, IdleSingleModeOutput,
-                           RaceInfoReplayExtractionData, RaceReplayOutput, SupportCardExtractionData,
-                           TeamStadiumReplayExtractionData, TrainedCharaExtractionData, TrophyDataExtractionData,
-                           decode_card_data_dictionary, decode_friend_data, decode_idle_single_mode,
-                           decode_race_info_replay, decode_support_card_dictionary, decode_team_stadium_replay,
-                           decode_trained_chara_dictionary, decode_trophy_data, resolve_card_data_extraction_data,
-                           resolve_friend_data_extraction_data, resolve_idle_single_mode,
+                           FriendDataExtractionData, HonorListExtractionData, IdleSingleModeExtractionData,
+                           IdleSingleModeOutput, RaceInfoReplayExtractionData, RaceReplayOutput,
+                           SupportCardExtractionData, TeamStadiumReplayExtractionData, TrainedCharaExtractionData,
+                           TrophyDataExtractionData, decode_card_data_dictionary, decode_friend_data, decode_honor_list,
+                           decode_idle_single_mode, decode_race_info_replay, decode_support_card_dictionary,
+                           decode_team_stadium_replay, decode_trained_chara_dictionary, decode_trophy_data,
+                           resolve_card_data_extraction_data, resolve_friend_data_extraction_data,
+                           resolve_honor_list_extraction_data, resolve_idle_single_mode,
                            resolve_race_info_replay_extraction_data, resolve_support_card_extraction_data,
                            resolve_team_stadium_replay_extraction_data, resolve_trained_chara_extraction_data,
                            resolve_trophy_data_extraction_data)
@@ -461,6 +462,17 @@ def _extract_friend_data(data: FriendDataExtractionData) -> dict[str, Any]:
     return friends
 
 
+def _resolve_honor_list(ctx: ExtractionContext) -> Optional[HonorListExtractionData]:
+    wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
+    return resolve_honor_list_extraction_data(wdm)
+
+
+def _extract_honor_list(data: HonorListExtractionData) -> dict[str, Any]:
+    honors = decode_honor_list(data)
+    logger.info("Decoded %d honor entries", len(honors["honor_list"]))
+    return honors
+
+
 def _resolve_trophy_data(ctx: ExtractionContext) -> Optional[TrophyDataExtractionData]:
     wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
     return resolve_trophy_data_extraction_data(wdm)
@@ -545,6 +557,12 @@ EXTRACTORS: tuple[Extractor[Any, Any, Any], ...] = (
             output_path=Path("friend_data.json"),
             resolve=_resolve_friend_data,
             extract=_extract_friend_data,
+    ),
+    Extractor(
+            name="honor_data",
+            output_path=Path("honor_data.json"),
+            resolve=_resolve_honor_list,
+            extract=_extract_honor_list,
     ),
     Extractor(
             name="trophy_data",

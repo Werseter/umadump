@@ -16,6 +16,7 @@ from game_structs.enums import (BgSeason, CardRarity, CharaGradeType, CourseDist
                                 RaceType, RaceWeather, ResultBoardConditionType, Rotation, RunningStyleEx,
                                 SuccessionCharaPosition, TurfVisionType)
 from game_structs.friends import FriendDataObject
+from game_structs.honors import WorkHonorDataHonorObject
 from game_structs.idle_single_mode import (CharaRaceRewardObject, IdleSingleModeRaceHistoryObject,
                                            ObscuredCharaEffectLogObject, ObscuredFactorInfoObject,
                                            ObscuredIdleSingleModeGainInfoObject,
@@ -76,9 +77,9 @@ def _first[T](items: Iterable[T]) -> Optional[T]:
     return next(iter(items), None)
 
 
-def _timestamp_to_str(timestamp: int, tz: timezone = UTC) -> str:
+def _timestamp_to_str(timestamp: int, tz: timezone = UTC, use_zero_time: bool = True) -> str:
     if not timestamp:
-        return "0000-00-00 00:00:00"
+        return "0000-00-00 00:00:00" if use_zero_time else "1970-01-01 00:00:00"
     return str(datetime.fromtimestamp(timestamp, tz=tz).replace(tzinfo=None))
 
 
@@ -815,6 +816,64 @@ def decode_friend_data(data: FriendDataExtractionData) -> dict[str, Any]:
 
     result = _decode_work_friend_data(data)
     return result
+
+
+# ---------------------------------------------------------------------------
+# Honor list extraction
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class HonorListExtractionData:
+    honor_list: GenericList[C_Ptr[WorkHonorDataHonorObject]]
+    last_checked_time: int
+
+    def fingerprint(self) -> ExtractorFingerprint:
+        first_honor = _first(honor for honor in self.honor_list if honor)
+        if first_honor is not None:
+            _ = first_honor.contents.fields
+        return (
+            "honor_list",
+            _list_fingerprint(self.honor_list),
+            ("first_honor", first_honor.address if first_honor is not None else 0),
+            self.last_checked_time,
+        )
+
+
+def resolve_honor_list_extraction_data(wdm: WorkDataManagerObject) -> Optional[HonorListExtractionData]:
+    """Resolve the player's obtained honors and last check time."""
+
+    if not (honor_data_ptr := wdm.fields.honorData):
+        logger.warning("WorkDataManager.honorData is null")
+        return None
+
+    fields = honor_data_ptr.contents.fields
+    if not (honor_list_ptr := fields.honorList):
+        logger.warning("WorkHonorData.honorList is null")
+        return None
+
+    return HonorListExtractionData(
+            honor_list=honor_list_ptr.contents,
+            last_checked_time=fields.lastCheckTime,
+    )
+
+
+def _decode_honor_list_entry(honor: WorkHonorDataHonorObject) -> dict[str, Any]:
+    fields = honor.fields
+    return {
+        "honor_id": fields.id,
+        "create_time": _timestamp_to_str(fields.createTime, use_zero_time=False),
+    }
+
+
+def decode_honor_list(data: HonorListExtractionData) -> dict[str, Any]:
+    """Decode the available WorkHonorData fields in honor/index API shape."""
+
+    honors = [_decode_honor_list_entry(honor.contents) for honor in data.honor_list if honor]
+    logger.debug("WorkHonorData: honor_list=%d", len(honors))
+    return {
+        "honor_list": honors,
+        "last_checked_time": data.last_checked_time,
+    }
 
 
 # ---------------------------------------------------------------------------
