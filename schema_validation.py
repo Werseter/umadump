@@ -14,8 +14,10 @@ Schema validation (metadata-time)
     developer can catch offset regressions after a game update without running a
     full dump.
 
-    ``@register_enum_validatable`` additionally cross-checks local ``IntEnum``
-    member names and numeric values against Il2Cpp enum field metadata.
+    ``@register_enum`` additionally cross-checks local ``IntEnum`` member
+    names, numeric values, and fixed-width ``value__`` storage against Il2Cpp
+    enum metadata.  Direct ``C_Enum`` fields are checked against the exact
+    reflected enum type, rather than only their byte offset.
 
 Runtime validation (access-time)
     Classes decorated with ``@register_runtime_validatable`` additionally get a
@@ -32,12 +34,12 @@ Public decorators
     Opt into both metadata cross-check *and* per-access ``typeMetadataHandle``
     guard.
 
-``@register_enum_validatable(il2cpp_name)``
-    Opt an ``IntEnum`` into metadata member-name cross-checks.
+``@register_enum(il2cpp_name, storage_type=c_int32)``
+    Register an ``IntEnum`` with its exact IL2CPP storage.
 
 Public function
 ---------------
-``validate_registered_classes(resolver)``
+``validate_registered_schema(resolver)``
     Call once after the ``Il2CppResolutionManager`` is ready to run all schema
     checks for registered classes.
 """
@@ -45,12 +47,13 @@ from __future__ import annotations
 
 import re
 from ctypes import CField, c_int32, sizeof
-from enum import IntEnum
-from typing import Any, Callable, ClassVar, Optional, Protocol, cast as type_cast, get_type_hints
+from dataclasses import dataclass
+from struct import error as StructError
+from typing import Any, Callable, ClassVar, NamedTuple, Optional, Protocol, cast as type_cast, get_type_hints
 
-from ctypes_utils import CStructureDataclass, C_Ptr
+from ctypes_utils import CStructureDataclass, C_Ptr, EnumFieldBinding, EnumStorageManager, EnumStorageType, SafeIntEnum
 from il2cpp_structs import Il2CppFieldDefinition, RuntimeIl2CppClass, RuntimeIl2CppObject, RuntimeIl2CppType
-from il2cpp_utils import Il2CppResolutionManager
+from il2cpp_utils import Il2CppResolutionManager, Il2CppTypeEnum, decode_integer_field_default
 from logger import logger
 
 
@@ -86,21 +89,31 @@ class RuntimeValidatableIl2CppClassManager:
     Runtime-validatable classes additionally get a per-access ``typeMetadataHandle``
     guard installed on their ``__getattribute__``.
     """
-    _registered_schema_classes: ClassVar[dict[str, type[Any]]] = dict()
-    _registered_enum_classes: ClassVar[dict[str, type[IntEnum]]] = dict()
+    _registered_schema_classes: ClassVar[dict[str, type[object]]] = dict()
+    _registered_enum_classes: ClassVar[dict[str, type[SafeIntEnum]]] = dict()
+    _registered_enum_name_by_class: ClassVar[dict[type[SafeIntEnum], str]] = dict()
     _runtime_validatable_class_names: ClassVar[set[str]] = set()
-    _expected_type_metadata_handle_by_class: ClassVar[dict[type[Any], int]] = dict()
+    _expected_type_metadata_handle_by_class: ClassVar[dict[type[object], int]] = dict()
     _subtype_match_cache: ClassVar[dict[tuple[int, int], bool]] = dict()
 
     @classmethod
-    def register_schema_validatable(cls, il2cpp_name: str, wrapper_cls: type[Any]) -> None:
+    def register_schema_validatable(cls, il2cpp_name: str, wrapper_cls: type[object]) -> None:
         """Register *wrapper_cls* for metadata field-layout cross-check only."""
         cls._registered_schema_classes[il2cpp_name] = wrapper_cls
 
     @classmethod
-    def register_enum_validatable(cls, il2cpp_name: str, enum_cls: type[IntEnum]) -> None:
-        """Register *enum_cls* for metadata enum-member cross-check."""
+    def register_enum(cls, il2cpp_name: str, enum_cls: type[SafeIntEnum], storage_type: EnumStorageType) -> None:
+        """Register an enum's IL2CPP name and fixed-width storage declaration."""
+        existing_name = cls._registered_enum_name_by_class.get(enum_cls)
+        if existing_name is not None and existing_name != il2cpp_name:
+            raise RuntimeError(f"{enum_cls.__name__} is already registered as {existing_name}")
+        EnumStorageManager.configure_storage(enum_cls, storage_type)
         cls._registered_enum_classes[il2cpp_name] = enum_cls
+        cls._registered_enum_name_by_class[enum_cls] = il2cpp_name
+
+    @classmethod
+    def registered_enum_name(cls, enum_cls: type[SafeIntEnum]) -> str | None:
+        return cls._registered_enum_name_by_class.get(enum_cls)
 
     @classmethod
     def register_runtime_validatable(cls, il2cpp_name: str, wrapper_cls: type[RuntimeValidatableIl2CppClass]) -> None:
@@ -113,11 +126,11 @@ class RuntimeValidatableIl2CppClassManager:
         return il2cpp_name in cls._runtime_validatable_class_names
 
     @classmethod
-    def set_expected_type_metadata_handle(cls, wrapper_cls: type[Any], type_metadata_handle: int) -> None:
+    def set_expected_type_metadata_handle(cls, wrapper_cls: type[object], type_metadata_handle: int) -> None:
         cls._expected_type_metadata_handle_by_class[wrapper_cls] = int(type_metadata_handle)
 
     @classmethod
-    def get_expected_type_metadata_handle(cls, wrapper_cls: type[Any]) -> int | None:
+    def get_expected_type_metadata_handle(cls, wrapper_cls: type[object]) -> int | None:
         return cls._expected_type_metadata_handle_by_class.get(wrapper_cls)
 
     @classmethod
@@ -189,7 +202,8 @@ def _install_runtime_validating_getattribute(cls: type[RuntimeValidatableIl2CppC
         return
 
     existing = cls.__dict__.get("__getattribute__")
-    if existing is not None and existing is not object.__getattribute__:
+    enum_accessor_installed = bool(cls.__dict__.get("_ctypes_enum_getattribute_patched", False))
+    if existing is not None and existing is not object.__getattribute__ and not enum_accessor_installed:
         logger.warning("Class %s already has custom __getattribute__, skipping validation wrapper", cls.__name__)
         return
 
@@ -205,10 +219,10 @@ def _install_runtime_validating_getattribute(cls: type[RuntimeValidatableIl2CppC
     setattr(cls, "_runtime_validation_getattribute_patched", True)
 
 
-def register_schema_validatable(il2cpp_name: str) -> Callable[[type[Any]], type[Any]]:
+def register_schema_validatable[TWrapper: type[object]](il2cpp_name: str) -> Callable[[TWrapper], TWrapper]:
     """Register wrapper for metadata-schema validation only (no runtime __getattribute__ checks)."""
 
-    def _decorator(cls: type[Any]) -> type[Any]:
+    def _decorator(cls: TWrapper) -> TWrapper:
         RuntimeValidatableIl2CppClassManager.register_schema_validatable(il2cpp_name, cls)
         return cls
 
@@ -225,11 +239,15 @@ def register_runtime_validatable[TValidatable: type[RuntimeValidatableIl2CppClas
     return _decorator
 
 
-def register_enum_validatable[TEnum: type[IntEnum]](il2cpp_name: str) -> Callable[[TEnum], TEnum]:
-    """Register an ``IntEnum`` for metadata enum-member validation."""
+_DEFAULT_ENUM_STORAGE_TYPE: EnumStorageType = type_cast(EnumStorageType, c_int32)
 
-    def _decorator(cls: TEnum) -> TEnum:
-        RuntimeValidatableIl2CppClassManager.register_enum_validatable(il2cpp_name, cls)
+
+def register_enum[TEnum: SafeIntEnum](il2cpp_name: str, *, storage_type: EnumStorageType = _DEFAULT_ENUM_STORAGE_TYPE) \
+        -> Callable[[type[TEnum]], type[TEnum]]:
+    """Register an IL2CPP enum and the fixed-width storage used by ``value__``."""
+
+    def _decorator(cls: type[TEnum]) -> type[TEnum]:
+        RuntimeValidatableIl2CppClassManager.register_enum(il2cpp_name, cls, storage_type)
         return cls
 
     return _decorator
@@ -327,21 +345,32 @@ def _iter_typedef_chain_base_to_leaf(resolver: Il2CppResolutionManager, leaf_typ
     return chain_leaf_to_base
 
 
+@dataclass(frozen=True)
+class MetadataInstanceField:
+    """Instance-field metadata retained for layout and enum identity validation."""
+
+    metadata_field_index: int
+    raw_name: str
+    normalized_name: str
+    type_index: int
+
+
 def _read_metadata_instance_fields_by_offset(resolver: Il2CppResolutionManager, typedef_index: int) \
-        -> Optional[dict[int, set[str]]]:
+        -> Optional[dict[int, list[MetadataInstanceField]]]:
     """Collect all instance fields for *typedef_index* and its base classes.
 
     Walks the full inheritance chain (base → leaf) using
     ``_iter_typedef_chain_base_to_leaf`` and reads per-typedef field-offset tables
-    from ``MetadataRegistration.fieldOffsets``.  Field byte offsets are normalised
+    from ``MetadataRegistration.fieldOffsets``.  Field byte offsets are normalized
     relative to the *first instance field encountered in the chain* so that the
     resulting map is directly comparable to ctypes wrapper offsets (which are also
     zero-based from the first field, not from the Il2Cpp object header).
 
     Returns
     -------
-    dict mapping normalised byte offset → set of camelCase field names, or
-    ``None`` when field-offset data is unavailable.
+    dict mapping normalized byte offset → metadata fields, or ``None`` when
+    field-offset data is unavailable.  The original type index lets direct
+    ``C_Enum`` declarations be checked against the reflected enum typedef.
     """
     if not resolver.meta_reg.fieldOffsets:
         return None
@@ -351,7 +380,7 @@ def _read_metadata_instance_fields_by_offset(resolver: Il2CppResolutionManager, 
         return None
 
     field_offsets_count = int(resolver.meta_reg.fieldOffsetsCount)
-    by_offset: dict[int, set[str]] = {}
+    by_offset: dict[int, list[MetadataInstanceField]] = {}
     instance_base_offset: int | None = None
 
     for chain_typedef_index in typedef_chain:
@@ -368,7 +397,8 @@ def _read_metadata_instance_fields_by_offset(resolver: Il2CppResolutionManager, 
 
         field_offsets_span = C_Ptr[c_int32](int(per_type_offsets_ptr)).as_span(typedef.field_count)
         for local_index, field_offset_raw in enumerate(field_offsets_span):
-            field_def = resolver.metadata.field_defs[typedef.fieldStart + local_index]
+            metadata_field_index = int(typedef.fieldStart) + local_index
+            field_def = resolver.metadata.field_defs[metadata_field_index]
 
             field_offset = int(field_offset_raw.value)
             if field_offset < 0:
@@ -382,16 +412,32 @@ def _read_metadata_instance_fields_by_offset(resolver: Il2CppResolutionManager, 
                 instance_base_offset = field_offset
             normalized_offset = field_offset - instance_base_offset
 
-            normalized = _normalize_field_name(resolver.metadata.strings.get(field_def.nameIndex, ""))
+            raw_name = resolver.metadata.strings.get(field_def.nameIndex, "")
+            normalized = _normalize_field_name(raw_name)
             if not normalized:
                 continue
-            by_offset.setdefault(normalized_offset, set()).add(normalized)
+            by_offset.setdefault(normalized_offset, []).append(MetadataInstanceField(
+                    metadata_field_index, raw_name, normalized, int(field_def.typeIndex)))
 
     return by_offset
 
 
-def _iter_expected_registered_fields(cls: type[Any]) -> list[tuple[str, int, object | None, object | None]]:
-    """Return ``(field_name, byte_offset)`` pairs declared by the Python ctypes wrapper *cls*.
+class RegisteredFieldExpectation(NamedTuple):
+    """One public ctypes field expected to correspond to reflected metadata.
+
+    ``declared_type`` is the resolved source annotation when available;
+    ``ctypes_type`` is the materialized carrier that controls layout.
+    """
+
+    name: str
+    offset: int
+    declared_type: object | None
+    ctypes_type: object | None
+    enum_binding: EnumFieldBinding | None
+
+
+def _iter_expected_registered_fields(cls: type[CStructureDataclass]) -> list[RegisteredFieldExpectation]:
+    """Return public ctypes field expectations declared by wrapper *cls*.
 
     Two wrapper shapes are supported:
 
@@ -404,7 +450,7 @@ def _iter_expected_registered_fields(cls: type[Any]) -> list[tuple[str, int, obj
     returned for wrappers with no declared fields, which causes validation to be
     skipped (sparse / intentionally unvalidated classes).
     """
-    expected: list[tuple[str, int, object | None, object | None]] = []
+    expected: list[RegisteredFieldExpectation] = []
 
     # Object wrappers usually expose instance data through `fields`.
     cls_fields: Optional[CField[CStructureDataclass, Any, Any]] = getattr(cls, "fields", None)
@@ -415,7 +461,12 @@ def _iter_expected_registered_fields(cls: type[Any]) -> list[tuple[str, int, obj
             if field_name.startswith("_"):
                 continue
             field_desc = getattr(nested_fields_type, field_name)
-            expected.append((field_name, int(field_desc.offset), storage_hints.get(field_name), field_desc.type))
+            binding = (
+                    EnumStorageManager.field_binding_for_instance_field(nested_fields_type, field_name)
+                    or EnumStorageManager.field_binding_for_type(field_desc.type)
+            )
+            expected.append(RegisteredFieldExpectation(
+                    field_name, int(field_desc.offset), storage_hints.get(field_name), field_desc.type, binding))
         return expected
 
     # Value-type wrappers (or sparse wrappers) can still be validated from top-level fields.
@@ -424,12 +475,17 @@ def _iter_expected_registered_fields(cls: type[Any]) -> list[tuple[str, int, obj
         if field_name.startswith("_"):
             continue
         field_desc = getattr(cls, field_name)
-        expected.append((field_name, int(field_desc.offset), storage_hints.get(field_name), field_desc.type))
+        binding = (
+                EnumStorageManager.field_binding_for_instance_field(cls, field_name)
+                or EnumStorageManager.field_binding_for_type(field_desc.type)
+        )
+        expected.append(RegisteredFieldExpectation(
+                field_name, int(field_desc.offset), storage_hints.get(field_name), field_desc.type, binding))
 
     return expected
 
 
-def _registered_instance_fields_type(cls: type[Any]) -> type[CStructureDataclass] | None:
+def _registered_instance_fields_type(cls: type[object]) -> type[CStructureDataclass] | None:
     cls_fields: Optional[CField[CStructureDataclass, Any, Any]] = getattr(cls, "fields", None)
     if cls_fields is not None:
         return cls_fields.type
@@ -455,8 +511,8 @@ def _registered_field_storage_tail_offset(fields_type: type[CStructureDataclass]
     return tail_offset
 
 
-def _validate_registered_layout_covers_metadata_tail(full_name: str, cls: type[Any],
-                                                     metadata_fields_by_offset: dict[int, set[str]]) -> None:
+def _validate_registered_layout_covers_metadata_tail(
+        full_name: str, cls: type[object], metadata_fields_by_offset: dict[int, list[MetadataInstanceField]]) -> None:
     fields_type = _registered_instance_fields_type(cls)
     if fields_type is None:
         return
@@ -483,18 +539,67 @@ def _validate_registered_layout_covers_metadata_tail(full_name: str, cls: type[A
         )
 
 
-def _validate_registered_class(resolver: Il2CppResolutionManager, typedef_index: int, full_name: str,
-                               cls: type[Any]) -> None:
+def _validate_direct_enum_field(resolver: Il2CppResolutionManager, full_name: str, field_name: str,
+                                metadata_field: MetadataInstanceField, binding: EnumFieldBinding) -> None:
+    """Verify that a direct ``C_Enum`` field names the enum reflected in metadata."""
+    if not binding.direct:
+        # C_EnumIn describes semantic content in an outer value type such as
+        # ObscuredInt; the field correctly reflects that outer type instead.
+        return
+
+    enum_full_name = RuntimeValidatableIl2CppClassManager.registered_enum_name(binding.enum_cls)
+    if enum_full_name is None:
+        logger.warning("%s field '%s' uses C_Enum[%s] but that enum is not registered",
+                       full_name, field_name, binding.enum_cls.__name__)
+        return
+
+    expected_typedef_index = _registered_typedef_index(resolver, enum_full_name, "enum")
+    if expected_typedef_index is None:
+        return
+    maybe_actual_typedef_index = resolver.typedef_index_for_runtime_type_index(metadata_field.type_index)
+    if maybe_actual_typedef_index is None:
+        logger.warning("%s enum field '%s' could not resolve metadata type index %d (expected %s)",
+                       full_name, field_name, metadata_field.type_index, enum_full_name)
+        return
+    actual_typedef_index = maybe_actual_typedef_index
+    if actual_typedef_index != expected_typedef_index:
+        logger.warning(
+                "%s enum field '%s' type mismatch: expected %s (typedef=%d), metadata type=%s "
+                "(typedef=%d, typeIndex=%d)",
+                full_name, field_name, enum_full_name, expected_typedef_index,
+                resolver.full_name_for_typedef(actual_typedef_index), actual_typedef_index, metadata_field.type_index,
+        )
+
+
+def _validate_unbound_metadata_enum_field(
+        resolver: Il2CppResolutionManager, full_name: str, field_name: str, metadata_field: MetadataInstanceField,
+        registered_enums_by_typedef: dict[int, tuple[str, type[SafeIntEnum]]]) -> None:
+    """Report a matched numeric field that metadata identifies as an enum."""
+    metadata_typedef_index = resolver.typedef_index_for_runtime_type_index(metadata_field.type_index)
+    if metadata_typedef_index is None or not resolver.is_enum_typedef(metadata_typedef_index):
+        return
+    registered = registered_enums_by_typedef.get(metadata_typedef_index)
+    if registered is not None:
+        enum_full_name, enum_cls = registered
+        logger.warning("%s field '%s' reflects registered enum %s but has no C_Enum binding; use C_Enum[%s]",
+                       full_name, field_name, enum_full_name, enum_cls.__name__)
+        return
+    logger.warning("%s field '%s' reflects unregistered enum %s; register it and use C_Enum[...]",
+                   full_name, field_name, resolver.full_name_for_typedef(metadata_typedef_index))
+
+
+def _validate_registered_class(
+        resolver: Il2CppResolutionManager, typedef_index: int, full_name: str, cls: type[object],
+        registered_enums_by_typedef: dict[int, tuple[str, type[SafeIntEnum]]]) -> None:
     """Cross-check the Python ctypes wrapper *cls* against metadata field offsets.
 
     For each public field declared in the wrapper, verifies that a metadata
-    instance field with a matching camelCase name exists at the same normalised
+    instance field with a matching camelCase name exists at the same normalized
     byte offset in the typedef's *full* inheritance chain.  Prints a Warning for
     each mismatch and a summary line on success.  Skips wrappers with no public
     fields (sparse / marker classes).
     """
-    # noinspection PyTypeChecker
-    expected_fields = _iter_expected_registered_fields(cls)
+    expected_fields = _iter_expected_registered_fields(type_cast(type[CStructureDataclass], cls))
     if not expected_fields:
         # Sparse validation: classes without a concrete wrapper layout are intentionally skipped.
         return
@@ -508,18 +613,31 @@ def _validate_registered_class(resolver: Il2CppResolutionManager, typedef_index:
         return
 
     checked_public = 0
-    for field_name, field_offset, expected_storage_type, actual_storage_type in expected_fields:
+    for expected_field in expected_fields:
+        field_name = expected_field.name
+        field_offset = expected_field.offset
+        declared_type = expected_field.declared_type
+        ctypes_type = expected_field.ctypes_type
+        enum_binding = expected_field.enum_binding
         checked_public += 1
         normalized_py_name = _normalize_field_name(field_name)
-        metadata_names = metadata_fields_by_offset.get(field_offset, set())
+        metadata_fields = metadata_fields_by_offset.get(field_offset, [])
+        metadata_names = {metadata_field.normalized_name for metadata_field in metadata_fields}
         if normalized_py_name not in metadata_names:
             metadata_hint = ", ".join(sorted(metadata_names)) if metadata_names else "<none>"
             logger.warning("%s field '%s' (offset=%d) not found in metadata at same offset (metadata=%s)",
                            full_name, field_name, field_offset, metadata_hint)
-        if (expected_storage_type is not None and actual_storage_type is not None
-                and expected_storage_type is not actual_storage_type):
+        else:
+            metadata_field = next(metadata_field for metadata_field in metadata_fields
+                                  if metadata_field.normalized_name == normalized_py_name)
+            if enum_binding is not None:
+                _validate_direct_enum_field(resolver, full_name, field_name, metadata_field, enum_binding)
+            else:
+                _validate_unbound_metadata_enum_field(
+                        resolver, full_name, field_name, metadata_field, registered_enums_by_typedef)
+        if declared_type is not None and ctypes_type is not None and declared_type is not ctypes_type:
             logger.warning("%s field '%s' storage type mismatch: annotation=%s, ctypes=%s",
-                           full_name, field_name, expected_storage_type, actual_storage_type)
+                           full_name, field_name, declared_type, ctypes_type)
 
     _validate_registered_layout_covers_metadata_tail(full_name, cls, metadata_fields_by_offset)
     logger.debug("Validated registered class in metadata: %s (public fields checked=%d)", full_name, checked_public)
@@ -528,7 +646,7 @@ def _validate_registered_class(resolver: Il2CppResolutionManager, typedef_index:
 def _update_expected_runtime_type_metadata_handle(resolver: Il2CppResolutionManager,
                                                   typedef_index: int,
                                                   full_name: str,
-                                                  cls: type[Any]) -> None:
+                                                  cls: type[object]) -> None:
     """Cache the ``typeMetadataHandle`` address for *cls* from the runtime type pointer table.
 
     The stored handle is later used by ``_runtime_validate_type_metadata_handle_access``
@@ -572,7 +690,8 @@ def _registered_typedef_index(resolver: Il2CppResolutionManager, full_name: str,
     return typedef_index
 
 
-def _validate_registered_classes(resolver: Il2CppResolutionManager) -> None:
+def _validate_registered_classes(resolver: Il2CppResolutionManager,
+                                 registered_enums_by_typedef: dict[int, tuple[str, type[SafeIntEnum]]]) -> None:
     """Run schema validation for all classes registered via the decorator API.
 
     For each registered class:
@@ -593,15 +712,15 @@ def _validate_registered_classes(resolver: Il2CppResolutionManager) -> None:
             continue
         if RuntimeValidatableIl2CppClassManager.is_runtime_validatable_name(full_name):
             _update_expected_runtime_type_metadata_handle(resolver, typedef_index, full_name, cls)
-        # noinspection PyTypeChecker
-        _validate_registered_class(resolver, typedef_index, full_name, cls)
+        _validate_registered_class(resolver, typedef_index, full_name, cls, registered_enums_by_typedef)
 
 
 def _normalize_enum_member_name(name: str) -> str:
     return name.replace("_", "").lower()
 
 
-def _metadata_enum_member_values(resolver: Il2CppResolutionManager, typedef_index: int) -> dict[str, int | None]:
+def _metadata_enum_member_values(resolver: Il2CppResolutionManager, typedef_index: int,
+                                 storage_type: EnumStorageType) -> dict[str, int | None]:
     typedef = resolver.metadata.type_defs[typedef_index]
     values: dict[str, int | None] = {}
     for local_index in range(typedef.field_count):
@@ -610,20 +729,70 @@ def _metadata_enum_member_values(resolver: Il2CppResolutionManager, typedef_inde
         name = resolver.metadata.strings.get(field_def.nameIndex, "")
         if name == "value__":
             continue
-        values[name] = resolver.metadata.int32_field_defaults_by_field_index.get(field_index)
+        raw_data = resolver.metadata.field_default_data_by_field_index.get(field_index)
+        if raw_data is None:
+            values[name] = None
+            continue
+        try:
+            values[name] = EnumStorageManager.normalize_value(
+                    decode_integer_field_default(raw_data, storage_type), storage_type)
+        except (TypeError, ValueError, StructError):
+            values[name] = None
     return values
 
 
+def _validate_registered_enum_storage(resolver: Il2CppResolutionManager, typedef_index: int, full_name: str,
+                                      enum_cls: type[SafeIntEnum]) -> EnumStorageType | None:
+    """Check a local enum's declared storage against the reflected ``value__`` field."""
+    typedef = resolver.metadata.type_defs[typedef_index]
+    value_field: Il2CppFieldDefinition | None = None
+    field_start = int(typedef.fieldStart)
+    for local_index in range(int(typedef.field_count)):
+        candidate = resolver.metadata.field_defs[field_start + local_index]
+        if resolver.metadata.strings.get(int(candidate.nameIndex), "") == "value__":
+            value_field = candidate
+            break
+    if value_field is None:
+        logger.warning("%s enum has no value__ storage field in metadata", full_name)
+        return None
+
+    enum_runtime_type = resolver.runtime_type_for_type_index(int(typedef.byvalTypeIndex))
+    if enum_runtime_type is None:
+        logger.warning("%s enum runtime type could not be resolved", full_name)
+    elif enum_runtime_type.get_type_bits() != Il2CppTypeEnum.VALUETYPE:
+        logger.warning("%s registered enum has unexpected IL2CPP type bits 0x%X (expected VALUETYPE)",
+                       full_name, enum_runtime_type.get_type_bits())
+
+    maybe_metadata_storage_type = resolver.integer_ctype_for_type_index(int(value_field.typeIndex))
+    if maybe_metadata_storage_type is None:
+        logger.warning("%s enum value__ has unsupported or unresolved primitive type index %d",
+                       full_name, int(value_field.typeIndex))
+        return None
+
+    metadata_storage_type = maybe_metadata_storage_type
+    declared_storage_type = EnumStorageManager.storage_type(enum_cls)
+    if metadata_storage_type is not declared_storage_type:
+        logger.warning("%s enum storage mismatch: local=%s, metadata=%s (value__ typeIndex=%d)",
+                       full_name, declared_storage_type.__name__, metadata_storage_type.__name__,
+                       int(value_field.typeIndex))
+    return metadata_storage_type
+
+
 def _validate_registered_enum(resolver: Il2CppResolutionManager, typedef_index: int, full_name: str,
-                              enum_cls: type[IntEnum]) -> None:
-    metadata_values = _metadata_enum_member_values(resolver, typedef_index)
+                              enum_cls: type[SafeIntEnum]) -> None:
+    declared_storage_type = EnumStorageManager.storage_type(enum_cls)
+    metadata_storage_type = _validate_registered_enum_storage(resolver, typedef_index, full_name, enum_cls)
+    # Decode by the reflected storage where available: U1/U2/U4/U8 defaults do
+    # not share I4's compressed signed representation.
+    metadata_values = _metadata_enum_member_values(
+            resolver, typedef_index, metadata_storage_type or declared_storage_type)
     expected_by_normalized = {
-        _normalize_enum_member_name(member_name): (member_name, int(member.value))
+        _normalize_enum_member_name(member_name): (
+            member_name, EnumStorageManager.normalize_value(int(member.value), declared_storage_type))
         for member_name, member in enum_cls.__members__.items()
     }
     metadata_by_normalized = {
-        _normalize_enum_member_name(member_name): (member_name, value)
-        for member_name, value in metadata_values.items()
+        _normalize_enum_member_name(member_name): (member_name, value) for member_name, value in metadata_values.items()
     }
 
     missing = sorted(
@@ -632,6 +801,12 @@ def _validate_registered_enum(resolver: Il2CppResolutionManager, typedef_index: 
             metadata_by_normalized[name][0] for name in metadata_by_normalized.keys() - expected_by_normalized.keys())
     value_mismatches: list[str] = []
     unresolved_values: list[str] = []
+    noncanonical_local_values: list[str] = []
+    for member_name, member in enum_cls.__members__.items():
+        raw_value = int(member.value)
+        normalized_value = EnumStorageManager.normalize_value(raw_value, declared_storage_type)
+        if raw_value != normalized_value:
+            noncanonical_local_values.append(f"{member_name}: local={raw_value}, canonical={normalized_value}")
     for normalized_name in expected_by_normalized.keys() & metadata_by_normalized.keys():
         expected_name, expected_value = expected_by_normalized[normalized_name]
         metadata_name, metadata_value = metadata_by_normalized[normalized_name]
@@ -649,19 +824,28 @@ def _validate_registered_enum(resolver: Il2CppResolutionManager, typedef_index: 
                        full_name, ", ".join(sorted(unresolved_values)))
     if value_mismatches:
         logger.warning("%s enum member value mismatches: %s", full_name, "; ".join(sorted(value_mismatches)))
-    if not missing and not extra and not unresolved_values and not value_mismatches:
+    if noncanonical_local_values:
+        logger.warning("%s enum members outside declared storage range: %s",
+                       full_name, "; ".join(sorted(noncanonical_local_values)))
+    storage_matches = metadata_storage_type is declared_storage_type
+    if (not missing and not extra and not unresolved_values and not value_mismatches and not noncanonical_local_values
+            and storage_matches):
         logger.debug("Validated registered enum in metadata: %s (members checked=%d)",
                      full_name, len(expected_by_normalized))
 
 
-def _validate_registered_enums(resolver: Il2CppResolutionManager) -> None:
+def _validate_registered_enums(resolver: Il2CppResolutionManager) -> dict[int, tuple[str, type[SafeIntEnum]]]:
+    """Validate enums and return their resolved typedef identities for field checks."""
+    registered_enums_by_typedef: dict[int, tuple[str, type[SafeIntEnum]]] = {}
     for full_name, enum_cls in RuntimeValidatableIl2CppClassManager._registered_enum_classes.items():
         typedef_index = _registered_typedef_index(resolver, full_name, "enum")
         if typedef_index is None:
             continue
         _validate_registered_enum(resolver, typedef_index, full_name, enum_cls)
+        registered_enums_by_typedef[typedef_index] = (full_name, enum_cls)
+    return registered_enums_by_typedef
 
 
 def validate_registered_schema(resolver: Il2CppResolutionManager) -> None:
-    _validate_registered_enums(resolver)
-    _validate_registered_classes(resolver)
+    registered_enums_by_typedef = _validate_registered_enums(resolver)
+    _validate_registered_classes(resolver, registered_enums_by_typedef)

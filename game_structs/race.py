@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from ctypes import c_bool, c_float, c_int32, c_int64, c_uint32
-from typing import Annotated, Literal as L
+from typing import Literal as L
 
-from ctypes_utils import ArrayType, CStructureDataclass, C_Float, C_Int, C_Ptr, C_UDeclPtr
+from ctypes_utils import ArrayType, CStructureDataclass, C_Enum, C_Float, C_Int, C_Ptr, C_UDeclPtr
 from game_structs.collections import GenericArrayPtr
 from game_structs.enums import (BgSeason, CardRarity, CharaGradeType, CourseDistanceType, DefeatType, InitialLaneType,
                                 MainStoryRaceGimmickType, ProperGrade, RaceDifficulty, RaceGroundCondition,
@@ -107,7 +107,7 @@ class RaceParameterFields(CStructureDataclass):
     basePow: C_Float[c_float]
     baseGuts: C_Float[c_float]
     baseWiz: C_Float[c_float]
-    motivation: Annotated[C_Int[c_int32], RaceMotivation]
+    motivation: C_Enum[RaceMotivation]
     motivationCoef: C_Float[c_float]
 
 
@@ -133,17 +133,17 @@ class HorseDataFields(CStructureDataclass):
     popularityRankCenter: C_Int[c_int32]
     popularityRankRight: C_Int[c_int32]
     gateInPopularity: C_Int[c_int32]
-    rarity: Annotated[C_Int[c_int32], CardRarity]
+    rarity: C_Enum[CardRarity]
     trainerName: SystemStringObjectPtr
     isGhost: C_Int[c_bool]
     isRunningStyleExInitialized: C_Int[c_bool]
-    runningStyleEx: Annotated[C_Int[c_int32], RunningStyleEx]
-    defeat: Annotated[C_Int[c_int32], DefeatType]
+    runningStyleEx: C_Enum[RunningStyleEx]
+    defeat: C_Enum[DefeatType]
     raceDressId: C_Int[c_int32]
     raceDressIdWithOption: C_Int[c_int32]
-    runningType: Annotated[C_Int[c_int32], RaceRunningType]
-    activeProperDistance: Annotated[C_Int[c_int32], ProperGrade]
-    activeProperGroundType: Annotated[C_Int[c_int32], ProperGrade]
+    runningType: C_Enum[RaceRunningType]
+    activeProperDistance: C_Enum[ProperGrade]
+    activeProperGroundType: C_Enum[ProperGrade]
     mobId: C_Int[c_int32]
     _ignored_1: C_UDeclPtr  # raceRecord
     finishOrderRawScore: C_Int[c_int32]
@@ -187,7 +187,7 @@ class RaceCourseSetObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class RaceInfoFields(CStructureDataclass):
-    raceType: Annotated[C_Int[c_int32], RaceType]
+    raceType: C_Enum[RaceType]
     isExistPlayerRace: C_Int[c_bool]
     isExistGhostRace: C_Int[c_bool]
     isExistFollowRace: C_Int[c_bool]
@@ -203,22 +203,22 @@ class RaceInfoFields(CStructureDataclass):
     _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # fenceSet, raceTrack
     goalGate: C_Int[c_int32]
     goalGateFlower: C_Int[c_int32]
-    initialLaneType: Annotated[C_Int[c_int32], InitialLaneType]
-    rotationCategory: Annotated[C_Int[c_int32], Rotation]
-    resultBoardConditionType: Annotated[C_Int[c_int32], ResultBoardConditionType]
+    initialLaneType: C_Enum[InitialLaneType]
+    rotationCategory: C_Enum[Rotation]
+    resultBoardConditionType: C_Enum[ResultBoardConditionType]
     courseSectionDistance: C_Float[c_float]
-    courseDistanceType: Annotated[C_Int[c_int32], CourseDistanceType]
+    courseDistanceType: C_Enum[CourseDistanceType]
     courseFurlongNum: C_Int[c_int32]
     isHalfGate: C_Int[c_bool]
     isHorseNumVariationGate: C_Int[c_bool]
-    turfVisionType: Annotated[C_Int[c_int32], TurfVisionType]
-    groundCondition: Annotated[C_Int[c_int32], RaceGroundCondition]
-    weather: Annotated[C_Int[c_int32], RaceWeather]
-    season: Annotated[C_Int[c_int32], BgSeason]
-    time: Annotated[C_Int[c_int32], RaceTime]
+    turfVisionType: C_Enum[TurfVisionType]
+    groundCondition: C_Enum[RaceGroundCondition]
+    weather: C_Enum[RaceWeather]
+    season: C_Enum[BgSeason]
+    time: C_Enum[RaceTime]
     baseSpeed: C_Float[c_float]
     borderTimeScaled: C_Float[c_float]
-    challengeMatchDifficulty: Annotated[C_Int[c_int32], RaceDifficulty]
+    challengeMatchDifficulty: C_Enum[RaceDifficulty]
     numRaceHorses: C_Int[c_int32]
     postNumberMax: C_Int[c_int32]
     playerHorseIndex: C_Int[c_int32]
@@ -237,8 +237,8 @@ class RaceInfoFields(CStructureDataclass):
     isDailyLegendRace: C_Int[c_bool]
     _ignored_5: ArrayType[C_UDeclPtr, L[2]]  # replayCheckInfoChallengeMatch, raceRewardSingle
     resultHorseIndex: C_Int[c_int32]
-    prevGradeType: Annotated[C_Int[c_int32], CharaGradeType]
-    mainStoryRaceGimmickType: Annotated[C_Int[c_int32], MainStoryRaceGimmickType]
+    prevGradeType: C_Enum[CharaGradeType]
+    mainStoryRaceGimmickType: C_Enum[MainStoryRaceGimmickType]
     isMainStoryRaceMatchGimmick: C_Int[c_bool]
     unlockFlags: C_Int[c_uint32]
     _ignored_6: C_UDeclPtr  # phaseCalculator

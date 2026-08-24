@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from ctypes import c_int32, c_int64
-from typing import Annotated
 
-from ctypes_utils import CStructureDataclass, C_Int, C_Ptr, C_UDeclPtr
+from ctypes_utils import CStructureDataclass, C_EnumIn, C_Int, C_Ptr, C_UDeclPtr
 from game_structs.collections import GenericArrayPtr
 from game_structs.enums import IdleSingleModePlayingState
 from game_structs.obscured import ObscuredBool, ObscuredInt
@@ -224,7 +223,7 @@ class ObscuredIdleSingleModeProgressLogInfoObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class WorkIdleSingleModeDataFields(CStructureDataclass):
-    state: Annotated[ObscuredInt, IdleSingleModePlayingState]
+    state: C_EnumIn[IdleSingleModePlayingState, ObscuredInt]
     charaInfo: C_Ptr[SingleModeCharaObject]
     startTime: C_Int[c_int64]
     endTime: C_Int[c_int64]

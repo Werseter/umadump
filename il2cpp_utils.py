@@ -6,14 +6,14 @@ This module bridges static ``global-metadata.dat`` type information with live
 """
 from __future__ import annotations
 
-from ctypes import sizeof
+from ctypes import c_int16, c_int32, c_int64, c_int8, c_uint16, c_uint32, c_uint64, c_uint8, sizeof
 from dataclasses import dataclass
 from enum import IntEnum
 from pathlib import Path
-from struct import error as StructError, iter_unpack, unpack_from
+from struct import iter_unpack, unpack_from
 from typing import Any, Optional, TypeAlias
 
-from ctypes_utils import C_Ptr, StructOrSimple
+from ctypes_utils import C_Ptr, EnumStorageType, StructOrSimple
 from il2cpp_structs import (Il2CppFieldDefaultValue, Il2CppFieldDefinition, Il2CppGlobalMetadataHeader,
                             Il2CppImageDefinition, Il2CppMetadataRange, Il2CppMethodDefinition, Il2CppTypeDefinition,
                             RuntimeIl2CppClass, RuntimeIl2CppCodeGenModule, RuntimeIl2CppCodeRegistration,
@@ -36,9 +36,31 @@ class RuntimeTypeResolveContext:
 
 
 class Il2CppTypeEnum(IntEnum):
+    I1 = 0x04
+    U1 = 0x05
+    I2 = 0x06
+    U2 = 0x07
+    I4 = 0x08
+    U4 = 0x09
+    I8 = 0x0A
+    U8 = 0x0B
+    R4 = 0x0C
+    R8 = 0x0D
     VALUETYPE = 0x11
     CLASS = 0x12
     GENERICINST = 0x15
+
+
+IL2CPP_INTEGER_CTYPE_BY_TYPE_BITS: dict[Il2CppTypeEnum, EnumStorageType] = {
+    Il2CppTypeEnum.I1: c_int8,
+    Il2CppTypeEnum.U1: c_uint8,
+    Il2CppTypeEnum.I2: c_int16,
+    Il2CppTypeEnum.U2: c_uint16,
+    Il2CppTypeEnum.I4: c_int32,
+    Il2CppTypeEnum.U4: c_uint32,
+    Il2CppTypeEnum.I8: c_int64,
+    Il2CppTypeEnum.U8: c_uint64,
+}
 
 
 class Il2CppResolutionManager:
@@ -142,11 +164,81 @@ class Il2CppResolutionManager:
             return 0
         return self._runtime_type_ptr_addresses[type_index]
 
+    def runtime_type_for_type_index(self, type_index: int) -> Optional[RuntimeIl2CppType]:
+        """Resolve a metadata-registration type index to its live type record."""
+        runtime_type_ptr = self.runtime_type_ptr_for_type_index(type_index)
+        if not runtime_type_ptr:
+            return None
+        return C_Ptr[RuntimeIl2CppType](runtime_type_ptr).contents
+
     def typedef_index_for_type_index(self, type_index: int) -> Optional[int]:
         if type_index < 0 or type_index >= len(self._context.type_index_to_typedef):
             return None
         typedef_index = self._context.type_index_to_typedef[type_index]
         return typedef_index if typedef_index >= 0 else None
+
+    def typedef_index_for_runtime_type_index(self, type_index: int) -> Optional[int]:
+        """Resolve a type index even if it is not the typedef's by-value slot."""
+        if (typedef_index := self.typedef_index_for_type_index(type_index)) is not None:
+            return typedef_index
+        runtime_type = self.runtime_type_for_type_index(type_index)
+        return self.typedef_index_for_runtime_type(runtime_type) if runtime_type is not None else None
+
+    def integer_ctype_for_type_index(self, type_index: int) -> EnumStorageType | None:
+        """Map a primitive IL2CPP type entry to exact fixed-width ctypes storage."""
+        runtime_type = self.runtime_type_for_type_index(type_index)
+        if runtime_type is None:
+            return None
+        try:
+            type_bits = Il2CppTypeEnum(runtime_type.get_type_bits())
+        except ValueError:
+            return None
+        return IL2CPP_INTEGER_CTYPE_BY_TYPE_BITS.get(type_bits)
+
+    def enum_storage_ctype_for_typedef(self, typedef_index: int) -> EnumStorageType | None:
+        """Return the primitive ctypes storage declared by an enum's ``value__`` field."""
+        if typedef_index < 0 or typedef_index >= len(self.metadata.type_defs):
+            return None
+        typedef = self.metadata.type_defs[typedef_index]
+        for local_index in range(int(typedef.field_count)):
+            field_def = self.metadata.field_defs[int(typedef.fieldStart) + local_index]
+            if self.metadata.strings.get(int(field_def.nameIndex), "") == "value__":
+                return self.integer_ctype_for_type_index(int(field_def.typeIndex))
+        return None
+
+    def is_enum_typedef(self, typedef_index: int) -> bool:
+        """Return whether a typedef has the IL2CPP shape of a real enum."""
+        if typedef_index < 0 or typedef_index >= len(self.metadata.type_defs):
+            return False
+        enum_base_index = self.find_type_def_index(['Enum'], 'System')
+        if enum_base_index is None:
+            return False
+        typedef = self.metadata.type_defs[typedef_index]
+        parent_typedef_index = self.typedef_index_for_runtime_type_index(int(typedef.parentIndex))
+        if parent_typedef_index != enum_base_index:
+            return False
+        if self.enum_storage_ctype_for_typedef(typedef_index) is None:
+            return False
+        runtime_type = self.runtime_type_for_type_index(int(typedef.byvalTypeIndex))
+        return runtime_type is not None and runtime_type.get_type_bits() == Il2CppTypeEnum.VALUETYPE
+
+    def full_name_for_typedef(self, typedef_index: int) -> str:
+        """Return a readable ``Namespace::Outer.Inner`` name for diagnostics."""
+        if typedef_index < 0 or typedef_index >= len(self.metadata.type_defs):
+            return f"<typedef {typedef_index}>"
+        names: list[str] = []
+        current_index = typedef_index
+        namespace = self.metadata.type_def_namespaces[current_index]
+        seen: set[int] = set()
+        while current_index not in seen and 0 <= current_index < len(self.metadata.type_defs):
+            seen.add(current_index)
+            names.append(self.metadata.type_def_names[current_index])
+            declaring_type_index = int(self.metadata.type_defs[current_index].declaringTypeIndex)
+            parent_index = self.typedef_index_for_runtime_type_index(declaring_type_index)
+            if parent_index is None:
+                break
+            current_index = parent_index
+        return f"{namespace}::{'.'.join(reversed(names))}"
 
     def typedef_index_for_type_metadata_handle(self, type_metadata_handle: int) -> Optional[int]:
         return self._context.typedef_by_type_metadata_handle.get(int(type_metadata_handle))
@@ -462,7 +554,7 @@ class MinimalMetadata:
     image_defs: tuple[Il2CppImageDefinition, ...]
     method_defs: tuple[Il2CppMethodDefinition, ...]
     field_defs: tuple[Il2CppFieldDefinition, ...]
-    int32_field_defaults_by_field_index: dict[int, int]
+    field_default_data_by_field_index: dict[int, bytes]
     unresolved_indirect_call_param_ranges_count: int
     type_def_names: tuple[str, ...]
     type_def_namespaces: tuple[str, ...]
@@ -551,15 +643,10 @@ def _read_compressed_int32(data: bytes, offset: int) -> tuple[int, int]:
     return value, offset
 
 
-def _parse_int32_field_defaults(data: bytes, header: Il2CppGlobalMetadataHeader) -> dict[int, int]:
-    """Return int32 field defaults keyed by metadata field index.
-
-    Il2Cpp enum literals observed here are int32-backed and stored as compressed
-    signed integers in fieldAndParameterDefaultValueData.
-    """
-
+def _parse_field_default_data(data: bytes, header: Il2CppGlobalMetadataHeader) -> dict[int, bytes]:
+    """Preserve raw default-value data until its exact IL2CPP storage is known."""
     field_defaults = _parse_field_default_values(data, header.fieldDefaultValuesOffset, header.fieldDefaultValuesSize)
-    values: dict[int, int] = {}
+    values: dict[int, bytes] = {}
     data_offset = int(header.fieldAndParameterDefaultValueDataOffset)
     data_size = int(header.fieldAndParameterDefaultValueDataSize)
     for default in field_defaults:
@@ -567,11 +654,37 @@ def _parse_int32_field_defaults(data: bytes, header: Il2CppGlobalMetadataHeader)
         if local_offset < 0 or local_offset >= data_size:
             continue
         value_offset = data_offset + local_offset
-        try:
-            values[int(default.fieldIndex)], _ = _read_compressed_int32(data, value_offset)
-        except (StructError, ValueError):
-            continue
+        # Eight bytes cover all supported enum bases and the compressed I4/U4
+        # representation.  Decoding happens after ``value__`` is resolved.
+        values[int(default.fieldIndex)] = data[value_offset:min(value_offset + 8, data_offset + data_size)]
     return values
+
+
+def decode_integer_field_default(raw_data: bytes, storage_type: EnumStorageType) -> int:
+    """Decode an IL2CPP integral literal using its resolved fixed-width storage."""
+
+    def _fixed_width(width: int, *, signed: bool) -> int:
+        if len(raw_data) < width:
+            raise ValueError(f"truncated {width}-byte field default")
+        return int.from_bytes(raw_data[:width], byteorder="little", signed=signed)
+
+    if storage_type is c_int8:
+        return _fixed_width(1, signed=True)
+    if storage_type is c_uint8:
+        return _fixed_width(1, signed=False)
+    if storage_type is c_int16:
+        return _fixed_width(2, signed=True)
+    if storage_type is c_uint16:
+        return _fixed_width(2, signed=False)
+    if storage_type is c_int32:
+        return _read_compressed_int32(raw_data, 0)[0]
+    if storage_type is c_uint32:
+        return _read_compressed_uint32(raw_data, 0)[0]
+    if storage_type is c_int64:
+        return _fixed_width(8, signed=True)
+    if storage_type is c_uint64:
+        return _fixed_width(8, signed=False)
+    raise TypeError(f"unsupported integer default storage: {storage_type!r}")
 
 
 def parse_minimal_metadata(metadata_path: Path) -> MinimalMetadata:
@@ -590,7 +703,7 @@ def parse_minimal_metadata(metadata_path: Path) -> MinimalMetadata:
     image_defs = _parse_image_defs(data, header.imagesOffset, header.imagesSize)
     method_defs = _parse_method_defs(data, header.methodsOffset, header.methodsSize)
     field_defs = _parse_field_defs(data, header.fieldsOffset, header.fieldsSize)
-    int32_field_defaults_by_field_index = _parse_int32_field_defaults(data, header)
+    field_default_data_by_field_index = _parse_field_default_data(data, header)
     unresolved_count = header.unresolvedIndirectCallParameterRangesSize // sizeof(Il2CppMetadataRange)
     type_def_names = tuple(strings.get(type_def.nameIndex, "") for type_def in type_defs)
     type_def_namespaces = tuple(strings.get(type_def.namespaceIndex, "") for type_def in type_defs)
@@ -598,7 +711,7 @@ def parse_minimal_metadata(metadata_path: Path) -> MinimalMetadata:
 
     return MinimalMetadata(
             strings=strings, type_defs=type_defs, image_defs=image_defs, method_defs=method_defs, field_defs=field_defs,
-            int32_field_defaults_by_field_index=int32_field_defaults_by_field_index,
+            field_default_data_by_field_index=field_default_data_by_field_index,
             unresolved_indirect_call_param_ranges_count=unresolved_count,
             type_def_names=type_def_names,
             type_def_namespaces=type_def_namespaces,

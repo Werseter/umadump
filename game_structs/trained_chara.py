@@ -3,7 +3,7 @@ from __future__ import annotations
 from ctypes import c_bool, c_int32, c_int64
 from typing import Annotated, Literal as L
 
-from ctypes_utils import ArrayType, CStructureDataclass, C_Int, C_Ptr, C_UDeclPtr
+from ctypes_utils import ArrayType, CStructureDataclass, C_Enum, C_EnumIn, C_Int, C_Ptr, C_UDeclPtr
 from game_structs.collections import GenericArrayPtr, GenericDictionary, GenericList
 from game_structs.enums import FinalTrainingRank, SuccessionCharaPosition, TrainedCharaUseType
 from game_structs.obscured import ObscuredBool, ObscuredInt, ObscuredLong, ObscuredStringPtr
@@ -74,11 +74,11 @@ class FavoriteDataDictionaryEntry(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class SuccessionCharaDataFields(CStructureDataclass):
-    positionId: Annotated[ObscuredInt, SuccessionCharaPosition]
+    positionId: C_EnumIn[SuccessionCharaPosition, ObscuredInt]
     cardId: ObscuredInt
     rarity: ObscuredInt
     level: ObscuredInt
-    rank: Annotated[ObscuredInt, FinalTrainingRank]
+    rank: C_EnumIn[FinalTrainingRank, ObscuredInt]
     factorDataArray: GenericArrayPtr[C_Ptr[FactorDataObject]]
     _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # _sortedFactorList, _sortedFactorListForProfileCard / masterDataPtrs
     ownerViewerId: ObscuredLong
@@ -164,7 +164,7 @@ class TrainedCharaDataFields(CStructureDataclass):
     viewerId: ObscuredLong
     ownerViewerId: ObscuredLong
     ownerTrainedCharaId: ObscuredInt
-    useType: Annotated[C_Int[c_int32], TrainedCharaUseType]
+    useType: C_Enum[TrainedCharaUseType]
     cardId: ObscuredInt
     nickNameId: ObscuredInt
     nickNameIdArray: GenericArrayPtr[ObscuredInt]
@@ -174,7 +174,7 @@ class TrainedCharaDataFields(CStructureDataclass):
     guts: ObscuredInt
     wiz: ObscuredInt
     fans: ObscuredInt
-    rank: Annotated[ObscuredInt, FinalTrainingRank]
+    rank: C_EnumIn[FinalTrainingRank, ObscuredInt]
     rankScore: ObscuredInt
     runningStyle: ObscuredInt
     properGroundTurf: ObscuredInt

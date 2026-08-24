@@ -5,17 +5,18 @@ Low-level ctypes infrastructure for Il2Cpp struct definitions.
 Contains no Il2Cpp-specific types — only the generic building blocks used by
 both il2cpp_structs (struct definitions) and il2cpp_utils (resolution logic):
   - ExplicitStructure / StructOrSimple
-  - ArrayType, C_Int
+  - ArrayType, C_Int, C_Enum, C_EnumIn
   - RemappablePointerValue, set_pointer_reader, Span, C_Ptr, C_VoidPtr, C_UDeclPtr
   - CDataclassMeta, CStructureDataclassMeta, CStructureDataclass
 """
 from __future__ import annotations
 
 import ctypes
-from ctypes import Array, Structure, c_char, c_uint64, c_void_p, sizeof
+from ctypes import (Array, Structure, c_char, c_int16, c_int32, c_int64, c_int8, c_uint16, c_uint32, c_uint64, c_uint8,
+                    c_void_p, sizeof)
 from dataclasses import dataclass, fields
 from enum import IntEnum
-from typing import (Any, Callable, ClassVar, Generic, Iterator, Literal as L, Optional, Sequence, TYPE_CHECKING,
+from typing import (Any, Callable, ClassVar, Generic, Iterator, Literal as L, Optional, Self, Sequence, TYPE_CHECKING,
                     TypeAlias, TypeVar, cast as type_cast, get_args, get_origin, get_type_hints, no_type_check)
 
 if TYPE_CHECKING:
@@ -43,6 +44,237 @@ else:
     ExplicitStructure = Structure
 
 StructOrSimple: TypeAlias = ExplicitStructure | _SimpleCData  # type: ignore[type-arg]
+type EnumStorageType = type[c_int8 | c_uint8 | c_int16 | c_uint16 | c_int32 | c_uint32 | c_int64 | c_uint64]
+
+
+class SafeIntEnum(IntEnum):
+    """``IntEnum`` that tolerates game values introduced after our declarations."""
+
+    @classmethod
+    def _missing_(cls, value: object) -> Self | None:
+        """Represent a newly introduced numeric value without losing its enum type."""
+        if not isinstance(value, int):
+            return None
+        return SafeIntEnumManager.resolve_unknown_member(cls, value)
+
+    @classmethod
+    def value_to_name(cls, value: int) -> str:
+        member = cls(value)
+        return member.name if member.name is not None else "UNKNOWN"
+
+
+@dataclass(frozen=True)
+class EnumFieldBinding:
+    """Semantic enum information retained beside a materialized ctypes field."""
+
+    enum_cls: type[SafeIntEnum]
+    storage_type: EnumStorageType
+    direct: bool
+
+
+class SafeIntEnumManager:
+    """Own validation and pseudo-members for the project's enum classes."""
+
+    _unknown_members: ClassVar[dict[tuple[type[SafeIntEnum], int], SafeIntEnum]] = dict()
+
+    @staticmethod
+    def require_enum_class(enum_cls: type[SafeIntEnum]) -> type[SafeIntEnum]:
+        if not issubclass(enum_cls, SafeIntEnum):
+            raise TypeError(f"C_Enum requires a SafeIntEnum, got {enum_cls!r}")
+        return enum_cls
+
+    @classmethod
+    def resolve_unknown_member[E: SafeIntEnum](cls, enum_cls: type[E], value: int) -> E:
+        """Return the stable pseudo-member for an unknown value of *enum_cls*."""
+        existing = cls._unknown_members.get((enum_cls, value))
+        if existing is not None:
+            return type_cast(E, existing)
+        # noinspection PyTypeChecker
+        pseudo_member: E = int.__new__(enum_cls, value)
+        object.__setattr__(pseudo_member, "_name_", None)
+        object.__setattr__(pseudo_member, "_value_", value)
+        cls._unknown_members[enum_cls, value] = pseudo_member
+        return pseudo_member
+
+
+class EnumStorageManager:
+    """Own enum storage declarations and their materialized ctypes field types."""
+
+    SUPPORTED_STORAGE_TYPES: ClassVar[frozenset[EnumStorageType]] = frozenset({
+        c_int8, c_uint8, c_int16, c_uint16, c_int32, c_uint32, c_int64, c_uint64,
+    })
+    _storage_by_class: ClassVar[dict[type[SafeIntEnum], EnumStorageType]] = dict()
+    _direct_field_type_cache: ClassVar[dict[type[SafeIntEnum], EnumStorageType]] = dict()
+    _embedded_field_type_cache: ClassVar[
+        dict[tuple[type[SafeIntEnum], type[StructOrSimple]], type[StructOrSimple]]
+    ] = dict()
+
+    @classmethod
+    def _require_supported_storage_type(cls, storage_type: EnumStorageType) -> EnumStorageType:
+        if storage_type not in cls.SUPPORTED_STORAGE_TYPES:
+            supported = ", ".join(t.__name__ for t in cls.SUPPORTED_STORAGE_TYPES)
+            raise TypeError(f"Unsupported enum storage type {storage_type!r}; expected one of {supported}")
+        return storage_type
+
+    @classmethod
+    def _storage_type_for_safe_enum(cls, enum_cls: type[SafeIntEnum]) -> EnumStorageType:
+        storage_type = cls._storage_by_class.get(enum_cls, c_int32)
+        return cls._require_supported_storage_type(storage_type)
+
+    @classmethod
+    def storage_type(cls, enum_cls: type[SafeIntEnum]) -> EnumStorageType:
+        """Return the fixed-width ctypes storage declared for *enum_cls*."""
+        return cls._storage_type_for_safe_enum(SafeIntEnumManager.require_enum_class(enum_cls))
+
+    @classmethod
+    def configure_storage(cls, enum_cls: type[SafeIntEnum], storage_type: EnumStorageType) -> None:
+        """Register storage before a layout materializes the enum's field type."""
+        safe_enum_cls = SafeIntEnumManager.require_enum_class(enum_cls)
+        storage_type = cls._require_supported_storage_type(storage_type)
+        current_storage_type = cls._storage_type_for_safe_enum(safe_enum_cls)
+        is_materialized = safe_enum_cls in cls._direct_field_type_cache or any(
+                cache_key[0] is safe_enum_cls for cache_key in cls._embedded_field_type_cache
+        )
+        if is_materialized and current_storage_type is not storage_type:
+            raise RuntimeError(
+                    f"Cannot change {safe_enum_cls.__name__} enum storage from {current_storage_type.__name__} "
+                    f"to {storage_type.__name__} after it has been used in a ctypes layout"
+            )
+        cls._storage_by_class[safe_enum_cls] = storage_type
+
+    @classmethod
+    def normalize_value(cls, value: int, storage_type: EnumStorageType) -> int:
+        """Coerce an integer to the signedness and width of *storage_type*."""
+        return int(cls._require_supported_storage_type(storage_type)(value).value)
+
+    @staticmethod
+    def field_binding_for_type(field_type: object) -> EnumFieldBinding | None:
+        """Return semantic enum metadata carried by a materialized field type."""
+        binding = getattr(field_type, "__ctypes_enum_field_binding__", None)
+        return binding if isinstance(binding, EnumFieldBinding) else None
+
+    @staticmethod
+    def field_binding_for_instance_field(wrapper_cls: type[object], field_name: str) -> EnumFieldBinding | None:
+        """Return enum metadata for a declared field on a wrapper class."""
+        bindings = type_cast(
+                dict[str, EnumFieldBinding],
+                getattr(wrapper_cls, "__ctypes_enum_field_bindings__", {}),
+        )
+        return bindings.get(field_name)
+
+    @classmethod
+    def configure_class_field_bindings(cls, wrapper_cls: type[object], field_types: dict[str, object]) -> None:
+        """Record field bindings and install direct-enum conversion when needed."""
+        inherited_bindings: dict[str, EnumFieldBinding] = {}
+        # noinspection PyUnresolvedReferences
+        for base in reversed(wrapper_cls.__mro__[1:]):
+            inherited_bindings.update(getattr(base, "__ctypes_enum_field_bindings__", {}))
+        own_bindings = {
+            field_name: binding
+            for field_name, field_type in field_types.items()
+            if (binding := cls.field_binding_for_type(field_type)) is not None
+        }
+        setattr(wrapper_cls, "__ctypes_enum_field_bindings__", inherited_bindings | own_bindings)
+        if own_bindings:
+            cls._install_direct_enum_conversion(wrapper_cls)
+
+    @classmethod
+    def _install_direct_enum_conversion(cls, wrapper_cls: type[object]) -> None:
+        """Install per-class direct-enum conversion without widening its static API."""
+        if bool(wrapper_cls.__dict__.get("_ctypes_enum_getattribute_patched", False)):
+            return
+
+        existing = wrapper_cls.__dict__.get("__getattribute__")
+        if existing is not None and existing is not object.__getattribute__:
+            raise TypeError(
+                    f"Cannot install enum access conversion on {wrapper_cls.__name__} with custom __getattribute__"
+            )
+        if bool(getattr(wrapper_cls, "_ctypes_enum_getattribute_patched", False)):
+            return
+
+        original_getattribute = type_cast(Callable[[object, str], object], wrapper_cls.__getattribute__)
+
+        def _enum_converting_getattribute(instance: object, name: str) -> object:
+            value = original_getattribute(instance, name)
+            binding = cls.field_binding_for_instance_field(type(instance), name)
+            if binding is None or not binding.direct:
+                return value
+            raw_value = getattr(value, "value", value)
+            if not isinstance(raw_value, int):
+                raise TypeError(f"Direct enum field {name!r} has non-integer value {raw_value!r}")
+            return binding.enum_cls(cls.normalize_value(raw_value, binding.storage_type))
+
+        setattr(wrapper_cls, "__getattribute__", _enum_converting_getattribute)
+        setattr(wrapper_cls, "_ctypes_enum_getattribute_patched", True)
+
+    @staticmethod
+    def _materialize_field_type[S: StructOrSimple](name: str, storage_type: type[S],
+                                                   binding: EnumFieldBinding) -> type[S]:
+        attributes: dict[str, object] = {
+            "__module__": binding.enum_cls.__module__,
+            "__ctypes_enum_field_binding__": binding,
+        }
+        return type_cast(type[S], type(name, (storage_type,), attributes))
+
+    @classmethod
+    def direct_field_type_for(cls, enum_cls: type[SafeIntEnum]) -> EnumStorageType:
+        """Materialize a direct enum field as its concrete ctypes scalar."""
+        safe_enum_cls = SafeIntEnumManager.require_enum_class(enum_cls)
+        cached = cls._direct_field_type_cache.get(safe_enum_cls)
+        if cached is not None:
+            return cached
+        storage_type = cls._storage_type_for_safe_enum(safe_enum_cls)
+        binding = EnumFieldBinding(safe_enum_cls, storage_type, direct=True)
+        materialized = type_cast(EnumStorageType, cls._materialize_field_type(
+                f"C_Enum[{safe_enum_cls.__name__}]", storage_type, binding,
+        ))
+        cls._direct_field_type_cache[safe_enum_cls] = materialized
+        return materialized
+
+    @classmethod
+    def embedded_field_type_for[S: StructOrSimple](cls, enum_cls: type[SafeIntEnum], storage_type: type[S]) -> type[S]:
+        """Materialize a layout-preserving enum carrier for an embedded storage type."""
+        safe_enum_cls = SafeIntEnumManager.require_enum_class(enum_cls)
+        try:
+            sizeof(storage_type)
+        except TypeError as exc:
+            raise TypeError(f"C_EnumIn storage must be a ctypes type, got {storage_type!r}") from exc
+        cache_key = type_cast(tuple[type[SafeIntEnum], type[StructOrSimple]], (safe_enum_cls, storage_type))
+        cached = cls._embedded_field_type_cache.get(cache_key)
+        if cached is not None:
+            return type_cast(type[S], cached)
+        binding = EnumFieldBinding(safe_enum_cls, cls._storage_type_for_safe_enum(safe_enum_cls), direct=False)
+        materialized = cls._materialize_field_type(
+                f"C_EnumIn[{safe_enum_cls.__name__}, {getattr(storage_type, '__name__', repr(storage_type))}]",
+                storage_type,
+                binding,
+        )
+        cls._embedded_field_type_cache[cache_key] = type_cast(type[StructOrSimple], materialized)
+        return materialized
+
+
+if TYPE_CHECKING:
+    # Direct fields read as their semantic enum.  Embedded fields retain the
+    # exposed type of their enclosing value type (for example ``ObscuredInt``).
+    type C_Enum[E: SafeIntEnum] = E
+    type C_EnumIn[E: SafeIntEnum, S: StructOrSimple] = S
+else:
+    # Runtime counterparts deliberately follow the existing integrator-wrapper
+    # pattern: subscription materializes the real ctypes field type.  They do
+    # not inherit from ``SafeIntEnum`` or the storage type.
+    # noinspection PyPep8Naming
+    class C_Enum:
+        @classmethod
+        def __class_getitem__(cls, enum_cls: type[SafeIntEnum]) -> EnumStorageType:
+            return EnumStorageManager.direct_field_type_for(enum_cls)
+
+
+    # noinspection PyPep8Naming
+    class C_EnumIn:
+        @classmethod
+        def __class_getitem__[S: StructOrSimple](cls, item: tuple[type[SafeIntEnum], type[S]]) -> type[S]:
+            enum_cls, storage_type = item
+            return EnumStorageManager.embedded_field_type_for(enum_cls, storage_type)
 
 
 class CDataclassMeta(type):
@@ -81,13 +313,18 @@ class CDataclassMeta(type):
         if filtered:
             cls._fields_ = list(tuple(filtered.items()))
 
+        # noinspection PyTypeChecker
+        EnumStorageManager.configure_class_field_bindings(cls, filtered)
+
 
 class CStructureDataclassMeta(CDataclassMeta, _ExplicitPyCStructType):
     pass
 
 
 class CStructureDataclass(ExplicitStructure, metaclass=CStructureDataclassMeta):
-    pass
+    # Written by ``CDataclassMeta._build_fields``.  This ClassVar deliberately
+    # does not contribute to ctypes layout.
+    __ctypes_enum_field_bindings__: ClassVar[dict[str, EnumFieldBinding]] = {}
 
 
 class ArrayType[T, _L](list[T]):
@@ -402,13 +639,3 @@ class C_CharPtr(C_Ptr[c_char]):
 C_VoidPtr = C_Ptr[None]
 # Alias for unreflected fields (for documentation purposes only)
 C_UDeclPtr = C_VoidPtr
-
-
-class SafeIntEnum(IntEnum):
-    @classmethod
-    def value_to_name(cls, value: int) -> str:
-        try:
-            member = cls(value)
-        except ValueError:
-            return "UNKNOWN"
-        return member.name

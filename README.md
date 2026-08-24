@@ -96,7 +96,32 @@ class WorkDataManagerWrapper(CStructureDataclass):
 - `@register_runtime_validatable` — metadata cross-check **plus** per-access
   `typeMetadataHandle` guard installed on `__getattribute__`.
 
-Call `validate_registered_classes(resolver)` once after the resolver is ready.
+Enums use the same registration point, with one storage declaration per enum:
+
+```python
+@register_enum("Gallop::RaceDefine.RunningStyle", storage_type=c_uint8)
+class RunningStyle(SafeIntEnum):
+    None_ = 0
+    Nige = 1
+    # ...
+
+
+class RaceFields(CStructureDataclass):
+    runningStyle: C_Enum[RunningStyle]
+    encryptedState: C_EnumIn[RunningStyle, ObscuredInt]
+```
+
+`C_Enum[E]` has the exact registered ctypes width in memory and reads as `E`.
+`C_EnumIn[E, S]` preserves the outer storage `S` while recording its enum
+semantics for validation. Startup validation checks enum members, `value__`
+storage, and every direct enum field's reflected typedef; it also warns when a
+matched numeric field is actually an unbound IL2CPP enum.
+
+The enum read conversion is installed dynamically after ctypes classes are
+created. This keeps the source-level field surface strict, so MyPy and
+Protocols still reject undeclared fields.
+
+Call `validate_registered_schema(resolver)` once after the resolver is ready.
 
 ---
 
