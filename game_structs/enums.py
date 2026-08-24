@@ -8,6 +8,45 @@ from schema_validation import register_enum
 # Game enums
 # ---------------------------------------------------------------------------
 
+@register_enum('Gallop::MasterSupportCardData.TrainingType')
+class TrainingType(SafeIntEnum):
+    Turf = 0
+    Pool = 1
+    Dirt = 2
+    Slope = 3
+    Study = 4
+    Outing = 5
+    Group = 6
+    None_ = 7
+
+
+@register_enum('Gallop::WorkTrainedCharaData.FavoriteData.FavoriteType')
+class FavoriteType(SafeIntEnum):
+    Default = 0
+    Common01 = 1
+    Common02 = 2
+    Common03 = 3
+    Common04 = 4
+    Common05 = 5
+    Common06 = 6
+    Common07 = 7
+    Common08 = 8
+    ProperShort = 9
+    ProperMile = 10
+    ProperMiddle = 11
+    ProperLong = 12
+    ProperDirt = 13
+    ProperFriend = 14
+
+
+@register_enum('Gallop::TeamStadiumDefine.RoundResultType')
+class RoundResultType(SafeIntEnum):
+    None_ = 0
+    Win = 1
+    Lose = 2
+    Draw = 3
+
+
 @register_enum('Gallop::WorkTrainedCharaData.TrainedCharaData.UseType')
 class TrainedCharaUseType(SafeIntEnum):
     NONE = 0

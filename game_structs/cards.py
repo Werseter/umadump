@@ -3,8 +3,9 @@ from __future__ import annotations
 from ctypes import c_int32
 from typing import Literal as L
 
-from ctypes_utils import ArrayType, CStructureDataclass, C_Int, C_Ptr, C_UDeclPtr
+from ctypes_utils import ArrayType, CStructureDataclass, C_Enum, C_Int, C_Ptr, C_UDeclPtr
 from game_structs.collections import GenericArrayPtr, GenericDictionary
+from game_structs.enums import TrainingType
 from game_structs.obscured import ObscuredBool, ObscuredInt, ObscuredLong
 from game_structs.skills import AcquirableSkillObject, AcquiredSkillObject
 from il2cpp_structs import RuntimeIl2CppObject
@@ -77,7 +78,7 @@ class SupportCardDataFields(CStructureDataclass):
     exp: ObscuredInt
     stock: ObscuredInt
     isFavoriteLock: ObscuredBool
-    bestTraining: C_Int[c_int32]
+    bestTraining: C_Enum[TrainingType]
     _ignored_2: C_UDeclPtr  # SkillTriggerTagArray
 
 

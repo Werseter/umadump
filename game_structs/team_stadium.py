@@ -3,8 +3,9 @@ from __future__ import annotations
 from ctypes import c_bool, c_int32, c_int64
 from typing import Literal as L
 
-from ctypes_utils import ArrayType, CStructureDataclass, C_Int, C_Ptr, C_UDeclPtr
+from ctypes_utils import ArrayType, CStructureDataclass, C_Enum, C_Int, C_Ptr, C_UDeclPtr
 from game_structs.collections import GenericArrayPtr
+from game_structs.enums import RoundResultType
 from game_structs.obscured import ObscuredInt, ObscuredLong, ObscuredStringPtr
 from game_structs.race import RaceHorseDataObject
 from il2cpp_structs import RuntimeIl2CppObject
@@ -117,7 +118,7 @@ class TeamStadiumRaceResultFields(CStructureDataclass):
     raceHorseDataArray: GenericArrayPtr[C_Ptr[RaceHorseDataObject]]
     charaResultArray: GenericArrayPtr[C_Ptr[TeamStadiumRaceCharaResultObject]]
     teamScoreArray: GenericArrayPtr[C_Ptr[TeamStadiumResultScoreDataObject]]
-    roundResult: C_Int[c_int32]
+    roundResult: C_Enum[RoundResultType]
     currentConsecutiveWinCount: ObscuredInt
     bonusRateByNextWin: ObscuredInt
 

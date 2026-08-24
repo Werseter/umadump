@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from ctypes import c_bool, c_int32, c_int64
-from typing import Annotated, Literal as L
+from typing import Literal as L
 
 from ctypes_utils import ArrayType, CStructureDataclass, C_Enum, C_EnumIn, C_Int, C_Ptr, C_UDeclPtr
 from game_structs.collections import GenericArrayPtr, GenericDictionary, GenericList
-from game_structs.enums import FinalTrainingRank, SuccessionCharaPosition, TrainedCharaUseType
+from game_structs.enums import FavoriteType, FinalTrainingRank, SuccessionCharaPosition, TrainedCharaUseType
 from game_structs.obscured import ObscuredBool, ObscuredInt, ObscuredLong, ObscuredStringPtr
 from game_structs.skills import AcquiredSkillObject
 from game_structs.strings import SystemStringObjectPtr
@@ -52,7 +52,7 @@ class FactorDataObject(CStructureDataclass):
 
 class FavoriteDataFields(CStructureDataclass):
     trainedCharaId: C_Int[c_int32]
-    type: C_Int[c_int32]
+    type: C_Enum[FavoriteType]
     memo: SystemStringObjectPtr
 
 
@@ -263,7 +263,7 @@ class FactorInfoObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class FactorExtendFields(CStructureDataclass):
-    position_id: Annotated[C_Int[c_int32], SuccessionCharaPosition]
+    position_id: C_Int[c_int32]
     base_factor_id: C_Int[c_int32]
     factor_id: C_Int[c_int32]
     register_time: SystemStringObjectPtr
