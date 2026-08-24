@@ -145,7 +145,7 @@ class HorseDataFields(CStructureDataclass):
     activeProperDistance: C_Enum[ProperGrade]
     activeProperGroundType: C_Enum[ProperGrade]
     mobId: C_Int[c_int32]
-    _ignored_1: C_UDeclPtr  # raceRecord
+    _ignored_1: C_UDeclPtr  # omitted: raceRecord
     finishOrderRawScore: C_Int[c_int32]
     trainedCharaData: C_Ptr[TrainedCharaDataObject]
 
@@ -200,7 +200,7 @@ class RaceInfoFields(CStructureDataclass):
     scoreCalcTeamId: C_Int[c_int32]
     raceNo: C_Int[c_int32]
     raceCourseSet: C_Ptr[RaceCourseSetObject]
-    _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # fenceSet, raceTrack
+    _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # omitted: fenceSet, raceTrack
     goalGate: C_Int[c_int32]
     goalGateFlower: C_Int[c_int32]
     initialLaneType: C_Enum[InitialLaneType]
@@ -227,21 +227,21 @@ class RaceInfoFields(CStructureDataclass):
     playerTeamTopFinishOrderHorse: C_Ptr[HorseDataObject]
     isGateInPopularityInitialized: C_Int[c_bool]
     raceHorse: GenericArrayPtr[C_Ptr[HorseDataObject]]
-    _ignored_2: ArrayType[C_UDeclPtr, L[3]]  # raceBibMaster, raceMaster, raceInstanceMaster
+    _ignored_2: ArrayType[C_UDeclPtr, L[3]]  # omitted: raceBibMaster, raceMaster, raceInstanceMaster
     simDataBase64: SystemStringObjectPtr
-    _ignored_3: ArrayType[C_UDeclPtr, L[2]]  # simData, simReader
+    _ignored_3: ArrayType[C_UDeclPtr, L[2]]  # omitted: simData, simReader
     episodeRaceReplayId: C_Int[c_int32]
     isNotSimulateExport: C_Int[c_bool]
     laneDistanceMax: C_Float[c_float]
-    _ignored_4: ArrayType[C_UDeclPtr, L[3]]  # replayCheckInfo, replayCheckInfoDaily, replayCheckInfoLegend
+    _ignored_4: ArrayType[C_UDeclPtr, L[3]]  # omitted: replayCheckInfo, replayCheckInfoDaily, replayCheckInfoLegend
     isDailyLegendRace: C_Int[c_bool]
-    _ignored_5: ArrayType[C_UDeclPtr, L[2]]  # replayCheckInfoChallengeMatch, raceRewardSingle
+    _ignored_5: ArrayType[C_UDeclPtr, L[2]]  # omitted: replayCheckInfoChallengeMatch, raceRewardSingle
     resultHorseIndex: C_Int[c_int32]
     prevGradeType: C_Enum[CharaGradeType]
     mainStoryRaceGimmickType: C_Enum[MainStoryRaceGimmickType]
     isMainStoryRaceMatchGimmick: C_Int[c_bool]
     unlockFlags: C_Int[c_uint32]
-    _ignored_6: C_UDeclPtr  # phaseCalculator
+    _ignored_6: C_UDeclPtr  # omitted: phaseCalculator
     horseIndexByFinishOrder: GenericArrayPtr[c_int32]
     horseIndexByPopularity: GenericArrayPtr[c_int32]
 

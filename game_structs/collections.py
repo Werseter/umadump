@@ -16,7 +16,7 @@ class GenericArray[CDT: StructOrSimple](CStructureDataclass, RuntimeGenericMixin
     """Managed ``System.Array`` layout with flexible ``m_items`` tail."""
 
     _il2cpp_obj: RuntimeIl2CppObject
-    _ignored_1: C_UDeclPtr  # bounds
+    _ignored_1: C_UDeclPtr  # omitted: bounds
     max_length: C_Int[c_uint64]
     m_items: ArrayType[CDT, L[0]]
 
@@ -50,7 +50,7 @@ class GenericListFields[CDT: StructOrSimple](CStructureDataclass, RuntimeGeneric
     items: GenericArrayPtr[CDT]
     size: C_Int[c_int32]
     version: C_Int[c_int32]
-    _ignored_1: C_UDeclPtr  # _syncRoot
+    _ignored_1: C_UDeclPtr  # omitted: syncRoot
 
 
 class GenericList[CDT: StructOrSimple](CStructureDataclass, RuntimeGenericMixin[CDT]):
@@ -88,19 +88,19 @@ class GenericDictionaryEntry(CStructureDataclass):
     Use dedicated subclasses for specific TKey/TValue if layout uses specialized types instead of Il2CppObject pointers.
     """
     hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # next
+    _ignored_1: c_int32  # omitted: next
     key: C_VoidPtr
     value: C_VoidPtr
 
 
 class GenericDictionaryFields[CDT: StructOrSimple = GenericDictionaryEntry](CStructureDataclass,
                                                                             RuntimeGenericMixin[CDT]):
-    _ignored_1: C_UDeclPtr  # buckets
+    _ignored_1: C_UDeclPtr  # omitted: buckets
     entries: GenericArrayPtr[CDT]
     count: C_Int[c_int32]
-    _ignored_2: ArrayType[c_int32, L[2]]  # freeList, freeCount
+    _ignored_2: ArrayType[c_int32, L[2]]  # omitted: freeList, freeCount
     version: C_Int[c_int32]
-    _ignored_3: ArrayType[C_UDeclPtr, L[4]]  # comparer, keys, values, syncRoot
+    _ignored_3: ArrayType[C_UDeclPtr, L[4]]  # omitted: comparer, keys, values, syncRoot
 
 
 class GenericDictionary[CDT: StructOrSimple](CStructureDataclass, RuntimeGenericMixin[CDT]):

@@ -12,8 +12,8 @@ both il2cpp_structs (struct definitions) and il2cpp_utils (resolution logic):
 from __future__ import annotations
 
 import ctypes
-from ctypes import (Array, Structure, c_char, c_int16, c_int32, c_int64, c_int8, c_uint16, c_uint32, c_uint64, c_uint8,
-                    c_void_p, sizeof)
+from ctypes import (Array, Structure, c_bool, c_char, c_double, c_float, c_int16, c_int32, c_int64, c_int8, c_uint16,
+                    c_uint32, c_uint64, c_uint8, c_void_p, sizeof)
 from dataclasses import dataclass, fields
 from enum import IntEnum
 from typing import (Any, Callable, ClassVar, Generic, Iterator, Literal as L, Optional, Self, Sequence, TYPE_CHECKING,
@@ -45,6 +45,7 @@ else:
 
 StructOrSimple: TypeAlias = ExplicitStructure | _SimpleCData  # type: ignore[type-arg]
 type EnumStorageType = type[c_int8 | c_uint8 | c_int16 | c_uint16 | c_int32 | c_uint32 | c_int64 | c_uint64]
+type ScalarStorageType = EnumStorageType | type[c_bool | c_float | c_double]
 
 
 class SafeIntEnum(IntEnum):

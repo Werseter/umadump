@@ -17,7 +17,11 @@ Schema validation (metadata-time)
     ``@register_enum`` additionally cross-checks local ``IntEnum`` member
     names, numeric values, and fixed-width ``value__`` storage against Il2Cpp
     enum metadata.  Direct ``C_Enum`` fields are checked against the exact
-    reflected enum type, rather than only their byte offset.
+    reflected enum type, rather than only their byte offset.  Documented
+    ``_ignored_N`` slots are also checked one-by-one against their omitted
+    metadata fields, including physical storage type rather than just size.
+    Their source comments may list every field (``# omitted: first, second``)
+    or compact a homogeneous span (``# omitted: first … last``).
 
 Runtime validation (access-time)
     Classes decorated with ``@register_runtime_validatable`` additionally get a
@@ -45,13 +49,21 @@ Public function
 """
 from __future__ import annotations
 
+import ast
+import inspect
+import io
 import re
+import sys
+import tokenize
 from ctypes import CField, c_int32, sizeof
 from dataclasses import dataclass
+from functools import cache
+from pathlib import Path
 from struct import error as StructError
 from typing import Any, Callable, ClassVar, NamedTuple, Optional, Protocol, cast as type_cast, get_type_hints
 
-from ctypes_utils import CStructureDataclass, C_Ptr, EnumFieldBinding, EnumStorageManager, EnumStorageType, SafeIntEnum
+from ctypes_utils import (CStructureDataclass, C_Ptr, EnumFieldBinding, EnumStorageManager, EnumStorageType,
+                          RemappablePointerValue, SafeIntEnum, StructOrSimple)
 from il2cpp_structs import Il2CppFieldDefinition, RuntimeIl2CppClass, RuntimeIl2CppObject, RuntimeIl2CppType
 from il2cpp_utils import Il2CppResolutionManager, Il2CppTypeEnum, decode_integer_field_default
 from logger import logger
@@ -355,6 +367,125 @@ class MetadataInstanceField:
     type_index: int
 
 
+@dataclass(frozen=True)
+class IgnoredFieldSpec:
+    """Source-comment names that document one private ctypes field."""
+
+    field_name: str
+    names: tuple[str, ...]
+    range_names: tuple[str, str] | None
+    line: int
+    error: str | None = None
+
+
+_IGNORED_FIELD_RE = re.compile(r"^_ignored_[1-9][0-9]*$")
+
+
+def _source_backed_ignored_validation_enabled() -> bool:
+    """Return whether source comments are available to validate ignored layouts."""
+    return not bool(getattr(sys, "frozen", False))
+
+
+def _source_comments(text: str) -> dict[int, str]:
+    """Return source comments keyed by line number without the leading ``#``."""
+    comments: dict[int, str] = {}
+    try:
+        tokens = tokenize.generate_tokens(io.StringIO(text).readline)
+        for token in tokens:
+            if token.type == tokenize.COMMENT:
+                comments[token.start[0]] = token.string[1:].strip()
+    except tokenize.TokenError:
+        # The source audit reports syntax errors with a more useful diagnostic.
+        pass
+    return comments
+
+
+def _source_field_comment(lines: list[str], comments: dict[int, str], line: int) -> str:
+    """Find a same-line or immediately-leading comment for a field declaration."""
+    if comment := comments.get(line):
+        return comment
+    previous_line = line - 1
+    while previous_line >= 1 and not lines[previous_line - 1].strip():
+        previous_line -= 1
+    previous_text = lines[previous_line - 1].lstrip() if previous_line >= 1 else ""
+    return comments.get(previous_line, "") if previous_text.startswith("#") else ""
+
+
+def _omitted_payload_from_comment(comment: str) -> str | None:
+    """Extract the canonical ``# omitted:`` payload from a source comment."""
+    match = re.search(r"\bomitted\s*:\s*(?P<names>[^;]+)", comment, flags=re.IGNORECASE)
+    return match.group("names").strip() if match is not None else None
+
+
+def _parse_omitted_field_spec(field_name: str, payload: str, line: int) -> IgnoredFieldSpec:
+    """Parse explicit names or a compact ``first … last`` range.
+
+    A range deliberately records only endpoints. Validation derives each
+    intervening slot from the ctypes array's physical stride and still checks
+    every reflected field's storage type.
+    """
+    range_separator = re.search(r"…|\.\.\.", payload)
+    if range_separator is not None:
+        range_parts = [part.strip() for part in re.split(r"\s*(?:…|\.\.\.)\s*", payload) if part.strip()]
+        if len(range_parts) != 2 or "," in payload:
+            return IgnoredFieldSpec(
+                    field_name=field_name,
+                    names=(),
+                    range_names=None,
+                    line=line,
+                    error="has invalid omitted range; expected '# omitted: first … last'",
+            )
+        return IgnoredFieldSpec(
+                field_name=field_name,
+                names=(),
+                range_names=(range_parts[0], range_parts[1]),
+                line=line,
+        )
+
+    names = tuple(name.strip() for name in payload.split(",") if name.strip())
+    return IgnoredFieldSpec(field_name=field_name, names=names, range_names=None, line=line)
+
+
+@cache
+def _ignored_field_specs_for_class(cls: type[object]) -> tuple[IgnoredFieldSpec, ...] | None:
+    """Parse documented ignored-field names for one concrete source class.
+
+    Comments remain the authoring source: this startup-only parser lets runtime
+    metadata validation check their spelling, offsets, and native storage.
+    """
+    try:
+        source_path = inspect.getsourcefile(cls)
+    except TypeError:
+        return None
+    if source_path is None:
+        return None
+    try:
+        text = Path(source_path).read_text(encoding="utf-8")
+        tree = ast.parse(text, filename=source_path)
+    except (OSError, SyntaxError):
+        return None
+
+    class_node = next(
+            (node for node in ast.walk(tree) if isinstance(node, ast.ClassDef) and node.name == cls.__name__), None)
+    if class_node is None:
+        return None
+
+    lines = text.splitlines()
+    comments = _source_comments(text)
+    specs: list[IgnoredFieldSpec] = []
+    for statement in class_node.body:
+        if not isinstance(statement, ast.AnnAssign) or not isinstance(statement.target, ast.Name):
+            continue
+        field_name = statement.target.id
+        if _IGNORED_FIELD_RE.fullmatch(field_name) is None:
+            continue
+        payload = _omitted_payload_from_comment(_source_field_comment(lines, comments, statement.lineno))
+        if payload is None:
+            continue
+        specs.append(_parse_omitted_field_spec(field_name, payload, statement.lineno))
+    return tuple(specs)
+
+
 def _read_metadata_instance_fields_by_offset(resolver: Il2CppResolutionManager, typedef_index: int) \
         -> Optional[dict[int, list[MetadataInstanceField]]]:
     """Collect all instance fields for *typedef_index* and its base classes.
@@ -539,6 +670,205 @@ def _validate_registered_layout_covers_metadata_tail(
         )
 
 
+def _ctypes_type_matches(actual_type: object, expected_type: object) -> bool:
+    """Return whether a materialized ctypes field uses *expected_type* storage."""
+    if actual_type is expected_type:
+        return True
+    if not isinstance(actual_type, type) or not isinstance(expected_type, type):
+        return False
+    try:
+        return issubclass(actual_type, expected_type)
+    except TypeError:
+        return False
+
+
+def _storage_type_name(storage_type: object) -> str:
+    return getattr(storage_type, "__name__", repr(storage_type))
+
+
+def _is_pointer_storage(storage_type: object) -> bool:
+    try:
+        return isinstance(storage_type, type) and issubclass(storage_type, RemappablePointerValue)
+    except TypeError:
+        return False
+
+
+def _ignored_field_element_storage(field_storage_type: object) -> tuple[object, int]:
+    """Return the physical item type and count for a scalar or ctypes array field."""
+    array_length = getattr(field_storage_type, "_length_", None)
+    array_item_type = getattr(field_storage_type, "_type_", None)
+    if isinstance(array_length, int) and array_length > 0 and array_item_type is not None:
+        return array_item_type, array_length
+    return field_storage_type, 1
+
+
+def _ignored_storage_mismatch_reason(resolver: Il2CppResolutionManager, storage_type: object,
+                                     metadata_field: MetadataInstanceField) -> str | None:
+    """Compare one ignored ctypes slot with its exact reflected field storage.
+
+    Primitive ctypes identities are compared exactly rather than by byte size.
+    Opaque pointers are accepted only for reference-shaped metadata. Embedded
+    value types outside the registered schema surface are intentionally skipped:
+    they have no stable public identity contract to validate here.
+    """
+    metadata_typedef_index = resolver.typedef_index_for_runtime_type_index(metadata_field.type_index)
+    if metadata_typedef_index is not None and resolver.is_enum_typedef(metadata_typedef_index):
+        metadata_storage_type = resolver.enum_storage_ctype_for_typedef(metadata_typedef_index)
+        if metadata_storage_type is None:
+            return "metadata enum has no resolvable value__ storage"
+        binding = EnumStorageManager.field_binding_for_type(storage_type)
+        if binding is not None and binding.direct:
+            registered_name = RuntimeValidatableIl2CppClassManager.registered_enum_name(binding.enum_cls)
+            if registered_name is None:
+                return f"C_Enum[{binding.enum_cls.__name__}] is not registered"
+            expected_typedef_index = _registered_typedef_index(resolver, registered_name, "enum")
+            if expected_typedef_index is None:
+                return f"C_Enum[{binding.enum_cls.__name__}] cannot resolve its registered metadata type"
+            if expected_typedef_index != metadata_typedef_index:
+                return (f"C_Enum[{binding.enum_cls.__name__}] expects {registered_name}, but metadata is "
+                        f"{resolver.full_name_for_typedef(metadata_typedef_index)}")
+        if _ctypes_type_matches(storage_type, metadata_storage_type):
+            return None
+        return (f"metadata enum {resolver.full_name_for_typedef(metadata_typedef_index)} uses "
+                f"{metadata_storage_type.__name__}, wrapper uses {_storage_type_name(storage_type)}")
+
+    if (metadata_scalar_type := resolver.scalar_ctype_for_type_index(metadata_field.type_index)) is not None:
+        if _ctypes_type_matches(storage_type, metadata_scalar_type):
+            return None
+        return (f"metadata primitive uses {metadata_scalar_type.__name__}, "
+                f"wrapper uses {_storage_type_name(storage_type)}")
+
+    pointer_like = resolver.is_pointer_like_type_index(metadata_field.type_index)
+    if pointer_like is None:
+        return "metadata storage category could not be resolved"
+
+    if pointer_like:
+        if _is_pointer_storage(storage_type):
+            return None
+        return f"metadata is reference/pointer storage, wrapper uses {_storage_type_name(storage_type)}"
+
+    # Struct/value-type storage may be used inside registered layouts
+    # without being registered itself. Its internal identity is deliberately
+    # outside this schema-validation surface.
+    return None
+
+
+def _validate_ignored_slot(full_name: str, field_name: str, slot_label: str, slot_offset: int,
+                           storage_type: object, resolver: Il2CppResolutionManager,
+                           metadata_fields_by_offset: dict[int, list[MetadataInstanceField]],
+                           expected_name: str | None) -> bool:
+    """Check one ignored storage slot and return whether it was verified.
+
+    A documented name that drifts at an otherwise valid ignored offset is logged
+    at debug level and deliberately short-circuits storage validation. Ignored
+    storage is not part of the active reflection surface; later active fields
+    and the layout-tail check still detect any consequential size drift.
+    """
+    metadata_fields = metadata_fields_by_offset.get(slot_offset, [])
+    if expected_name is not None:
+        normalized_name = _normalize_field_name(expected_name)
+        metadata_field = next((
+            candidate for candidate in metadata_fields if candidate.normalized_name == normalized_name), None)
+        if metadata_field is None:
+            known_offsets = sorted(offset for offset, candidates in metadata_fields_by_offset.items()
+                                   if any(candidate.normalized_name == normalized_name for candidate in candidates))
+            offset_hint = f"; metadata offset(s)={known_offsets}" if known_offsets else ""
+            available_names = ", ".join(candidate.normalized_name for candidate in metadata_fields) or "<none>"
+            logger.debug("%s.%s ignored slot '%s' not found at offset %d (metadata=%s)%s",
+                         full_name, field_name, expected_name, slot_offset, available_names, offset_hint)
+            return False
+    elif len(metadata_fields) != 1:
+        available_names = ", ".join(candidate.normalized_name for candidate in metadata_fields) or "<none>"
+        logger.warning("%s.%s ignored range slot '%s' is not uniquely reflected at offset %d (metadata=%s)",
+                       full_name, field_name, slot_label, slot_offset, available_names)
+        return False
+    else:
+        metadata_field = metadata_fields[0]
+
+    if (reason := _ignored_storage_mismatch_reason(resolver, storage_type, metadata_field)) is not None:
+        logger.warning("%s.%s ignored slot '%s' storage mismatch at offset %d: %s",
+                       full_name, field_name, slot_label, slot_offset, reason)
+        return False
+    return True
+
+
+def _validate_registered_ignored_fields(full_name: str, cls: type[object], resolver: Il2CppResolutionManager,
+                                        metadata_fields_by_offset: dict[int, list[MetadataInstanceField]]) -> None:
+    """Validate every documented ``_ignored_N`` slot against reflected metadata."""
+    if not _source_backed_ignored_validation_enabled():
+        return
+    fields_type = _registered_instance_fields_type(cls)
+    if fields_type is None:
+        return
+
+    verified_slots = 0
+    source_unavailable_owners: set[type[object]] = set()
+    # noinspection PyTypeChecker
+    for owner_type in reversed(fields_type.__mro__):
+        own_fields = owner_type.__dict__.get("_fields_", ())
+        ignored_field_names = [field_name for field_name, _field_type in own_fields
+                               if isinstance(field_name, str) and _IGNORED_FIELD_RE.fullmatch(field_name) is not None]
+        if not ignored_field_names:
+            continue
+
+        specs = _ignored_field_specs_for_class(owner_type)
+        if specs is None:
+            if owner_type not in source_unavailable_owners:
+                logger.debug("%s cannot read source comments for ignored fields declared by %s; "
+                             "skipping source-backed ignored-slot validation", full_name, owner_type.__name__)
+                source_unavailable_owners.add(owner_type)
+            continue
+        specs_by_name = {spec.field_name: spec for spec in specs}
+
+        for field_name in ignored_field_names:
+            spec = specs_by_name.get(field_name)
+            if spec is None:
+                # Only canonical ``# omitted:`` declarations participate in
+                # source-backed byte-level validation.
+                continue
+            if spec.error is not None:
+                logger.warning("%s.%s %s", full_name, field_name, spec.error)
+                continue
+
+            field_descriptor = getattr(owner_type, field_name)
+            field_offset = int(field_descriptor.offset)
+            element_storage_type, element_count = _ignored_field_element_storage(field_descriptor.type)
+            try:
+                element_size = sizeof(type_cast(type[StructOrSimple], element_storage_type))
+            except TypeError:
+                logger.warning("%s.%s has non-ctypes ignored storage %s",
+                               full_name, field_name, _storage_type_name(element_storage_type))
+                continue
+
+            if spec.range_names is None:
+                if len(spec.names) != element_count:
+                    logger.warning("%s.%s documents %d omitted field(s), but ctypes storage has %d slot(s)",
+                                   full_name, field_name, len(spec.names), element_count)
+                    continue
+                for index, omitted_name in enumerate(spec.names):
+                    slot_offset = field_offset + index * element_size
+                    verified_slots += _validate_ignored_slot(
+                            full_name, field_name, omitted_name, slot_offset, element_storage_type, resolver,
+                            metadata_fields_by_offset, omitted_name)
+                continue
+
+            if element_count < 2:
+                logger.warning("%s.%s documents a range '%s … %s', but ctypes storage has only %d slot(s)",
+                               full_name, field_name, *spec.range_names, element_count)
+                continue
+            range_start, range_end = spec.range_names
+            for index in range(element_count):
+                slot_offset = field_offset + index * element_size
+                expected_name = range_start if index == 0 else range_end if index == element_count - 1 else None
+                slot_label = expected_name or f"{range_start} … {range_end} [{index + 1}/{element_count}]"
+                verified_slots += _validate_ignored_slot(
+                        full_name, field_name, slot_label, slot_offset, element_storage_type, resolver,
+                        metadata_fields_by_offset, expected_name)
+
+    if verified_slots:
+        logger.debug("Validated ignored metadata slots for %s (slots verified=%d)", full_name, verified_slots)
+
+
 def _validate_direct_enum_field(resolver: Il2CppResolutionManager, full_name: str, field_name: str,
                                 metadata_field: MetadataInstanceField, binding: EnumFieldBinding) -> None:
     """Verify that a direct ``C_Enum`` field names the enum reflected in metadata."""
@@ -600,8 +930,14 @@ def _validate_registered_class(
     fields (sparse / marker classes).
     """
     expected_fields = _iter_expected_registered_fields(type_cast(type[CStructureDataclass], cls))
-    if not expected_fields:
-        # Sparse validation: classes without a concrete wrapper layout are intentionally skipped.
+    fields_type = _registered_instance_fields_type(cls)
+    # noinspection PyTypeChecker
+    has_documented_ignored_fields = (
+            _source_backed_ignored_validation_enabled() and fields_type is not None
+            and any(_ignored_field_specs_for_class(owner_type) for owner_type in fields_type.__mro__))
+    if not expected_fields and not has_documented_ignored_fields:
+        # Sparse validation: classes without a concrete wrapper layout, public
+        # fields, or canonical ignored-field documentation are intentionally skipped.
         return
 
     metadata_fields_by_offset = _read_metadata_instance_fields_by_offset(resolver, typedef_index)
@@ -639,6 +975,8 @@ def _validate_registered_class(
             logger.warning("%s field '%s' storage type mismatch: annotation=%s, ctypes=%s",
                            full_name, field_name, declared_type, ctypes_type)
 
+    if _source_backed_ignored_validation_enabled():
+        _validate_registered_ignored_fields(full_name, cls, resolver, metadata_fields_by_offset)
     _validate_registered_layout_covers_metadata_tail(full_name, cls, metadata_fields_by_offset)
     logger.debug("Validated registered class in metadata: %s (public fields checked=%d)", full_name, checked_public)
 
@@ -847,5 +1185,7 @@ def _validate_registered_enums(resolver: Il2CppResolutionManager) -> dict[int, t
 
 
 def validate_registered_schema(resolver: Il2CppResolutionManager) -> None:
+    if not _source_backed_ignored_validation_enabled():
+        logger.debug("Skipping source-backed ignored-layout validation in packaged build")
     registered_enums_by_typedef = _validate_registered_enums(resolver)
     _validate_registered_classes(resolver, registered_enums_by_typedef)

@@ -20,20 +20,20 @@ from schema_validation import register_runtime_validatable
 # ---------------------------------------------------------------------------
 
 class WorkDataManagerFields(CStructureDataclass):
-    _ignored_1: C_UDeclPtr  # userData
+    _ignored_1: C_UDeclPtr  # omitted: userData
     friendData: C_Ptr[WorkFriendDataObject]
     cardData: C_Ptr[WorkCardDataObject]
     supportCardData: C_Ptr[WorkSupportCardDataObject]
-    _ignored_2: ArrayType[C_UDeclPtr, L[4]]  # charaData … itemData
+    _ignored_2: ArrayType[C_UDeclPtr, L[4]]  # omitted: charaData … itemData
     trainedCharaData: C_Ptr[WorkTrainedCharaDataObject]
     singleMode: C_Ptr[WorkSingleModeDataObject]
-    _ignored_3: ArrayType[C_UDeclPtr, L[8]]  # paymentItemData … announceData
+    _ignored_3: ArrayType[C_UDeclPtr, L[8]]  # omitted: paymentItemData … circleData
     trophy: C_Ptr[WorkTrophyDataObject]
-    _ignored_4: ArrayType[C_UDeclPtr, L[4]]
+    _ignored_4: ArrayType[C_UDeclPtr, L[4]]  # omitted: exchange, homeFavorite, loginBonusData, announceData
     teamStadiumData: C_Ptr[WorkTeamStadiumDataObject]
-    _ignored_5: ArrayType[C_UDeclPtr, L[5]]  # directoryData … dailyLegendRaceData
+    _ignored_5: ArrayType[C_UDeclPtr, L[5]]  # omitted: directoryData … dailyLegendRaceData
     honorData: C_Ptr[WorkHonorDataObject]
-    _ignored_6: ArrayType[C_UDeclPtr, L[25]]  # limitedSalesData … optionData
+    _ignored_6: ArrayType[C_UDeclPtr, L[25]]  # omitted: limitedSalesData … optionData
     idleSingleModeData: C_Ptr[WorkIdleSingleModeDataObject]
 
 

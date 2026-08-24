@@ -26,14 +26,14 @@ class TrophyDataCharaIdListObject(CStructureDataclass):
 
 class TrophyDataCharaIdListDictionaryInnerEntry(CStructureDataclass):
     hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # next
+    _ignored_1: c_int32  # omitted: next
     key: C_Int[c_int32]
     value: C_Ptr[TrophyDataCharaIdListObject]
 
 
 class TrophyDataCharaIdListDictionaryEntry(CStructureDataclass):
     hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # next
+    _ignored_1: c_int32  # omitted: next
     key: C_Int[c_int32]
     value: C_Ptr[GenericDictionary[TrophyDataCharaIdListDictionaryInnerEntry]]
 
@@ -46,7 +46,7 @@ class TrophyDataFields(CStructureDataclass):
     trophyId: ObscuredInt
     charaIdList: C_Ptr[GenericList[c_int32]]
     raceCharaDataDic: C_Ptr[GenericDictionary[TrophyDataCharaIdListDictionaryEntry]]
-    _ignored_1: c_bool  # isNew
+    _ignored_1: c_bool  # omitted: isNew
 
 
 @register_runtime_validatable('Gallop::WorkTrophyData.TrophyData')
@@ -57,7 +57,7 @@ class TrophyDataObject(CStructureDataclass):
 
 class TrophyDataDictionaryEntry(CStructureDataclass):
     hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # next
+    _ignored_1: c_int32  # omitted: next
     key: C_Int[c_int32]
     value: C_Ptr[TrophyDataObject]
 
@@ -68,7 +68,7 @@ class TrophyDataDictionaryEntry(CStructureDataclass):
 
 class WorkTrophyDataFields(CStructureDataclass):
     dataDic: C_Ptr[GenericDictionary[TrophyDataDictionaryEntry]]
-    _ignored_1: c_bool  # isNew
+    _ignored_1: c_bool  # omitted: isNew
 
 
 @register_runtime_validatable('Gallop::WorkTrophyData')

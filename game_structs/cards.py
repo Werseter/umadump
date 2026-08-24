@@ -18,20 +18,20 @@ from schema_validation import register_runtime_validatable
 
 class HintLevelDictionaryEntry(CStructureDataclass):
     hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # next
+    _ignored_1: c_int32  # omitted: next
     key: ObscuredInt
     value: ObscuredInt
 
 
 class CardDataFields(CStructureDataclass):
-    _ignored_1: ArrayType[C_UDeclPtr, L[3]]  # masterCard … masterChara / masterDataPtrs
+    _ignored_1: ArrayType[C_UDeclPtr, L[3]]  # omitted: masterCard … masterChara
     cardId: ObscuredInt
     talentLevel: ObscuredInt
     rarity: ObscuredInt
     hintLevelDic: C_Ptr[GenericDictionary[HintLevelDictionaryEntry]]
-    _ignored_2: ObscuredInt  # changedModelDressId
+    _ignored_2: ObscuredInt  # omitted: changedModelDressId
     createTime: ObscuredLong
-    _ignored_3: ArrayType[ObscuredInt, L[5]]  # speed … wiz
+    _ignored_3: ArrayType[ObscuredInt, L[5]]  # omitted: speed … wiz
     uniqueSkill: C_Ptr[AcquiredSkillObject]
     acquirableSkillArray: GenericArrayPtr[C_Ptr[AcquirableSkillObject]]
 
@@ -44,7 +44,7 @@ class CardDataObject(CStructureDataclass):
 
 class CardDataDictionaryEntry(CStructureDataclass):
     hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # next
+    _ignored_1: c_int32  # omitted: next
     key: C_Int[c_int32]
     value: C_Ptr[CardDataObject]
 
@@ -55,7 +55,7 @@ class CardDataDictionaryEntry(CStructureDataclass):
 
 class WorkCardDataFields(CStructureDataclass):
     dataDic: C_Ptr[GenericDictionary[CardDataDictionaryEntry]]
-    _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # releaseCardIdList, BackableStateStack
+    _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # omitted: releaseCardIdList, backableStateStack
 
 
 @register_runtime_validatable('Gallop::WorkCardData')
@@ -69,7 +69,7 @@ class WorkCardDataObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class SupportCardDataFields(CStructureDataclass):
-    _ignored_1: ArrayType[C_UDeclPtr, L[6]]  # masterSupportCard … masterUniqueEffect
+    _ignored_1: ArrayType[C_UDeclPtr, L[6]]  # omitted: masterSupportCard … masterUniqueEffect
     supportCardId: ObscuredInt
     level: ObscuredInt
     limitBreakCount: ObscuredInt
@@ -79,7 +79,7 @@ class SupportCardDataFields(CStructureDataclass):
     stock: ObscuredInt
     isFavoriteLock: ObscuredBool
     bestTraining: C_Enum[TrainingType]
-    _ignored_2: C_UDeclPtr  # SkillTriggerTagArray
+    _ignored_2: C_UDeclPtr  # omitted: skillTriggerTagArray
 
 
 @register_runtime_validatable('Gallop::WorkSupportCardData.SupportCardData')
@@ -90,7 +90,7 @@ class SupportCardDataObject(CStructureDataclass):
 
 class SupportCardDataDictionaryEntry(CStructureDataclass):
     hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # next
+    _ignored_1: c_int32  # omitted: next
     key: C_Int[c_int32]
     value: C_Ptr[SupportCardDataObject]
 
@@ -101,7 +101,7 @@ class SupportCardDataDictionaryEntry(CStructureDataclass):
 
 class WorkSupportCardDataFields(CStructureDataclass):
     dataDic: C_Ptr[GenericDictionary[SupportCardDataDictionaryEntry]]
-    _ignored_1: C_UDeclPtr  # BackableStateStack
+    _ignored_1: C_UDeclPtr  # omitted: backableStateStack
 
 
 @register_runtime_validatable('Gallop::WorkSupportCardData')

@@ -17,8 +17,8 @@ from schema_validation import register_runtime_validatable
 
 class HonorDataFields(CStructureDataclass):
     honor_id: C_Int[c_int32]
-    _ignored_1: c_int32  # step
-    _ignored_2: C_UDeclPtr  # create_time
+    _ignored_1: c_int32  # omitted: step
+    _ignored_2: C_UDeclPtr  # omitted: createTime
 
 
 class HonorDataObject(CStructureDataclass):

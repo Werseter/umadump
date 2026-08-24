@@ -21,9 +21,9 @@ class SingleModeSupportCardFields(CStructureDataclass):
     support_card_id: C_Int[c_int32]
     limit_break_count: C_Int[c_int32]
     exp: C_Int[c_int32]
-    _ignored_1: c_int32  # training_partner_state
+    _ignored_1: c_int32  # omitted: training_partner_state
     owner_viewer_id: C_Int[c_int64]
-    _ignored_2: c_int32  # rental_type
+    _ignored_2: c_int32  # omitted: rental_type
 
 
 @register_runtime_validatable('Gallop::SingleModeSupportCard')
@@ -191,10 +191,10 @@ class SingleModeCharaObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class WorkSingleModeDataRaceStartResultInfoFields(CStructureDataclass):
-    _ignored_1: ArrayType[C_UDeclPtr, L[3]]  # startInfo, raceScenario, rewardInfo
+    _ignored_1: ArrayType[C_UDeclPtr, L[3]]  # omitted: startInfo, raceScenario, rewardInfo
     charaInfo: C_Ptr[SingleModeCharaObject]
-    _ignored_2: ArrayType[C_UDeclPtr, L[2]]  # addTrophyInfo, trophyRewardInfo
-    _ignored_3: c_int32  # prevCharaGrade
+    _ignored_2: ArrayType[C_UDeclPtr, L[2]]  # omitted: addTrophyInfo, trophyRewardInfo
+    _ignored_3: c_int32  # omitted: prevGradeType
 
 
 @register_runtime_validatable('Gallop::WorkSingleModeData.RaceStartResultInfo')
@@ -208,22 +208,22 @@ class WorkSingleModeDataRaceStartResultInfoObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class WorkSingleModeDataFields(CStructureDataclass):
-    _ignored_1: C_UDeclPtr  # storyInfoListDic
-    _ignored_2: ArrayType[c_bool, L[2]]  # isExistPlayingData, isPlaying
+    _ignored_1: C_UDeclPtr  # omitted: storyInfoListDic
+    _ignored_2: ArrayType[c_bool, L[2]]  # omitted: isExistPlayingData, isPlaying
     totalTurnNum: ObscuredInt
-    _ignored_3: ArrayType[C_UDeclPtr, L[3]]  # character, raceConditions, homeInfo
-    _ignored_4: ArrayType[ObscuredInt, L[3]]  # addMusicId, state, playingState
-    _ignored_5: ArrayType[C_UDeclPtr, L[6]]  # scenarioIdList … groupLogPool
-    _ignored_6: ArrayType[ObscuredBool, L[4]]  # isStepTurn … isForceChangeViewMonthStartView
-    _ignored_7: ArrayType[ObscuredInt, L[2]]  # selectedTrainingCommandId, rentalCount
-    _ignored_8: ObscuredLong  # prevFreeRentalTime
-    _ignored_9: C_UDeclPtr  # successionEventInfo
+    _ignored_3: ArrayType[C_UDeclPtr, L[3]]  # omitted: character, raceConditions, homeInfo
+    _ignored_4: ArrayType[ObscuredInt, L[3]]  # omitted: addMusicId, state, playingState
+    _ignored_5: ArrayType[C_UDeclPtr, L[6]]  # omitted: scenarioIdList … groupLogPool
+    _ignored_6: ArrayType[ObscuredBool, L[4]]  # omitted: isStepTurn … isForceChangeViewMonthStartView
+    _ignored_7: ArrayType[ObscuredInt, L[2]]  # omitted: selectedTrainingCommandId, rentalCount
+    _ignored_8: ObscuredLong  # omitted: prevFreeRentalTime
+    _ignored_9: C_UDeclPtr  # omitted: successionEventInfo
     raceStartResultInfoData: C_Ptr[WorkSingleModeDataRaceStartResultInfoObject]
-    _ignored_10: ArrayType[C_UDeclPtr, L[5]]  # racePieceCampaignInfoList … eventChoiceRewardDict
-    _ignored_11: c_int32  # cachedRewardEventId
-    _ignored_12: C_UDeclPtr  # defaultRunningStyleArray
-    _ignored_13: ObscuredBool  # isUmaplan
-    _ignored_14: C_UDeclPtr  # logAdditiveBuffer
+    _ignored_10: ArrayType[C_UDeclPtr, L[5]]  # omitted: racePieceCampaignInfoList … eventChoiceRewardDict
+    _ignored_11: c_int32  # omitted: cachedRewardEventId
+    _ignored_12: C_UDeclPtr  # omitted: defaultRunningStyleArray
+    _ignored_13: ObscuredBool  # omitted: isUmaplan
+    _ignored_14: C_UDeclPtr  # omitted: logAdditiveBuffer
 
 
 @register_runtime_validatable('Gallop::WorkSingleModeData')

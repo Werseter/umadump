@@ -14,7 +14,7 @@ from schema_validation import register_runtime_validatable
 
 class WorkHonorDataHonorFields(CStructureDataclass):
     id: C_Int[c_int32]
-    _ignored_1: c_int32  # step
+    _ignored_1: c_int32  # omitted: step
     createTime: C_Int[c_int64]
 
 
@@ -30,7 +30,7 @@ class WorkHonorDataHonorObject(CStructureDataclass):
 
 class WorkHonorDataFields(CStructureDataclass):
     honorList: C_Ptr[GenericList[C_Ptr[WorkHonorDataHonorObject]]]
-    _ignored_1: C_UDeclPtr  # honorProgressList
+    _ignored_1: C_UDeclPtr  # omitted: honorProgressList
     lastCheckTime: C_Int[c_int64]
 
 

@@ -6,14 +6,15 @@ This module bridges static ``global-metadata.dat`` type information with live
 """
 from __future__ import annotations
 
-from ctypes import c_int16, c_int32, c_int64, c_int8, c_uint16, c_uint32, c_uint64, c_uint8, sizeof
+from ctypes import (c_bool, c_double, c_float, c_int16, c_int32, c_int64, c_int8, c_uint16, c_uint32, c_uint64, c_uint8,
+                    sizeof)
 from dataclasses import dataclass
 from enum import IntEnum
 from pathlib import Path
 from struct import iter_unpack, unpack_from
 from typing import Any, Optional, TypeAlias
 
-from ctypes_utils import C_Ptr, EnumStorageType, StructOrSimple
+from ctypes_utils import C_Ptr, EnumStorageType, ScalarStorageType, StructOrSimple
 from il2cpp_structs import (Il2CppFieldDefaultValue, Il2CppFieldDefinition, Il2CppGlobalMetadataHeader,
                             Il2CppImageDefinition, Il2CppMetadataRange, Il2CppMethodDefinition, Il2CppTypeDefinition,
                             RuntimeIl2CppClass, RuntimeIl2CppCodeGenModule, RuntimeIl2CppCodeRegistration,
@@ -36,6 +37,8 @@ class RuntimeTypeResolveContext:
 
 
 class Il2CppTypeEnum(IntEnum):
+    BOOLEAN = 0x02
+    CHAR = 0x03
     I1 = 0x04
     U1 = 0x05
     I2 = 0x06
@@ -46,9 +49,15 @@ class Il2CppTypeEnum(IntEnum):
     U8 = 0x0B
     R4 = 0x0C
     R8 = 0x0D
+    STRING = 0x0E
+    PTR = 0x0F
+    BYREF = 0x10
     VALUETYPE = 0x11
     CLASS = 0x12
+    ARRAY = 0x14
     GENERICINST = 0x15
+    OBJECT = 0x1C
+    SZARRAY = 0x1D
 
 
 IL2CPP_INTEGER_CTYPE_BY_TYPE_BITS: dict[Il2CppTypeEnum, EnumStorageType] = {
@@ -61,6 +70,24 @@ IL2CPP_INTEGER_CTYPE_BY_TYPE_BITS: dict[Il2CppTypeEnum, EnumStorageType] = {
     Il2CppTypeEnum.I8: c_int64,
     Il2CppTypeEnum.U8: c_uint64,
 }
+
+IL2CPP_SCALAR_CTYPE_BY_TYPE_BITS: dict[Il2CppTypeEnum, ScalarStorageType] = {
+    Il2CppTypeEnum.BOOLEAN: c_bool,
+    Il2CppTypeEnum.CHAR: c_uint16,
+    **IL2CPP_INTEGER_CTYPE_BY_TYPE_BITS,
+    Il2CppTypeEnum.R4: c_float,
+    Il2CppTypeEnum.R8: c_double,
+}
+
+IL2CPP_POINTER_LIKE_TYPE_BITS: frozenset[Il2CppTypeEnum] = frozenset({
+    Il2CppTypeEnum.STRING,
+    Il2CppTypeEnum.PTR,
+    Il2CppTypeEnum.BYREF,
+    Il2CppTypeEnum.CLASS,
+    Il2CppTypeEnum.ARRAY,
+    Il2CppTypeEnum.OBJECT,
+    Il2CppTypeEnum.SZARRAY,
+})
 
 
 class Il2CppResolutionManager:
@@ -195,6 +222,17 @@ class Il2CppResolutionManager:
             return None
         return IL2CPP_INTEGER_CTYPE_BY_TYPE_BITS.get(type_bits)
 
+    def scalar_ctype_for_type_index(self, type_index: int) -> ScalarStorageType | None:
+        """Map a primitive IL2CPP field type to its exact ctypes storage."""
+        runtime_type = self.runtime_type_for_type_index(type_index)
+        if runtime_type is None:
+            return None
+        try:
+            type_bits = Il2CppTypeEnum(runtime_type.get_type_bits())
+        except ValueError:
+            return None
+        return IL2CPP_SCALAR_CTYPE_BY_TYPE_BITS.get(type_bits)
+
     def enum_storage_ctype_for_typedef(self, typedef_index: int) -> EnumStorageType | None:
         """Return the primitive ctypes storage declared by an enum's ``value__`` field."""
         if typedef_index < 0 or typedef_index >= len(self.metadata.type_defs):
@@ -204,6 +242,45 @@ class Il2CppResolutionManager:
             field_def = self.metadata.field_defs[int(typedef.fieldStart) + local_index]
             if self.metadata.strings.get(int(field_def.nameIndex), "") == "value__":
                 return self.integer_ctype_for_type_index(int(field_def.typeIndex))
+        return None
+
+    def enum_storage_ctype_for_type_index(self, type_index: int) -> EnumStorageType | None:
+        """Return the primitive storage for an enum field, if *type_index* is one."""
+        typedef_index = self.typedef_index_for_runtime_type_index(type_index)
+        if typedef_index is None or not self.is_enum_typedef(typedef_index):
+            return None
+        return self.enum_storage_ctype_for_typedef(typedef_index)
+
+    def is_pointer_like_type_index(self, type_index: int) -> bool | None:
+        """Classify whether an IL2CPP field occupies managed/native pointer storage.
+
+        ``None`` means that a generic instantiation could not be resolved well
+        enough to distinguish a reference type from a value-type instantiation.
+        """
+        runtime_type = self.runtime_type_for_type_index(type_index)
+        if runtime_type is None:
+            return None
+        try:
+            type_bits = Il2CppTypeEnum(runtime_type.get_type_bits())
+        except ValueError:
+            return None
+        if type_bits in IL2CPP_POINTER_LIKE_TYPE_BITS:
+            return True
+        if type_bits != Il2CppTypeEnum.GENERICINST:
+            return False
+        if not runtime_type.data:
+            return None
+        try:
+            generic_class = C_Ptr[RuntimeIl2CppGenericClass](int(runtime_type.data)).contents
+            if not generic_class.type:
+                return None
+            generic_definition_bits = Il2CppTypeEnum(generic_class.type.contents.get_type_bits())
+        except (TypeError, ValueError):
+            return None
+        if generic_definition_bits in IL2CPP_POINTER_LIKE_TYPE_BITS:
+            return True
+        if generic_definition_bits == Il2CppTypeEnum.VALUETYPE:
+            return False
         return None
 
     def is_enum_typedef(self, typedef_index: int) -> bool:

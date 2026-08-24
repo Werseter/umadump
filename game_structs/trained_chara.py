@@ -64,7 +64,7 @@ class FavoriteDataObject(CStructureDataclass):
 
 class FavoriteDataDictionaryEntry(CStructureDataclass):
     hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # next
+    _ignored_1: c_int32  # omitted: next
     key: C_Int[c_int32]
     value: C_Ptr[FavoriteDataObject]
 
@@ -80,10 +80,10 @@ class SuccessionCharaDataFields(CStructureDataclass):
     level: ObscuredInt
     rank: C_EnumIn[FinalTrainingRank, ObscuredInt]
     factorDataArray: GenericArrayPtr[C_Ptr[FactorDataObject]]
-    _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # _sortedFactorList, _sortedFactorListForProfileCard / masterDataPtrs
+    _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # omitted: sortedFactorList, sortedFactorListForProfileCard
     ownerViewerId: ObscuredLong
     isPlayer: C_Int[c_bool]
-    _ignored_2: C_UDeclPtr  # winSaddleArray / masterDataPtr
+    _ignored_2: C_UDeclPtr  # omitted: winSaddleArray
     winSaddleIdArray: GenericArrayPtr[ObscuredInt]
 
 
@@ -138,14 +138,14 @@ class TrainedCharaSupportCardDataObject(CStructureDataclass):
 class RaceHistoryInfoFields(CStructureDataclass):
     turn: ObscuredInt
     programId: ObscuredInt
-    _ignored_1: ObscuredInt  # raceInstanceId
-    _ignored_2: ObscuredInt  # frameOrder
-    _ignored_3: ObscuredInt  # npcCount
+    _ignored_1: ObscuredInt  # omitted: raceInstanceId
+    _ignored_2: ObscuredInt  # omitted: frameOrder
+    _ignored_3: ObscuredInt  # omitted: npcCount
     weather: ObscuredInt
     groundCondition: ObscuredInt
     runningStyle: ObscuredInt
     resultRank: ObscuredInt
-    _ignored_4: ObscuredInt  # scenarioId
+    _ignored_4: ObscuredInt  # omitted: scenarioId
 
 
 @register_runtime_validatable('Gallop::SingleModeUtils.RaceHistoryInfo')
@@ -197,20 +197,20 @@ class TrainedCharaDataFields(CStructureDataclass):
     isLock: ObscuredBool
     favoriteData: C_Ptr[FavoriteDataObject]
     cachedCreateTimeTimeStamp: ObscuredLong
-    _ignored_1: ArrayType[C_UDeclPtr, L[3]]  # sortedFactorList … sortedFactorProfileCardList / masterDataPtrs
+    _ignored_1: ArrayType[C_UDeclPtr, L[3]]  # omitted: sortedFactorList … factorListIncludingSuccession
     successionCharaList: C_Ptr[GenericList[C_Ptr[SuccessionCharaDataObject]]]
-    _ignored_2: c_bool  # isSuccessionHistoryInitialized
-    _ignored_3: C_UDeclPtr  # successionHistoryList
+    _ignored_2: c_bool  # omitted: isSuccessionHistoryInitialized
+    _ignored_3: C_UDeclPtr  # omitted: successionHistoryList
     acquiredSkillArray: GenericArrayPtr[C_Ptr[AcquiredSkillObject]]
     supportCardArray: GenericArrayPtr[C_Ptr[TrainedCharaSupportCardDataObject]]
     singleModeRaceResultArray: GenericArrayPtr[C_Ptr[RaceHistoryInfoObject]]
-    _ignored_4: C_UDeclPtr  # winSaddleArray / masterDataPtr
+    _ignored_4: C_UDeclPtr  # omitted: winSaddleArray
     winSaddleIdArray: GenericArrayPtr[ObscuredInt]
     cacheCharaId: ObscuredInt
-    _ignored_5: ArrayType[C_UDeclPtr, L[3]]  # masterCardData, masterCharaData, masterCardRarityData / masterDataPtrs
+    _ignored_5: ArrayType[C_UDeclPtr, L[3]]  # omitted: masterCardData … masterCardRarityData
     singleTotalRaceNum: C_Int[c_int32]
     singleWinNum: ObscuredInt
-    _ignored_6: C_UDeclPtr  # trainedCharaDataAccessor
+    _ignored_6: C_UDeclPtr  # omitted: trainedCharaDataAccessor
 
 
 @register_runtime_validatable('Gallop::WorkTrainedCharaData.TrainedCharaData')
@@ -221,7 +221,7 @@ class TrainedCharaDataObject(CStructureDataclass):
 
 class TrainedCharaDataDictionaryEntry(CStructureDataclass):
     hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # next
+    _ignored_1: c_int32  # omitted: next
     key: C_Int[c_int32]
     value: C_Ptr[TrainedCharaDataObject]
 
@@ -233,7 +233,7 @@ class TrainedCharaDataDictionaryEntry(CStructureDataclass):
 class WorkTrainedCharaDataFields(CStructureDataclass):
     dataDic: C_Ptr[GenericDictionary[TrainedCharaDataDictionaryEntry]]
     allDataDic: C_Ptr[GenericDictionary[TrainedCharaDataDictionaryEntry]]
-    _ignored_1: C_UDeclPtr  # list
+    _ignored_1: C_UDeclPtr  # omitted: list
     favoriteDataDict: C_Ptr[GenericDictionary[FavoriteDataDictionaryEntry]]
 
 

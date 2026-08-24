@@ -15,9 +15,9 @@ from il2cpp_structs import RuntimeIl2CppObject
 class ObscuredBool(CStructureDataclass):
     currentCryptoKey: C_Int[c_uint8]
     hiddenValue: C_Int[c_int32]
-    _ignored_1: c_bool  # inited
-    _ignored_2: c_bool  # fakeValue
-    _ignored_3: c_bool  # fakeValueActive
+    _ignored_1: c_bool  # omitted: inited
+    _ignored_2: c_bool  # omitted: fakeValue
+    _ignored_3: c_bool  # omitted: fakeValueActive
 
     @property
     def value(self) -> bool:
@@ -29,9 +29,9 @@ class ObscuredBool(CStructureDataclass):
 class ObscuredInt(CStructureDataclass):
     currentCryptoKey: C_Int[c_int32]
     hiddenValue: C_Int[c_int32]
-    _ignored_1: c_bool  # inited
-    _ignored_2: c_int32  # fakeValue
-    _ignored_3: c_bool  # fakeValueActive
+    _ignored_1: c_bool  # omitted: inited
+    _ignored_2: c_int32  # omitted: fakeValue
+    _ignored_3: c_bool  # omitted: fakeValueActive
 
     @property
     def value(self) -> int:
@@ -41,9 +41,9 @@ class ObscuredInt(CStructureDataclass):
 class ObscuredLong(CStructureDataclass):
     currentCryptoKey: C_Int[c_int64]
     hiddenValue: C_Int[c_int64]
-    _ignored_1: c_bool  # inited
-    _ignored_2: c_int64  # fakeValue
-    _ignored_3: c_bool  # fakeValueActive
+    _ignored_1: c_bool  # omitted: inited
+    _ignored_2: c_int64  # omitted: fakeValue
+    _ignored_3: c_bool  # omitted: fakeValueActive
 
     @property
     def value(self) -> int:
@@ -53,9 +53,9 @@ class ObscuredLong(CStructureDataclass):
 class ObscuredULong(CStructureDataclass):
     currentCryptoKey: C_Int[c_uint64]
     hiddenValue: C_Int[c_uint64]
-    _ignored_1: c_bool  # inited
-    _ignored_2: c_uint64  # fakeValue
-    _ignored_3: c_bool  # fakeValueActive
+    _ignored_1: c_bool  # omitted: inited
+    _ignored_2: c_uint64  # omitted: fakeValue
+    _ignored_3: c_bool  # omitted: fakeValueActive
 
     @property
     def value(self) -> int:
@@ -66,9 +66,9 @@ class ObscuredString(CStructureDataclass):
     _il2cpp_obj: RuntimeIl2CppObject
     currentCryptoKey: SystemStringObjectPtr
     hiddenValue: GenericArrayPtr[c_uint8]
-    _ignored_1: c_bool  # inited
-    _ignored_2: SystemStringObjectPtr  # fakeValue
-    _ignored_3: c_bool  # fakeValueActive
+    _ignored_1: c_bool  # omitted: inited
+    _ignored_2: SystemStringObjectPtr  # omitted: fakeValue
+    _ignored_3: c_bool  # omitted: fakeValueActive
 
     @property
     def value(self) -> str:

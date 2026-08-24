@@ -73,11 +73,11 @@ class TeamStadiumRaceCharaResultObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class WorkTeamStadiumOpponentDataFields(CStructureDataclass):
-    _ignored_1: ObscuredLong  # opponentViewerId
+    _ignored_1: ObscuredLong  # omitted: opponentViewerId
     evaluationPoint: ObscuredInt
-    _ignored_2: ArrayType[C_UDeclPtr, L[2]]  # userData, deckInfo
+    _ignored_2: ArrayType[C_UDeclPtr, L[2]]  # omitted: userData, deckInfo
     winningRewardGuaranteeStatus: ObscuredInt
-    _ignored_3: ArrayType[C_UDeclPtr, L[2]]  # serverData, trainedCharaDic
+    _ignored_3: ArrayType[C_UDeclPtr, L[2]]  # omitted: serverData, trainedCharaDic
 
 
 @register_runtime_validatable('Gallop::WorkTeamStadiumData.OpponentData')
@@ -91,7 +91,7 @@ class WorkTeamStadiumOpponentDataObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class TeamStadiumSupportCardBonusInfoFields(CStructureDataclass):
-    _ignored_1: C_UDeclPtr  # supportCardBonusList
+    _ignored_1: C_UDeclPtr  # omitted: supportCardBonusList
     totalSupportCardBonus: C_Int[c_int32]
 
 
@@ -137,7 +137,7 @@ class TeamStadiumResultFields(CStructureDataclass):
     useItemIdArray: GenericArrayPtr[c_int32]
     raceResultArray: GenericArrayPtr[C_Ptr[TeamStadiumRaceResultObject]]
     isIncludeUnsupportedRace: C_Int[c_bool]
-    _ignored_1: C_UDeclPtr  # winningRewardInfoArray
+    _ignored_1: C_UDeclPtr  # omitted: winningRewardInfoArray
 
 
 @register_runtime_validatable('Gallop::WorkTeamStadiumData.TeamStadiumResult')
@@ -151,11 +151,11 @@ class TeamStadiumResultObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class TeamStadiumStatusFields(CStructureDataclass):
-    _ignored_1: c_int32  # currentState
-    _ignored_2: C_UDeclPtr  # myDeckInfo
+    _ignored_1: c_int32  # omitted: currentState
+    _ignored_2: C_UDeclPtr  # omitted: myDeckInfo
     opponentData: C_Ptr[WorkTeamStadiumOpponentDataObject]
     result: C_Ptr[TeamStadiumResultObject]
-    _ignored_3: ArrayType[c_int32, L[2]]  # supportCartBonus, simulateRaceRound
+    _ignored_3: ArrayType[c_int32, L[2]]  # omitted: supportCartBonus, simulateRaceRound
 
 
 @register_runtime_validatable('Gallop::TeamStadiumStatus')
@@ -169,13 +169,13 @@ class TeamStadiumStatusObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class WorkTeamStadiumDataFields(CStructureDataclass):
-    _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # teamStadiumInfo, teamStadiumDeckInfo
+    _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # omitted: teamStadiumInfo, teamStadiumDeckInfo
     teamStadiumStatus: C_Ptr[TeamStadiumStatusObject]
-    _ignored_2: ArrayType[C_UDeclPtr, L[6]]  # opponentDataList … teamStadiumMenuBgmInfo
+    _ignored_2: ArrayType[C_UDeclPtr, L[6]]  # omitted: opponentDataList … teamStadiumMenuBgmInfo
     teamStadiumSupportCardBonusInfo: C_Ptr[TeamStadiumSupportCardBonusInfoObject]
-    _ignored_3: ArrayType[C_UDeclPtr, L[2]]  # teamEvaluationUpdateRankRewardArray, updateTeamRankInfo
-    _ignored_4: c_bool  # needNotifyBadge
-    _ignored_5: ArrayType[C_UDeclPtr, L[2]]  # stadiumRaceCharaIdArray, prevMemberList
+    _ignored_3: ArrayType[C_UDeclPtr, L[2]]  # omitted: teamEvaluationUpdateRankRewardArray, updateTeamRankInfo
+    _ignored_4: c_bool  # omitted: needNotifyBadge
+    _ignored_5: ArrayType[C_UDeclPtr, L[2]]  # omitted: stadiumRaceCharaIdArray, prevMemberList
 
 
 @register_runtime_validatable('Gallop::WorkTeamStadiumData')

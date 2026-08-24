@@ -15,7 +15,7 @@ from schema_validation import register_runtime_validatable
 class SkillDataBaseFields(CStructureDataclass):
     masterId: ObscuredInt
     level: ObscuredInt
-    _ignored_1: C_UDeclPtr  # master
+    _ignored_1: C_UDeclPtr  # omitted: master
 
 
 @register_runtime_validatable('Gallop::WorkSkillData.SkillDataBase')
@@ -43,7 +43,7 @@ class AcquiredSkillObject(CStructureDataclass):
 # ---------------------------------------------------------------------------
 
 class AcquirableSkillFields(SkillDataBaseFields):
-    _ignored_1: C_UDeclPtr  # skillSet
+    _ignored_1: C_UDeclPtr  # omitted: skillSet
 
 
 @register_runtime_validatable('Gallop::WorkSkillData.AcquirableSkill')

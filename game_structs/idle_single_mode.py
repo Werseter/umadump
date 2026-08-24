@@ -170,7 +170,7 @@ class CharaRaceRewardFields(CStructureDataclass):
     race_reward_bonus: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
     race_reward_plus_bonus: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
     race_reward_bonus_win: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
-    _ignored_1: C_UDeclPtr  # race_reward_limit
+    _ignored_1: C_UDeclPtr  # omitted: race_reward_limit
     gained_fans: C_Int[c_int32]
     campaign_id_array: GenericArrayPtr[c_int32]
 
@@ -227,10 +227,10 @@ class WorkIdleSingleModeDataFields(CStructureDataclass):
     charaInfo: C_Ptr[SingleModeCharaObject]
     startTime: C_Int[c_int64]
     endTime: C_Int[c_int64]
-    _ignored_1: ObscuredInt  # singleModePlayingState
-    _ignored_2: c_int32  # trainingEventType
+    _ignored_1: ObscuredInt  # omitted: singleModePlayingState
+    _ignored_2: c_int32  # omitted: trainingEventType
     progressLogInfo: C_Ptr[ObscuredIdleSingleModeProgressLogInfoObject]
-    _ignored_3: C_UDeclPtr  # workCharaData
+    _ignored_3: C_UDeclPtr  # omitted: workCharaData
 
 
 @register_runtime_validatable('Gallop::WorkIdleSingleModeData')
