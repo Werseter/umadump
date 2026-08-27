@@ -17,8 +17,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Optional, cast as type_cast
 
+from career_archive import CAREER_ARCHIVE_OUTPUT_FOLDER, write_career_archive_snapshot
 from ctypes_utils import C_Ptr, StructOrSimple
 from extractors.cards import extract_card_data, extract_support_cards, resolve_card_data, resolve_support_cards
+from extractors.career import career_snapshot_output_key, extract_career_snapshot, resolve_career_snapshot_data
 from extractors.common import ExtractorFingerprint, FingerprintableExtractionData
 from extractors.friends import extract_friend_data, resolve_friend_data
 from extractors.gallery import extract_event_gallery, resolve_event_gallery
@@ -495,6 +497,14 @@ EXTRACTORS: tuple[Extractor[Any, Any, Any], ...] = (
             extract=extract_race_info_replay,
             key_fn=race_replay_output_key,
             writer=_write_race_replay_json,
+    ),
+    Extractor(
+            name="career_data",
+            output_folder=CAREER_ARCHIVE_OUTPUT_FOLDER,
+            resolve=resolve_career_snapshot_data,
+            extract=extract_career_snapshot,
+            key_fn=career_snapshot_output_key,
+            writer=write_career_archive_snapshot,
     ),
     Extractor(
             name="idle_single_mode",
