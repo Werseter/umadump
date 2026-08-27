@@ -7,8 +7,9 @@ from game_structs.enums import (BgSeason, CardRarity, CharaGradeType, CourseDist
                                 MainStoryRaceGimmickType, ProperGrade, RaceDifficulty, RaceGroundCondition,
                                 RaceMotivation, RaceRunningType, RaceTime, RaceType, RaceWeather,
                                 ResultBoardConditionType, Rotation, RunningStyleEx, TurfVisionType)
-from game_structs.race import (HorseDataObject, RaceCourseSetObject, RaceHorseDataObject, RaceHorseDataRaceResultObject,
-                               RaceInfoObject, RaceParameterObject)
+from game_structs.master_data import RaceCourseSetObject
+from game_structs.race import (HorseDataObject, RaceHorseDataObject, RaceHorseDataRaceResultObject, RaceInfoObject,
+                               RaceParameterObject)
 from game_structs.skills import SkillDataObject
 from .trained_chara import _decode_raw_trained_chara_data
 

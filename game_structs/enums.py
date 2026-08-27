@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ctypes import c_uint8
+
 from ctypes_utils import SafeIntEnum
 from schema_validation import register_enum
 
@@ -18,6 +20,30 @@ class TrainingType(SafeIntEnum):
     Outing = 5
     Group = 6
     None_ = 7
+
+
+@register_enum('Gallop::TrainingDefine.TrainingCommandId')
+class TrainingCommandId(SafeIntEnum):
+    None_ = 0
+    Turf = 101
+    Dirt = 102
+    Slope = 103
+    Pool = 105
+    Study = 106
+    Feed = 108
+    Outing1 = 301
+    Outing2 = 302
+    Outing3 = 303
+    OutingSea = 304
+    OutingSpa = 305
+    RaceEntry = 401
+    SeaTraining1 = 601
+    SeaTraining2 = 602
+    SeaTraining3 = 603
+    SeaTraining4 = 604
+    SeaTraining5 = 605
+    Holiday = 701
+    Hospital = 801
 
 
 @register_enum('Gallop::WorkTrainedCharaData.FavoriteData.FavoriteType')
@@ -45,6 +71,26 @@ class RoundResultType(SafeIntEnum):
     Win = 1
     Lose = 2
     Draw = 3
+
+
+@register_enum('Gallop::SingleModeScenarioTeamRaceDefine.TeamParameterRank')
+class TeamParameterRank(SafeIntEnum):
+    None_ = 0
+    G = 1
+    F = 2
+    E = 3
+    D = 4
+    C = 5
+    B = 6
+    A = 7
+    S = 8
+
+
+@register_enum('Gallop::SingleModeScenarioTeamRaceDefine.TeamEditFlag')
+class TeamEditFlag(SafeIntEnum):
+    Invalid = 0
+    On = 1
+    Off = 2
 
 
 @register_enum('Gallop::WorkTrainedCharaData.TrainedCharaData.UseType')
@@ -289,6 +335,15 @@ class RaceTime(SafeIntEnum):
     Min = 0
 
 
+@register_enum('Gallop::RaceDefine.RunningStyle', storage_type=c_uint8)
+class RunningStyle(SafeIntEnum):
+    None_ = 0
+    Nige = 1
+    Senko = 2
+    Sashi = 3
+    Oikomi = 4
+
+
 @register_enum('Gallop::RaceDefine.RunningStyleEx')
 class RunningStyleEx(SafeIntEnum):
     NONE = 0
@@ -367,6 +422,85 @@ class CharaGradeType(SafeIntEnum):
     G1Silver = 9
     G1Gold = 10
     Max = 10
+
+
+@register_enum('Gallop::SingleModeDefine.State')
+class SingleModeState(SafeIntEnum):
+    Playing = 0
+    NoWinEnd = 1
+    TargetFailedEnd = 2
+    TrueEnd = 3
+    FinishComplete = 4
+
+
+@register_enum('Gallop::SingleModeDefine.ScenarioId')
+class SingleModeScenarioId(SafeIntEnum):
+    """Career scenario IDs used to select scenario-specific response data."""
+
+    URA = 1
+    TeamRace = 2
+    Live = 3
+    Free = 4
+    Venus = 5
+
+
+@register_enum('Gallop::SingleModeDefine.PlayingState')
+class SingleModePlayingState(SafeIntEnum):
+    None_ = 0
+    TurnStart = 1
+    Race = 2
+    RaceInGame = 3
+    RaceResult = 4
+    TurnEnd = 5
+    MinigamePlaying = 6
+    TeamRaceTop = 7
+    TeamRacePlaying = 8
+    TeamRaceResult = 9
+    LiveTop = 10
+    FactorSelect = 11
+    VenusRaceTop = 12
+    VenusRacePaddock = 13
+    VenusRaceInGame = 14
+    VenusRaceResult = 15
+    FactorLotteryEnd = 20
+
+
+@register_enum('Gallop::SingleModeDefine.CommandType')
+class SingleModeCommandType(SafeIntEnum):
+    None_ = 0
+    Training = 1
+    EatMeal = 2
+    Outing = 3
+    RaceEntry = 4
+    Camp = 6
+    Holiday = 7
+    Hospital = 8
+    Live = 10
+
+
+@register_enum('Gallop::SingleModeDefine.ParameterType')
+class SingleModeParameterType(SafeIntEnum):
+    None_ = 0
+    Speed = 1
+    Stamina = 2
+    Power = 3
+    Guts = 4
+    Wiz = 5
+    Hp = 10
+    Motivation = 20
+    SkillPoint = 30
+
+
+@register_enum('Gallop::MasterSingleModeLiveMasterBonus.SingleModeLiveMasterBonus.GainParameterTypeEnum')
+class SingleModeLiveGainParameterType(SafeIntEnum):
+    """API-facing parameter identifiers used by Grand Live master bonuses."""
+
+    Speed = 1
+    Stamina = 2
+    Power = 3
+    Guts = 4
+    Wiz = 5
+    SkillPt = 6
 
 
 @register_enum('Gallop::WorkIdleSingleModeData.PlayingState')

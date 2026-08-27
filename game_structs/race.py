@@ -9,6 +9,7 @@ from game_structs.enums import (BgSeason, CardRarity, CharaGradeType, CourseDist
                                 MainStoryRaceGimmickType, ProperGrade, RaceDifficulty, RaceGroundCondition,
                                 RaceMotivation, RaceRunningType, RaceTime, RaceType, RaceWeather,
                                 ResultBoardConditionType, Rotation, RunningStyleEx, TurfVisionType)
+from game_structs.master_data import RaceCourseSetObject
 from game_structs.skills import SkillDataObject
 from game_structs.strings import SystemStringObjectPtr
 from game_structs.trained_chara import TrainedCharaDataObject
@@ -213,32 +214,6 @@ class HorseDataFields(CStructureDataclass):
 class HorseDataObject(CStructureDataclass):
     _il2cpp_obj: RuntimeIl2CppObject
     fields: HorseDataFields
-
-
-# ---------------------------------------------------------------------------
-# Gallop.MasterRaceCourseSet.RaceCourseSet
-# ---------------------------------------------------------------------------
-
-class RaceCourseSetFields(CStructureDataclass):
-    id: C_Int[c_int32]
-    raceTrackId: C_Int[c_int32]
-    distance: C_Int[c_int32]
-    ground: C_Int[c_int32]
-    inout: C_Int[c_int32]
-    turn: C_Int[c_int32]
-    fenceSet: C_Int[c_int32]
-    floatLaneMax: C_Int[c_int32]
-    courseSetStatusId: C_Int[c_int32]
-    finishTimeMin: C_Int[c_int32]
-    finishTimeMinRandomRange: C_Int[c_int32]
-    finishTimeMax: C_Int[c_int32]
-    finishTimeMaxRandomRange: C_Int[c_int32]
-
-
-@register_runtime_validatable('Gallop::MasterRaceCourseSet.RaceCourseSet')
-class RaceCourseSetObject(CStructureDataclass):
-    _il2cpp_obj: RuntimeIl2CppObject
-    fields: RaceCourseSetFields
 
 
 # ---------------------------------------------------------------------------

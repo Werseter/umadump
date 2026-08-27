@@ -5,7 +5,8 @@ from typing import Literal as L
 
 from ctypes_utils import ArrayType, CStructureDataclass, C_Bool, C_Enum, C_EnumIn, C_Int, C_Ptr, C_UDeclPtr
 from game_structs.collections import GenericArrayPtr, GenericDictionary, GenericList
-from game_structs.enums import FavoriteType, FinalTrainingRank, SuccessionCharaPosition, TrainedCharaUseType
+from game_structs.enums import (FavoriteType, FinalTrainingRank, RaceGroundCondition, RaceWeather, RunningStyle,
+                                SuccessionCharaPosition, TrainedCharaUseType)
 from game_structs.obscured import ObscuredBool, ObscuredInt, ObscuredLong, ObscuredStringPtr
 from game_structs.skills import AcquiredSkillObject
 from game_structs.strings import SystemStringObjectPtr
@@ -139,13 +140,13 @@ class RaceHistoryInfoFields(CStructureDataclass):
     turn: ObscuredInt
     programId: ObscuredInt
     _ignored_1: ObscuredInt  # omitted: raceInstanceId
-    _ignored_2: ObscuredInt  # omitted: frameOrder
-    _ignored_3: ObscuredInt  # omitted: npcCount
-    weather: ObscuredInt
-    groundCondition: ObscuredInt
-    runningStyle: ObscuredInt
+    frameOrder: ObscuredInt
+    npcCount: ObscuredInt
+    weather: C_EnumIn[RaceWeather, ObscuredInt]
+    groundCondition: C_EnumIn[RaceGroundCondition, ObscuredInt]
+    runningStyle: C_EnumIn[RunningStyle, ObscuredInt]
     resultRank: ObscuredInt
-    _ignored_4: ObscuredInt  # omitted: scenarioId
+    _ignored_2: ObscuredInt  # omitted: scenarioId
 
 
 @register_runtime_validatable('Gallop::SingleModeUtils.RaceHistoryInfo')
