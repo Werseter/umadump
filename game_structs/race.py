@@ -17,6 +17,65 @@ from schema_validation import register_runtime_validatable
 
 
 # ---------------------------------------------------------------------------
+# Gallop.SingleRaceHistory
+# ---------------------------------------------------------------------------
+
+class SingleRaceHistoryFields(CStructureDataclass):
+    turn: C_Int[c_int32]
+    program_id: C_Int[c_int32]
+    weather: C_Int[c_int32]
+    ground_condition: C_Int[c_int32]
+    running_style: C_Int[c_int32]
+    result_rank: C_Int[c_int32]
+    frame_order: C_Int[c_int32]
+    npc_count: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::SingleRaceHistory')
+class SingleRaceHistoryObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleRaceHistoryFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.RaceRewardData
+# ---------------------------------------------------------------------------
+
+class RaceRewardDataFields(CStructureDataclass):
+    item_type: C_Int[c_int32]
+    item_id: C_Int[c_int32]
+    item_num: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::RaceRewardData')
+class RaceRewardDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: RaceRewardDataFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.CharaRaceReward
+# ---------------------------------------------------------------------------
+
+class CharaRaceRewardFields(CStructureDataclass):
+    result_rank: C_Int[c_int32]
+    result_time: C_Int[c_int32]
+    race_reward: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
+    race_reward_bonus: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
+    race_reward_plus_bonus: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
+    race_reward_bonus_win: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
+    _ignored_1: C_UDeclPtr  # omitted: race_reward_limit
+    gained_fans: C_Int[c_int32]
+    campaign_id_array: GenericArrayPtr[c_int32]
+
+
+@register_runtime_validatable('Gallop::CharaRaceReward')
+class CharaRaceRewardObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: CharaRaceRewardFields
+
+
+# ---------------------------------------------------------------------------
 # Gallop.RaceHorseDataRaceResult
 # ---------------------------------------------------------------------------
 

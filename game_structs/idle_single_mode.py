@@ -6,6 +6,7 @@ from ctypes_utils import CStructureDataclass, C_EnumIn, C_Int, C_Ptr, C_UDeclPtr
 from game_structs.collections import GenericArrayPtr
 from game_structs.enums import IdleSingleModePlayingState
 from game_structs.obscured import ObscuredBool, ObscuredInt
+from game_structs.race import CharaRaceRewardObject, SingleRaceHistoryObject
 from game_structs.single_mode import SingleModeCharaObject
 from game_structs.skills import SkillTipsObject
 from il2cpp_structs import RuntimeIl2CppObject
@@ -120,65 +121,6 @@ class ObscuredIdleSingleModeSuccessionFactorGainInfoFields(CStructureDataclass):
 class ObscuredIdleSingleModeSuccessionFactorGainInfoObject(CStructureDataclass):
     _il2cpp_obj: RuntimeIl2CppObject
     fields: ObscuredIdleSingleModeSuccessionFactorGainInfoFields
-
-
-# ---------------------------------------------------------------------------
-# Gallop.SingleRaceHistory
-# ---------------------------------------------------------------------------
-
-class SingleRaceHistoryFields(CStructureDataclass):
-    turn: C_Int[c_int32]
-    program_id: C_Int[c_int32]
-    weather: C_Int[c_int32]
-    ground_condition: C_Int[c_int32]
-    running_style: C_Int[c_int32]
-    result_rank: C_Int[c_int32]
-    frame_order: C_Int[c_int32]
-    npc_count: C_Int[c_int32]
-
-
-@register_runtime_validatable('Gallop::SingleRaceHistory')
-class SingleRaceHistoryObject(CStructureDataclass):
-    _il2cpp_obj: RuntimeIl2CppObject
-    fields: SingleRaceHistoryFields
-
-
-# ---------------------------------------------------------------------------
-# Gallop.RaceRewardData
-# ---------------------------------------------------------------------------
-
-class RaceRewardDataFields(CStructureDataclass):
-    item_type: C_Int[c_int32]
-    item_id: C_Int[c_int32]
-    item_num: C_Int[c_int32]
-
-
-@register_runtime_validatable('Gallop::RaceRewardData')
-class RaceRewardDataObject(CStructureDataclass):
-    _il2cpp_obj: RuntimeIl2CppObject
-    fields: RaceRewardDataFields
-
-
-# ---------------------------------------------------------------------------
-# Gallop.CharaRaceReward
-# ---------------------------------------------------------------------------
-
-class CharaRaceRewardFields(CStructureDataclass):
-    result_rank: C_Int[c_int32]
-    result_time: C_Int[c_int32]
-    race_reward: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
-    race_reward_bonus: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
-    race_reward_plus_bonus: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
-    race_reward_bonus_win: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
-    _ignored_1: C_UDeclPtr  # omitted: race_reward_limit
-    gained_fans: C_Int[c_int32]
-    campaign_id_array: GenericArrayPtr[c_int32]
-
-
-@register_runtime_validatable('Gallop::CharaRaceReward')
-class CharaRaceRewardObject(CStructureDataclass):
-    _il2cpp_obj: RuntimeIl2CppObject
-    fields: CharaRaceRewardFields
 
 
 # ---------------------------------------------------------------------------

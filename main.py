@@ -18,24 +18,23 @@ from pathlib import Path
 from typing import Any, Callable, Optional, cast as type_cast
 
 from ctypes_utils import C_Ptr, StructOrSimple
+from extractors.cards import extract_card_data, extract_support_cards, resolve_card_data, resolve_support_cards
+from extractors.common import ExtractorFingerprint, FingerprintableExtractionData
+from extractors.friends import extract_friend_data, resolve_friend_data
+from extractors.honors import extract_honor_list, resolve_honor_list
+from extractors.idle_single_mode import (IdleSingleModeOutput, extract_idle_single_mode, idle_single_mode_output_key,
+                                         resolve_idle_single_mode_data)
+from extractors.race import (RaceReplayOutput, extract_race_info_replay, race_replay_output_key,
+                             resolve_race_info_replay)
+from extractors.team_stadium import extract_team_stadium_replay, resolve_team_stadium_replay
+from extractors.trained_chara import extract_trained_chara_data, resolve_trained_chara_data
+from extractors.trophies import extract_trophy_data, resolve_trophy_data
 from game_structs.race import RaceManagerObject, RaceManagerSingletonStaticFields, RaceManagerStaticFields
 from game_structs.work_data_manager import WorkDataManagerObject, WorkDataManagerSingletonStaticFields
 from il2cpp_runtime import build_resolver, setup_memory
 from il2cpp_structs import (RuntimeIl2CppClass, RuntimeIl2CppGenericClass, RuntimeIl2CppGenericInst,
                             RuntimeIl2CppMetadataRegistration, RuntimeIl2CppType)
 from il2cpp_utils import Il2CppResolutionManager
-from json_encoders import (CardDataExtractionData, ExtractorFingerprint, FingerprintableExtractionData,
-                           FriendDataExtractionData, HonorListExtractionData, IdleSingleModeExtractionData,
-                           IdleSingleModeOutput, RaceInfoReplayExtractionData, RaceReplayOutput,
-                           SupportCardExtractionData, TeamStadiumReplayExtractionData, TrainedCharaExtractionData,
-                           TrophyDataExtractionData, decode_card_data_dictionary, decode_friend_data, decode_honor_list,
-                           decode_idle_single_mode, decode_race_info_replay, decode_support_card_dictionary,
-                           decode_team_stadium_replay, decode_trained_chara_dictionary, decode_trophy_data,
-                           resolve_card_data_extraction_data, resolve_friend_data_extraction_data,
-                           resolve_honor_list_extraction_data, resolve_idle_single_mode,
-                           resolve_race_info_replay_extraction_data, resolve_support_card_extraction_data,
-                           resolve_team_stadium_replay_extraction_data, resolve_trained_chara_extraction_data,
-                           resolve_trophy_data_extraction_data)
 from logger import configure_logging, logger
 from memory import MemoryReader, TransientMemoryReadError
 from schema_validation import (RuntimeTypeMetadataHandleMismatchError, RuntimeValidatableIl2CppClassManager,
@@ -257,11 +256,21 @@ class ExtractionRunState:
 
 
 ResolvedSingletonRoots = dict[str, Optional[C_Ptr[Any]]]
+RACEMANAGER_STATIC_ROOT = "racemanager_static"
 
 
 @dataclass(frozen=True)
 class ExtractionContext:
     roots: ResolvedSingletonRoots
+
+    @property
+    def work_data_manager(self) -> WorkDataManagerObject:
+        return self.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
+
+    @property
+    def race_manager_static(self) -> Optional[RaceManagerStaticFields]:
+        root = self.roots.get(RACEMANAGER_STATIC_ROOT)
+        return type_cast(Optional[RaceManagerStaticFields], root.contents if root else None)
 
     def singleton[TSingletonObject: StructOrSimple](self, spec: SingletonSpec[TSingletonObject]) \
             -> Optional[C_Ptr[TSingletonObject]]:
@@ -417,115 +426,9 @@ def _is_empty_payload(payload: Any) -> bool:
     return False
 
 
-def _resolve_support_cards(ctx: ExtractionContext) -> Optional[SupportCardExtractionData]:
-    wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
-    return resolve_support_card_extraction_data(wdm)
-
-
-def _extract_support_cards(data: SupportCardExtractionData) -> list[dict[str, Any]]:
-    support_cards = decode_support_card_dictionary(data)
-    logger.info("Decoded %d support cards", len(support_cards))
-    return support_cards
-
-
-def _resolve_trained_chara_data(ctx: ExtractionContext) -> Optional[TrainedCharaExtractionData]:
-    wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
-    return resolve_trained_chara_extraction_data(wdm)
-
-
-def _extract_trained_chara_data(data: TrainedCharaExtractionData) -> list[dict[str, Any]]:
-    trained_charas = decode_trained_chara_dictionary(data)
-    logger.info("Decoded %d trained chara entries", len(trained_charas))
-    return trained_charas
-
-
-def _resolve_card_data(ctx: ExtractionContext) -> Optional[CardDataExtractionData]:
-    wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
-    return resolve_card_data_extraction_data(wdm)
-
-
-def _extract_card_data(data: CardDataExtractionData) -> list[dict[str, Any]]:
-    cards = decode_card_data_dictionary(data)
-    # game calls the owned character data "card" data, making a distinction between alternate costume variants this way
-    logger.info("Decoded %d owned character entries", len(cards))
-    return cards
-
-
-def _resolve_friend_data(ctx: ExtractionContext) -> Optional[FriendDataExtractionData]:
-    wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
-    return resolve_friend_data_extraction_data(wdm)
-
-
-def _extract_friend_data(data: FriendDataExtractionData) -> dict[str, Any]:
-    friends = decode_friend_data(data)
-    logger.info("Decoded friend data with %d friend entries", len(friends.get('friend_list', [])))
-    return friends
-
-
-def _resolve_honor_list(ctx: ExtractionContext) -> Optional[HonorListExtractionData]:
-    wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
-    return resolve_honor_list_extraction_data(wdm)
-
-
-def _extract_honor_list(data: HonorListExtractionData) -> dict[str, Any]:
-    honors = decode_honor_list(data)
-    logger.info("Decoded %d honor entries", len(honors["honor_list"]))
-    return honors
-
-
-def _resolve_trophy_data(ctx: ExtractionContext) -> Optional[TrophyDataExtractionData]:
-    wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
-    return resolve_trophy_data_extraction_data(wdm)
-
-
-def _extract_trophy_data(data: TrophyDataExtractionData) -> list[dict[str, Any]]:
-    trophies = decode_trophy_data(data)
-    logger.info("Decoded trophy data with %d trophy entries", len(trophies))
-    return trophies
-
-
-def _resolve_team_stadium_replay(ctx: ExtractionContext) -> Optional[TeamStadiumReplayExtractionData]:
-    wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
-    return resolve_team_stadium_replay_extraction_data(wdm)
-
-
-def _extract_team_stadium_replay(data: TeamStadiumReplayExtractionData) -> Optional[RaceReplayOutput]:
-    replay = decode_team_stadium_replay(data)
-    logger.info("Decoded %d Team Stadium replay payloads", 1 if replay else 0)
-    return replay
-
-
-def _replay_output_key(replay: RaceReplayOutput) -> str:
-    return replay.key
-
-
 def _write_race_replay_json(output_folder: Path, key: str, replay: RaceReplayOutput) -> None:
     output_path = output_folder / f"{key}.json"
     _write_json_file(f"{output_folder.name}[{key}]", output_path, replay.payload)
-
-
-def _resolve_race_info_replay(ctx: ExtractionContext) -> Optional[RaceInfoReplayExtractionData]:
-    race_manager_static = ctx.roots.get("racemanager_static")
-    if not race_manager_static:
-        return None
-    return resolve_race_info_replay_extraction_data(race_manager_static.contents)
-
-
-def _extract_race_info_replay(data: RaceInfoReplayExtractionData) -> RaceReplayOutput:
-    return decode_race_info_replay(data)
-
-
-def _resolve_idle_single_mode(ctx: ExtractionContext) -> Optional[IdleSingleModeExtractionData]:
-    wdm = ctx.require_singleton(WORKDATAMANAGER_SINGLETON_SPEC)
-    return resolve_idle_single_mode(wdm)
-
-
-def _extract_idle_single_mode(data: IdleSingleModeExtractionData) -> IdleSingleModeOutput:
-    return decode_idle_single_mode(data)
-
-
-def _idle_single_mode_key(ism: IdleSingleModeOutput) -> str:
-    return ism.key
 
 
 def _write_idle_single_mode_json(output_folder: Path, key: str, ism: IdleSingleModeOutput) -> None:
@@ -537,66 +440,64 @@ EXTRACTORS: tuple[Extractor[Any, Any, Any], ...] = (
     Extractor(
             name="support_cards",
             output_path=Path("support_card_data.json"),
-            resolve=_resolve_support_cards,
-            extract=_extract_support_cards,
+            resolve=resolve_support_cards,
+            extract=extract_support_cards,
     ),
     Extractor(
             name="trained_chara_data",
             output_path=Path("trained_chara_data.json"),
-            resolve=_resolve_trained_chara_data,
-            extract=_extract_trained_chara_data,
+            resolve=resolve_trained_chara_data,
+            extract=extract_trained_chara_data,
     ),
     Extractor(
             name="card_data",
             output_path=Path("card_data.json"),
-            resolve=_resolve_card_data,
-            extract=_extract_card_data,
+            resolve=resolve_card_data,
+            extract=extract_card_data,
     ),
     Extractor(
             name="friend_data",
             output_path=Path("friend_data.json"),
-            resolve=_resolve_friend_data,
-            extract=_extract_friend_data,
+            resolve=resolve_friend_data,
+            extract=extract_friend_data,
     ),
     Extractor(
             name="honor_data",
             output_path=Path("honor_data.json"),
-            resolve=_resolve_honor_list,
-            extract=_extract_honor_list,
+            resolve=resolve_honor_list,
+            extract=extract_honor_list,
     ),
     Extractor(
             name="trophy_data",
             output_path=Path("trophy_data.json"),
-            resolve=_resolve_trophy_data,
-            extract=_extract_trophy_data,
+            resolve=resolve_trophy_data,
+            extract=extract_trophy_data,
     ),
     Extractor(
             name="team_stadium_replay",
             output_folder=Path("race_replays"),
-            resolve=_resolve_team_stadium_replay,
-            extract=_extract_team_stadium_replay,
-            key_fn=_replay_output_key,
+            resolve=resolve_team_stadium_replay,
+            extract=extract_team_stadium_replay,
+            key_fn=race_replay_output_key,
             writer=_write_race_replay_json,
     ),
     Extractor(
             name="race_info_replay",
             output_folder=Path("race_replays"),
-            resolve=_resolve_race_info_replay,
-            extract=_extract_race_info_replay,
-            key_fn=_replay_output_key,
+            resolve=resolve_race_info_replay,
+            extract=extract_race_info_replay,
+            key_fn=race_replay_output_key,
             writer=_write_race_replay_json,
     ),
     Extractor(
             name="idle_single_mode",
             output_folder=Path("idle_single_mode"),
-            resolve=_resolve_idle_single_mode,
-            extract=_extract_idle_single_mode,
-            key_fn=_idle_single_mode_key,
+            resolve=resolve_idle_single_mode_data,
+            extract=extract_idle_single_mode,
+            key_fn=idle_single_mode_output_key,
             writer=_write_idle_single_mode_json,
     ),
 )
-
-RACEMANAGER_STATIC_ROOT = "racemanager_static"
 
 
 def _init_singleton_roots() -> ResolvedSingletonRoots:

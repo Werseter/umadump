@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ctypes import c_int32, c_uint64
-from typing import Iterator, Literal as L, cast as type_cast
+from typing import Iterator, Literal as L, Optional, cast as type_cast
 
 from ctypes_utils import (ArrayType, CStructureDataclass, C_Int, C_Ptr, C_UDeclPtr, C_VoidPtr, RuntimeGenericMixin,
                           Span, StructOrSimple)
@@ -41,6 +41,11 @@ class GenericArrayPtr[CDT: StructOrSimple](CStructureDataclass, RuntimeGenericMi
     def __iter__(self) -> Iterator[CDT]:
         return iter(self.span())
 
+    def first(self) -> Optional[CDT]:
+        """Return the first array item without materializing the payload."""
+
+        return next(iter(self), None)
+
     @property
     def value(self) -> list[CDT]:
         return list(iter(self))
@@ -73,6 +78,11 @@ class GenericList[CDT: StructOrSimple](CStructureDataclass, RuntimeGenericMixin[
                 break
             yield entry
             cnt += 1
+
+    def first(self) -> Optional[CDT]:
+        """Return the first logical list item."""
+
+        return next(iter(self), None)
 
     @property
     def value(self) -> list[CDT]:
@@ -123,6 +133,11 @@ class GenericDictionary[CDT: StructOrSimple](CStructureDataclass, RuntimeGeneric
             if type_cast(GenericDictionaryEntry, entry).hashCode > 0:
                 valid += 1
                 yield entry
+
+    def first(self) -> Optional[CDT]:
+        """Return the first live dictionary entry."""
+
+        return next(iter(self), None)
 
     @property
     def value(self) -> list[CDT]:
