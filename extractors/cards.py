@@ -8,7 +8,7 @@ from game_structs.collections import GenericDictionary
 from game_structs.work_data_manager import WorkDataManagerObject
 from json_encoders.cards import decode_card_data_dictionary, decode_support_card_dictionary
 from logger import logger
-from .common import ExtractorContext, ExtractorFingerprint, dictionary_fingerprint, first
+from .common import ExtractorContext, ExtractorFingerprint, dictionary_fingerprint, first_object_fingerprint
 
 
 @dataclass(frozen=True)
@@ -16,12 +16,10 @@ class SupportCardExtractionData:
     entries: GenericDictionary[SupportCardDataDictionaryEntry]
 
     def fingerprint(self) -> ExtractorFingerprint:
-        if (first_entry := first(entry for entry in self.entries if entry.value)) is not None:
-            _ = first_entry.value.contents.fields
         return (
             "support_cards",
             dictionary_fingerprint(self.entries),
-            ("first_entry", first_entry.value.address if first_entry is not None else 0),
+            first_object_fingerprint("first_entry", (entry.value for entry in self.entries)),
         )
 
 
@@ -56,13 +54,10 @@ class CardDataExtractionData:
     entries: GenericDictionary[CardDataDictionaryEntry]
 
     def fingerprint(self) -> ExtractorFingerprint:
-        first_entry = first(entry for entry in self.entries if entry.value)
-        if first_entry is not None:
-            _ = first_entry.value.contents.fields
         return (
             "card_data",
             dictionary_fingerprint(self.entries),
-            ("first_entry", first_entry.value.address if first_entry is not None else 0),
+            first_object_fingerprint("first_entry", (entry.value for entry in self.entries)),
         )
 
 

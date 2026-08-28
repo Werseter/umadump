@@ -9,7 +9,7 @@ from game_structs.friends import FriendDataObject
 from game_structs.work_data_manager import WorkDataManagerObject
 from json_encoders.friends import decode_friend_data
 from logger import logger
-from .common import ExtractorContext, ExtractorFingerprint, first, list_fingerprint
+from .common import ExtractorContext, ExtractorFingerprint, first_object_fingerprint, list_fingerprint
 
 
 @dataclass(frozen=True)
@@ -21,23 +21,14 @@ class FriendDataExtractionData:
     follower_num: int
 
     def fingerprint(self) -> ExtractorFingerprint:
-        first_follow = first(entry for entry in self.follow_list if entry)
-        first_follower = first(entry for entry in self.follower_list if entry)
-        first_recommend = first(entry for entry in self.recommend_list if entry)
-        if first_follow is not None:
-            _ = first_follow.contents.fields
-        if first_follower is not None:
-            _ = first_follower.contents.fields
-        if first_recommend is not None:
-            _ = first_recommend.contents.fields
         return (
             "friend_data",
             list_fingerprint(self.follow_list),
-            ("first_follow", first_follow.address if first_follow is not None else 0),
+            first_object_fingerprint("first_follow", self.follow_list),
             list_fingerprint(self.follower_list),
-            ("first_follower", first_follower.address if first_follower is not None else 0),
+            first_object_fingerprint("first_follower", self.follower_list),
             list_fingerprint(self.recommend_list),
-            ("first_recommend", first_recommend.address if first_recommend is not None else 0),
+            first_object_fingerprint("first_recommend", self.recommend_list),
             self.last_checked_time,
             self.follower_num,
         )

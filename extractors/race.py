@@ -9,7 +9,8 @@ from ctypes_utils import C_Ptr
 from game_structs.race import RaceInfoObject, RaceManagerStaticFields
 from json_encoders.race import decode_race_info
 from logger import logger
-from .common import ExtractorContext, ExtractorFingerprint, pointer_fingerprint, safe_filename_component
+from .common import (ExtractorContext, ExtractorFingerprint, safe_filename_component,
+                     validated_object_pointer_fingerprint)
 
 
 @dataclass(frozen=True)
@@ -26,10 +27,9 @@ class RaceInfoReplayExtractionData:
     race_horse_trained_chara_pointers: tuple[tuple[int, int], ...]
 
     def fingerprint(self) -> ExtractorFingerprint:
-        _ = self.race_info.contents.fields
         return (
             "race_info_replay",
-            pointer_fingerprint(self.race_info),
+            validated_object_pointer_fingerprint(self.race_info),
             self.race_type,
             self.random_seed,
             self.race_horse_trained_chara_pointers,

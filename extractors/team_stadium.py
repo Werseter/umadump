@@ -11,7 +11,7 @@ from game_structs.team_stadium import TeamStadiumRaceResultObject
 from game_structs.work_data_manager import WorkDataManagerObject
 from json_encoders.team_stadium import decode_team_stadium_replay
 from logger import logger
-from .common import ExtractorContext, ExtractorFingerprint, array_fingerprint, first
+from .common import ExtractorContext, ExtractorFingerprint, array_fingerprint, first_object_fingerprint
 from .race import RaceReplayOutput
 
 
@@ -25,14 +25,11 @@ class TeamStadiumReplayExtractionData:
     support_card_bonus: int
 
     def fingerprint(self) -> ExtractorFingerprint:
-        first_race_result = first(result for result in self.race_result_array if result)
-        if first_race_result is not None:
-            _ = first_race_result.contents.fields
         return (
             "team_stadium_replay",
             array_fingerprint(self.use_item_id_array),
             array_fingerprint(self.race_result_array),
-            ("first_race_result", first_race_result.address if first_race_result is not None else 0),
+            first_object_fingerprint("first_race_result", self.race_result_array),
             self.opponent_evaluate,
         )
 

@@ -9,7 +9,7 @@ from game_structs.honors import WorkHonorDataHonorObject
 from game_structs.work_data_manager import WorkDataManagerObject
 from json_encoders.honors import decode_honor_list
 from logger import logger
-from .common import ExtractorContext, ExtractorFingerprint, first, list_fingerprint
+from .common import ExtractorContext, ExtractorFingerprint, first_object_fingerprint, list_fingerprint
 
 
 @dataclass(frozen=True)
@@ -18,13 +18,10 @@ class HonorListExtractionData:
     last_checked_time: int
 
     def fingerprint(self) -> ExtractorFingerprint:
-        first_honor = first(honor for honor in self.honor_list if honor)
-        if first_honor is not None:
-            _ = first_honor.contents.fields
         return (
             "honor_list",
             list_fingerprint(self.honor_list),
-            ("first_honor", first_honor.address if first_honor is not None else 0),
+            first_object_fingerprint("first_honor", self.honor_list),
             self.last_checked_time,
         )
 

@@ -8,7 +8,7 @@ from game_structs.trained_chara import FavoriteDataDictionaryEntry, TrainedChara
 from game_structs.work_data_manager import WorkDataManagerObject
 from json_encoders.trained_chara import decode_trained_chara_dictionary
 from logger import logger
-from .common import ExtractorContext, ExtractorFingerprint, dictionary_fingerprint, first
+from .common import ExtractorContext, ExtractorFingerprint, dictionary_fingerprint, first_object_fingerprint
 
 
 @dataclass(frozen=True)
@@ -17,18 +17,12 @@ class TrainedCharaExtractionData:
     favorite_entries: GenericDictionary[FavoriteDataDictionaryEntry]
 
     def fingerprint(self) -> ExtractorFingerprint:
-        first_entry = first(entry for entry in self.entries if entry.value)
-        first_favorite_entry = first(entry for entry in self.favorite_entries if entry.value)
-        if first_entry is not None:
-            _ = first_entry.value.contents.fields
-        if first_favorite_entry is not None:
-            _ = first_favorite_entry.value.contents.fields
         return (
             "trained_chara_data",
             dictionary_fingerprint(self.entries),
-            ("first_entry", first_entry.value.address if first_entry is not None else 0),
+            first_object_fingerprint("first_entry", (entry.value for entry in self.entries)),
             dictionary_fingerprint(self.favorite_entries),
-            ("first_entry", first_favorite_entry.value.address if first_favorite_entry is not None else 0),
+            first_object_fingerprint("first_entry", (entry.value for entry in self.favorite_entries)),
         )
 
 

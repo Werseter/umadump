@@ -10,7 +10,8 @@ from game_structs.trophies import TrophyDataCharaIdListDictionaryEntry, TrophyDa
 from game_structs.work_data_manager import WorkDataManagerObject
 from json_encoders.trophies import decode_trophy_data
 from logger import logger
-from .common import ExtractorContext, ExtractorFingerprint, dictionary_fingerprint, first, list_fingerprint
+from .common import (ExtractorContext, ExtractorFingerprint, dictionary_fingerprint, first, first_object,
+                     list_fingerprint)
 
 
 @dataclass(frozen=True)
@@ -18,14 +19,14 @@ class TrophyDataExtractionData:
     entries: GenericDictionary[TrophyDataDictionaryEntry]
 
     def _first_trophy_entry_probe(self) -> ExtractorFingerprint:
-        entry = first(entry for entry in self.entries if entry.value)
-        if entry is None:
+        trophy = first_object(entry.value for entry in self.entries)
+        if trophy is None:
             return "first_trophy", 0
 
-        f = entry.value.contents.fields
+        f = trophy.contents.fields
         return (
             "first_trophy",
-            entry.value.address,
+            trophy.address,
             self._trophy_chara_id_list_probe(f.charaIdList),
             self._trophy_race_chara_data_dic_probe(f.raceCharaDataDic),
         )
@@ -49,28 +50,27 @@ class TrophyDataExtractionData:
         if not race_chara_data_dic:
             return "race_chara_data_dic", 0
         race_entries = race_chara_data_dic.contents
-        first_race_entry = first(entry for entry in race_entries if entry.value)
-        if first_race_entry is None:
+        first_race = first_object(entry.value for entry in race_entries)
+        if first_race is None:
             return "race_chara_data_dic", dictionary_fingerprint(race_entries), ("first_race", 0)
 
-        chara_entries = first_race_entry.value.contents
-        first_chara_entry = first(entry for entry in chara_entries if entry.value)
-        if first_chara_entry is None:
+        chara_entries = first_race.contents
+        first_chara = first_object(entry.value for entry in chara_entries)
+        if first_chara is None:
             return (
                 "race_chara_data_dic",
                 dictionary_fingerprint(race_entries),
-                ("first_race", first_race_entry.value.address),
+                ("first_race", first_race.address),
                 dictionary_fingerprint(chara_entries),
                 ("first_chara", 0),
             )
 
-        _ = first_chara_entry.value.contents.fields
         return (
             "race_chara_data_dic",
             dictionary_fingerprint(race_entries),
-            ("first_race", first_race_entry.value.address),
+            ("first_race", first_race.address),
             dictionary_fingerprint(chara_entries),
-            ("first_chara", first_chara_entry.value.address),
+            ("first_chara", first_chara.address),
         )
 
     def fingerprint(self) -> ExtractorFingerprint:

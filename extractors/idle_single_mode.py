@@ -11,7 +11,8 @@ from game_structs.work_data_manager import WorkDataManagerObject
 from json_encoders.common import timestamp_to_str
 from json_encoders.idle_single_mode import decode_idle_single_mode
 from logger import logger
-from .common import ExtractorContext, ExtractorFingerprint, pointer_fingerprint, safe_filename_component
+from .common import (ExtractorContext, ExtractorFingerprint, safe_filename_component,
+                     validated_object_pointer_fingerprint)
 
 
 @dataclass(frozen=True)
@@ -30,20 +31,14 @@ class IdleSingleModeExtractionData:
     finalized_chara_info: C_Ptr[SingleModeCharaObject]
 
     def fingerprint(self) -> ExtractorFingerprint:
-        if self.chara_info:
-            _ = self.chara_info.contents.fields
-        if self.progress_log_info:
-            _ = self.progress_log_info.contents.fields
-        if self.finalized_chara_info:
-            _ = self.finalized_chara_info.contents.fields
         return (
             "idle_single_mode",
             self.state,
-            pointer_fingerprint(self.chara_info),
+            validated_object_pointer_fingerprint(self.chara_info),
             self.start_time,
             self.end_time,
-            pointer_fingerprint(self.progress_log_info),
-            pointer_fingerprint(self.finalized_chara_info),
+            validated_object_pointer_fingerprint(self.progress_log_info),
+            validated_object_pointer_fingerprint(self.finalized_chara_info),
         )
 
 
