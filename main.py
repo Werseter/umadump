@@ -21,6 +21,7 @@ from ctypes_utils import C_Ptr, StructOrSimple
 from extractors.cards import extract_card_data, extract_support_cards, resolve_card_data, resolve_support_cards
 from extractors.common import ExtractorFingerprint, FingerprintableExtractionData
 from extractors.friends import extract_friend_data, resolve_friend_data
+from extractors.gallery import extract_event_gallery, resolve_event_gallery
 from extractors.honors import extract_honor_list, resolve_honor_list
 from extractors.idle_single_mode import (IdleSingleModeOutput, extract_idle_single_mode, idle_single_mode_output_key,
                                          resolve_idle_single_mode_data)
@@ -472,6 +473,12 @@ EXTRACTORS: tuple[Extractor[Any, Any, Any], ...] = (
             output_path=Path("trophy_data.json"),
             resolve=resolve_trophy_data,
             extract=extract_trophy_data,
+    ),
+    Extractor(
+            name="event_gallery_data",
+            output_path=Path("event_data.json"),
+            resolve=resolve_event_gallery,
+            extract=extract_event_gallery,
     ),
     Extractor(
             name="team_stadium_replay",
