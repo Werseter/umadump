@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from ctypes import c_int32, c_uint16
 
-from ctypes_utils import CStructureDataclass, C_Int, C_Ptr
+from ctypes_utils import CStructureDataclass, C_Int, C_Ptr, PointerWrapperMixin
 from il2cpp_structs import RuntimeIl2CppObject
 
 
@@ -20,21 +20,30 @@ class SystemStringObject(CStructureDataclass):
     fields: SystemStringFields
 
 
-class SystemStringObjectPtr(CStructureDataclass):
+class SystemStringObjectPtr(PointerWrapperMixin, CStructureDataclass):
     """Pointer wrapper for ``System.String`` with UTF-16 decoding helper."""
 
-    inner_ptr: C_Ptr[SystemStringObject]
+    _inner_ptr: C_Ptr[SystemStringObject]
+
+    @property
+    def address(self) -> int:
+        return self._inner_ptr.address
 
     @property
     def value(self) -> str:
         """Decode managed ``System.String`` contents into a Python ``str``."""
 
-        if not self.inner_ptr:
+        if not self._inner_ptr:
             raise ValueError("Cannot get string from null SystemStringObject pointer")
-        length = self.inner_ptr.contents.fields.stringLength
+        length = self._inner_ptr.contents.fields.stringLength
         if length <= 0:
             return ''
-        chars_ptr = (int(self.inner_ptr) + int(getattr(SystemStringObject, 'fields').offset)
+        chars_ptr = (int(self._inner_ptr) + int(getattr(SystemStringObject, 'fields').offset)
                      + int(getattr(SystemStringFields, 'firstChar').offset))
         chars_array_ptr = C_Ptr[c_uint16](chars_ptr)
         return ''.join(chr(x.value) for x in chars_array_ptr.as_span(length))
+
+    def value_or(self, default: str = '') -> str:
+        """Decode the managed string or return ``default`` for a null pointer."""
+
+        return self.value if self._inner_ptr else default

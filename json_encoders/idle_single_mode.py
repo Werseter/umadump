@@ -147,7 +147,7 @@ def _decode_single_mode_chara(chara: SingleModeCharaObject) -> dict[str, Any]:
         "playing_state": f.playing_state,
         "scenario_id": f.scenario_id,
         "route_id": f.route_id,
-        "start_time": f.start_time.value if f.start_time.inner_ptr else "",
+        "start_time": f.start_time.value_or(),
         "evaluation_info_array": [_decode_evaluation_info_entry(e.contents) for e in f.evaluation_info_array],
         "training_level_info_array": [
             _decode_training_level_info_entry(t.contents) for t in f.training_level_info_array],

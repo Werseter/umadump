@@ -598,6 +598,24 @@ def set_pointer_reader(reader: Optional[PointerReader]) -> None:
     RemappablePointerValue.set_reader(reader)
 
 
+class PointerWrapperMixin:
+    """Address-only operations for structures containing a private pointer.
+
+    Truthiness means pointer presence, including non-null empty strings/arrays.
+    These operations never dereference the target.
+    """
+
+    @property
+    def address(self) -> int:
+        raise NotImplementedError
+
+    def __bool__(self) -> bool:
+        return self.address != 0
+
+    def __int__(self) -> int:
+        return self.address
+
+
 class Span[TSpan: StructOrSimple]:
     """Lightweight view over a pointer and element count."""
 

@@ -32,7 +32,7 @@ class ExtractorContext(Protocol):
 
 def dictionary_fingerprint[T: StructOrSimple](dictionary: GenericDictionary[T]) -> ExtractorFingerprint:
     fields = dictionary.fields
-    return "dict", fields.entries.inner_ptr.address, fields.count, fields.version
+    return "dict", fields.entries.address, fields.count, fields.version
 
 
 def dictionary_pointer_fingerprint[T: StructOrSimple](dictionary: C_Ptr[GenericDictionary[T]]) -> ExtractorFingerprint:
@@ -43,7 +43,7 @@ def dictionary_pointer_fingerprint[T: StructOrSimple](dictionary: C_Ptr[GenericD
 
 def list_fingerprint[T: StructOrSimple](items: GenericList[T]) -> ExtractorFingerprint:
     fields = items.fields
-    return "list", fields.items.inner_ptr.address, fields.size, fields.version
+    return "list", fields.items.address, fields.size, fields.version
 
 
 def list_pointer_fingerprint[T: StructOrSimple](items: C_Ptr[GenericList[T]]) -> ExtractorFingerprint:
@@ -62,9 +62,9 @@ def object_list_fingerprint[T: StructOrSimple](name: str, items: C_Ptr[GenericLi
 
 
 def array_fingerprint[T: StructOrSimple](items: GenericArrayPtr[T]) -> ExtractorFingerprint:
-    if not items.inner_ptr:
+    if not items:
         return "array", 0, 0
-    return "array", items.inner_ptr.address, items.inner_ptr.contents.max_length
+    return "array", items.address, len(items)
 
 
 def object_array_fingerprint[T: StructOrSimple](name: str, items: GenericArrayPtr[C_Ptr[T]]) -> ExtractorFingerprint:

@@ -49,7 +49,7 @@ def resolve_race_info_replay_extraction_data(
         return None
     race_info = race_manager_static.raceInfo.contents
     f = race_info.fields
-    if not f.simDataBase64.inner_ptr:
+    if not f.simDataBase64:
         logger.debug("RaceInfo replay data is not ready: simDataBase64 is null")
         return None
     race_horse_trained_chara_pointers = _race_horse_trained_chara_pointer_signature(race_info)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from ctypes import c_bool, c_int32, c_int64, c_uint64, c_uint8
 
-from ctypes_utils import CStructureDataclass, C_Int, C_Ptr
+from ctypes_utils import CStructureDataclass, C_Int, C_Ptr, PointerWrapperMixin
 from game_structs.collections import GenericArrayPtr
 from game_structs.strings import SystemStringObjectPtr
 from il2cpp_structs import RuntimeIl2CppObject
@@ -82,13 +82,22 @@ class ObscuredString(CStructureDataclass):
         return dec_str.rstrip('\x00')  # strip null terminator if present
 
 
-class ObscuredStringPtr(CStructureDataclass):
+class ObscuredStringPtr(PointerWrapperMixin, CStructureDataclass):
     """Pointer wrapper for ``ObscuredString`` with integrated null check"""
 
-    inner_ptr: C_Ptr[ObscuredString]
+    _inner_ptr: C_Ptr[ObscuredString]
+
+    @property
+    def address(self) -> int:
+        return self._inner_ptr.address
 
     @property
     def value(self) -> str:
-        if not self.inner_ptr:
+        if not self._inner_ptr:
             raise ValueError("Cannot get string from null ObscuredString pointer")
-        return self.inner_ptr.contents.value
+        return self._inner_ptr.contents.value
+
+    def value_or(self, default: str = '') -> str:
+        """Decode the obscured string or return ``default`` for a null pointer."""
+
+        return self.value if self._inner_ptr else default
