@@ -5,7 +5,7 @@ Low-level ctypes infrastructure for Il2Cpp struct definitions.
 Contains no Il2Cpp-specific types — only the generic building blocks used by
 both il2cpp_structs (struct definitions) and il2cpp_utils (resolution logic):
   - ExplicitStructure / StructOrSimple
-  - ArrayType, C_Int, C_Enum, C_EnumIn
+  - ArrayType, C_Bool, C_Int, C_Enum, C_EnumIn
   - RemappablePointerValue, set_pointer_reader, Span, C_Ptr, C_VoidPtr, C_UDeclPtr
   - CDataclassMeta, CStructureDataclassMeta, CStructureDataclass
 """
@@ -312,6 +312,7 @@ if TYPE_CHECKING:
     type StrArrayType[T, _L] = str
     type C_Int[X: StructOrSimple] = int
     type C_Float[X: StructOrSimple] = float
+    type C_Bool[X: StructOrSimple] = bool
     type C_Enum[E: SafeIntEnum] = E
     type C_EnumIn[E: SafeIntEnum, S: StructOrSimple] = S
 else:
@@ -351,6 +352,15 @@ else:
 
         @classmethod
         def __class_getitem__[CDT: StructOrSimple](cls, item: type[CDT]) -> type[CDT]:
+            return item
+
+
+    # noinspection PyPep8Naming
+    class C_Bool:
+        """Runtime façade for ``c_bool`` fields exposed as Python ``bool``."""
+
+        @classmethod
+        def __class_getitem__(cls, item: type[c_bool]) -> type[c_bool]:
             return item
 
 

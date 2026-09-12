@@ -3,7 +3,7 @@ from __future__ import annotations
 from ctypes import c_bool, c_int32, c_int64
 from typing import Literal as L
 
-from ctypes_utils import ArrayType, CStructureDataclass, C_Enum, C_EnumIn, C_Int, C_Ptr, C_UDeclPtr
+from ctypes_utils import ArrayType, CStructureDataclass, C_Bool, C_Enum, C_EnumIn, C_Int, C_Ptr, C_UDeclPtr
 from game_structs.collections import GenericArrayPtr, GenericDictionary, GenericList
 from game_structs.enums import FavoriteType, FinalTrainingRank, SuccessionCharaPosition, TrainedCharaUseType
 from game_structs.obscured import ObscuredBool, ObscuredInt, ObscuredLong, ObscuredStringPtr
@@ -82,7 +82,7 @@ class SuccessionCharaDataFields(CStructureDataclass):
     factorDataArray: GenericArrayPtr[C_Ptr[FactorDataObject]]
     _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # omitted: sortedFactorList, sortedFactorListForProfileCard
     ownerViewerId: ObscuredLong
-    isPlayer: C_Int[c_bool]
+    isPlayer: C_Bool[c_bool]
     _ignored_2: C_UDeclPtr  # omitted: winSaddleArray
     winSaddleIdArray: GenericArrayPtr[ObscuredInt]
 

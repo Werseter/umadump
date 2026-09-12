@@ -59,7 +59,7 @@ def resolve_team_stadium_replay_extraction_data(wdm: WorkDataManagerObject) \
     return TeamStadiumReplayExtractionData(
             use_item_id_array=team_stadium_result.fields.useItemIdArray,
             race_result_array=team_stadium_result.fields.raceResultArray,
-            is_include_unsupported_race=bool(team_stadium_result.fields.isIncludeUnsupportedRace),
+            is_include_unsupported_race=team_stadium_result.fields.isIncludeUnsupportedRace,
             opponent_evaluate=team_stadium_opponent_data.fields.evaluationPoint.value,
             winning_reward_guarantee_status=team_stadium_opponent_data.fields.winningRewardGuaranteeStatus.value,
             support_card_bonus=support_card_bonus,

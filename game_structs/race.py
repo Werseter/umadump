@@ -3,7 +3,7 @@ from __future__ import annotations
 from ctypes import c_bool, c_float, c_int32, c_int64, c_uint32
 from typing import Literal as L
 
-from ctypes_utils import ArrayType, CStructureDataclass, C_Enum, C_Float, C_Int, C_Ptr, C_UDeclPtr
+from ctypes_utils import ArrayType, CStructureDataclass, C_Bool, C_Enum, C_Float, C_Int, C_Ptr, C_UDeclPtr
 from game_structs.collections import GenericArrayPtr
 from game_structs.enums import (BgSeason, CardRarity, CharaGradeType, CourseDistanceType, DefeatType, InitialLaneType,
                                 MainStoryRaceGimmickType, ProperGrade, RaceDifficulty, RaceGroundCondition,
@@ -194,8 +194,8 @@ class HorseDataFields(CStructureDataclass):
     gateInPopularity: C_Int[c_int32]
     rarity: C_Enum[CardRarity]
     trainerName: SystemStringObjectPtr
-    isGhost: C_Int[c_bool]
-    isRunningStyleExInitialized: C_Int[c_bool]
+    isGhost: C_Bool[c_bool]
+    isRunningStyleExInitialized: C_Bool[c_bool]
     runningStyleEx: C_Enum[RunningStyleEx]
     defeat: C_Enum[DefeatType]
     raceDressId: C_Int[c_int32]
@@ -247,10 +247,10 @@ class RaceCourseSetObject(CStructureDataclass):
 
 class RaceInfoFields(CStructureDataclass):
     raceType: C_Enum[RaceType]
-    isExistPlayerRace: C_Int[c_bool]
-    isExistGhostRace: C_Int[c_bool]
-    isExistFollowRace: C_Int[c_bool]
-    isMultiplePlayerRace: C_Int[c_bool]
+    isExistPlayerRace: C_Bool[c_bool]
+    isExistGhostRace: C_Bool[c_bool]
+    isExistFollowRace: C_Bool[c_bool]
+    isMultiplePlayerRace: C_Bool[c_bool]
     randomSeed: C_Int[c_int32]
     singleRaceProgramId: C_Int[c_int32]
     opponentEvaluate: C_Int[c_int32]
@@ -268,8 +268,8 @@ class RaceInfoFields(CStructureDataclass):
     courseSectionDistance: C_Float[c_float]
     courseDistanceType: C_Enum[CourseDistanceType]
     courseFurlongNum: C_Int[c_int32]
-    isHalfGate: C_Int[c_bool]
-    isHorseNumVariationGate: C_Int[c_bool]
+    isHalfGate: C_Bool[c_bool]
+    isHorseNumVariationGate: C_Bool[c_bool]
     turfVisionType: C_Enum[TurfVisionType]
     groundCondition: C_Enum[RaceGroundCondition]
     weather: C_Enum[RaceWeather]
@@ -284,21 +284,21 @@ class RaceInfoFields(CStructureDataclass):
     overridePlayerHorseIndex: C_Int[c_int32]
     playerTeamMemberArray: GenericArrayPtr[C_Ptr[HorseDataObject]]
     playerTeamTopFinishOrderHorse: C_Ptr[HorseDataObject]
-    isGateInPopularityInitialized: C_Int[c_bool]
+    isGateInPopularityInitialized: C_Bool[c_bool]
     raceHorse: GenericArrayPtr[C_Ptr[HorseDataObject]]
     _ignored_2: ArrayType[C_UDeclPtr, L[3]]  # omitted: raceBibMaster, raceMaster, raceInstanceMaster
     simDataBase64: SystemStringObjectPtr
     _ignored_3: ArrayType[C_UDeclPtr, L[2]]  # omitted: simData, simReader
     episodeRaceReplayId: C_Int[c_int32]
-    isNotSimulateExport: C_Int[c_bool]
+    isNotSimulateExport: C_Bool[c_bool]
     laneDistanceMax: C_Float[c_float]
     _ignored_4: ArrayType[C_UDeclPtr, L[3]]  # omitted: replayCheckInfo, replayCheckInfoDaily, replayCheckInfoLegend
-    isDailyLegendRace: C_Int[c_bool]
+    isDailyLegendRace: C_Bool[c_bool]
     _ignored_5: ArrayType[C_UDeclPtr, L[2]]  # omitted: replayCheckInfoChallengeMatch, raceRewardSingle
     resultHorseIndex: C_Int[c_int32]
     prevGradeType: C_Enum[CharaGradeType]
     mainStoryRaceGimmickType: C_Enum[MainStoryRaceGimmickType]
-    isMainStoryRaceMatchGimmick: C_Int[c_bool]
+    isMainStoryRaceMatchGimmick: C_Bool[c_bool]
     unlockFlags: C_Int[c_uint32]
     _ignored_6: C_UDeclPtr  # omitted: phaseCalculator
     horseIndexByFinishOrder: GenericArrayPtr[c_int32]
@@ -330,7 +330,7 @@ class RaceManagerObject(CStructureDataclass):
 
 
 class RaceManagerSingletonStaticFields(CStructureDataclass):
-    _isApplicationQuit: C_Int[c_bool]
+    _isApplicationQuit: C_Bool[c_bool]
     _instance: C_Ptr[RaceManagerObject]
     _parentObject: C_UDeclPtr
 

@@ -216,7 +216,7 @@ def _decode_raw_succession_chara_data(entry: SuccessionCharaDataObject) -> dict[
         "sortedFactorList": [],
         "sortedFactorListForProfileCard": [],
         "ownerViewerId": f.ownerViewerId.value,
-        "isPlayer": bool(f.isPlayer),
+        "isPlayer": f.isPlayer,
         "winSaddleArray": [],
         "winSaddleIdArray": [item.value for item in f.winSaddleIdArray],
     }

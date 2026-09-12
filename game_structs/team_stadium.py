@@ -3,7 +3,7 @@ from __future__ import annotations
 from ctypes import c_bool, c_int32, c_int64
 from typing import Literal as L
 
-from ctypes_utils import ArrayType, CStructureDataclass, C_Enum, C_Int, C_Ptr, C_UDeclPtr
+from ctypes_utils import ArrayType, CStructureDataclass, C_Bool, C_Enum, C_Int, C_Ptr, C_UDeclPtr
 from game_structs.collections import GenericArrayPtr
 from game_structs.enums import RoundResultType
 from game_structs.obscured import ObscuredInt, ObscuredLong, ObscuredStringPtr
@@ -136,7 +136,7 @@ class TeamStadiumRaceResultObject(CStructureDataclass):
 class TeamStadiumResultFields(CStructureDataclass):
     useItemIdArray: GenericArrayPtr[c_int32]
     raceResultArray: GenericArrayPtr[C_Ptr[TeamStadiumRaceResultObject]]
-    isIncludeUnsupportedRace: C_Int[c_bool]
+    isIncludeUnsupportedRace: C_Bool[c_bool]
     _ignored_1: C_UDeclPtr  # omitted: winningRewardInfoArray
 
 
