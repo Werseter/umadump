@@ -254,30 +254,6 @@ class EnumStorageManager:
         return materialized
 
 
-if TYPE_CHECKING:
-    # Direct fields read as their semantic enum.  Embedded fields retain the
-    # exposed type of their enclosing value type (for example ``ObscuredInt``).
-    type C_Enum[E: SafeIntEnum] = E
-    type C_EnumIn[E: SafeIntEnum, S: StructOrSimple] = S
-else:
-    # Runtime counterparts deliberately follow the existing integrator-wrapper
-    # pattern: subscription materializes the real ctypes field type.  They do
-    # not inherit from ``SafeIntEnum`` or the storage type.
-    # noinspection PyPep8Naming
-    class C_Enum:
-        @classmethod
-        def __class_getitem__(cls, enum_cls: type[SafeIntEnum]) -> EnumStorageType:
-            return EnumStorageManager.direct_field_type_for(enum_cls)
-
-
-    # noinspection PyPep8Naming
-    class C_EnumIn:
-        @classmethod
-        def __class_getitem__[S: StructOrSimple](cls, item: tuple[type[SafeIntEnum], type[S]]) -> type[S]:
-            enum_cls, storage_type = item
-            return EnumStorageManager.embedded_field_type_for(enum_cls, storage_type)
-
-
 class CDataclassMeta(type):
     """
     Metaclass that auto-applies @dataclass(init=False) and builds ctypes _fields_.
@@ -328,64 +304,73 @@ class CStructureDataclass(ExplicitStructure, metaclass=CStructureDataclassMeta):
     __ctypes_enum_field_bindings__: ClassVar[dict[str, EnumFieldBinding]] = {}
 
 
-class ArrayType[T, _L](list[T]):
-    """Creates a fixed-length ctypes array type from ``ArrayType[element_type, L[count]]``."""
+if TYPE_CHECKING:
+    # ctypes fields expose these values as Python primitives.  The type aliases
+    # provide that access contract while their runtime facades below return the
+    # actual ctypes type required to construct the layout.
+    type ArrayType[T, _L] = Array[T]
+    type StrArrayType[T, _L] = str
+    type C_Int[X: StructOrSimple] = int
+    type C_Float[X: StructOrSimple] = float
+    type C_Enum[E: SafeIntEnum] = E
+    type C_EnumIn[E: SafeIntEnum, S: StructOrSimple] = S
+else:
+    class ArrayType:
+        """Create a fixed-length ctypes array from ``ArrayType[element_type, L[count]]``."""
 
-    @classmethod
-    def __class_getitem__[CDT: StructOrSimple](  # type: ignore[override]
-            cls, item: tuple[type[CDT], L]) -> type[Array[CDT]]:  # type: ignore[valid-type]
-        if TYPE_CHECKING:
-            return Array[CDT]  # type hinting only; never actually used at runtime
-        t, n = item  # ArrayType[SomeType, L[5]] → item == (SomeType, 5)
-        n = type_cast(int, get_args(n)[0])  # Extract the literal value (e.g. 5) from L[5]
-        if not n:
-            return c_void_p * 0  # Return a zero-length array type for L[0] to avoid invalid array sizes
-        return t * n
-
-
-class StrArrayType[T, _L](str):
-    """
-    Creates a fixed-length ctypes array type from ``ArrayType[element_type, L[count]]``,
-    exposes the final type as str instead of Array[T]
-    """
-
-    @classmethod
-    def __class_getitem__[CDT: StructOrSimple](
-            cls, item: tuple[type[CDT], L]) -> type[str]:  # type: ignore[valid-type]
-        if TYPE_CHECKING:
-            return str  # type hinting only; never actually used at runtime
-        t, n = item  # ArrayType[SomeType, L[5]] → item == (SomeType, 5)
-        n = type_cast(int, get_args(n)[0])  # Extract the literal value (e.g. 5) from L[5]
-        return t * n
+        @classmethod
+        def __class_getitem__[CDT: StructOrSimple](cls, item: tuple[type[CDT], L]) -> type[Array[CDT]]:
+            element_type, length = item
+            count = type_cast(int, get_args(length)[0])
+            if not count:
+                return c_void_p * 0
+            return element_type * count
 
 
-# noinspection PyPep8Naming
-class C_Int[CDT: StructOrSimple](int):
-    """
-    Wrapper for implicit runtime __ctypes_from_outparam__ conversion of c_int* types to
-    Python int on metadata struct fields.
-    """
+    class StrArrayType:
+        """Create a fixed-length ctypes array whose field reads as ``str``."""
 
-    @classmethod
-    def __class_getitem__(cls, item: type[CDT]) -> type[int]:
-        if TYPE_CHECKING:
-            return int  # type hinting only; never actually used at runtime
-        return item  # Just return the type itself (e.g. c_int32) for wrapper purposes
+        @classmethod
+        def __class_getitem__[CDT: StructOrSimple](cls, item: tuple[type[CDT], L]) -> type[Array[CDT]]:
+            element_type, length = item
+            return element_type * type_cast(int, get_args(length)[0])
 
 
-# noinspection PyPep8Naming
-class C_Float[CDT: StructOrSimple](float):
-    """
-    Wrapper for implicit runtime __ctypes_from_outparam__ conversion of c_float/c_double types to
-    Python float on metadata struct fields.
-    """
+    # noinspection PyPep8Naming
+    class C_Int:
+        """Runtime façade for ctypes integer fields exposed as Python ``int``."""
 
-    @classmethod
-    def __class_getitem__(cls, item: type[CDT]) -> type[float]:
-        if TYPE_CHECKING:
-            return float  # type hinting only; never actually used at runtime
-        return item  # Just return the type itself (e.g. c_float) for wrapper purposes
+        @classmethod
+        def __class_getitem__[CDT: StructOrSimple](cls, item: type[CDT]) -> type[CDT]:
+            return item
 
+
+    # noinspection PyPep8Naming
+    class C_Float:
+        """Runtime façade for ctypes float fields exposed as Python ``float``."""
+
+        @classmethod
+        def __class_getitem__[CDT: StructOrSimple](cls, item: type[CDT]) -> type[CDT]:
+            return item
+
+
+    # noinspection PyPep8Naming
+    class C_Enum:
+        """Runtime façade that materializes a ctypes scalar for an enum field."""
+
+        @classmethod
+        def __class_getitem__(cls, enum_cls: type[SafeIntEnum]) -> EnumStorageType:
+            return EnumStorageManager.direct_field_type_for(enum_cls)
+
+
+    # noinspection PyPep8Naming
+    class C_EnumIn:
+        """Runtime façade that preserves an enclosing enum carrier's layout."""
+
+        @classmethod
+        def __class_getitem__[S: StructOrSimple](cls, item: tuple[type[SafeIntEnum], type[S]]) -> type[S]:
+            enum_cls, storage_type = item
+            return EnumStorageManager.embedded_field_type_for(enum_cls, storage_type)
 
 PointerReader = Callable[[int, int], bytes]
 
