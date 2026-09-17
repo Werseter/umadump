@@ -5,15 +5,12 @@ from typing import Optional, TypeAlias
 
 from career_archive import CareerArchiveSnapshot, career_archive_descriptor
 from ctypes_utils import C_Ptr
-from game_structs.collections import GenericDictionary, GenericList
 from game_structs.enums import SingleModePlayingState, SingleModeScenarioId
 from game_structs.race import RaceInfoObject, SingleRaceStartInfoObject
 from game_structs.single_mode import (WorkSingleModeChangeParameterInfoObject, WorkSingleModeCharaDataObject,
-                                      WorkSingleModeCharaDataSuccessionFactorInfoObject, WorkSingleModeDataObject,
-                                      WorkSingleModeDataParamsIncDecInfoDictionaryEntry,
-                                      WorkSingleModeDataRaceStartResultInfoObject, WorkSingleModeDataTurnInfoObject,
-                                      WorkSingleModeHomeInfoObject, WorkSingleModeRaceDataObject,
-                                      WorkSingleModeScenarioFreeObject, WorkSingleModeScenarioLiveObject,
+                                      WorkSingleModeDataObject, WorkSingleModeDataRaceStartResultInfoObject,
+                                      WorkSingleModeHomeInfoObject, WorkSingleModeScenarioFreeObject,
+                                      WorkSingleModeScenarioLiveObject, WorkSingleModeScenarioLivePerformanceDataObject,
                                       WorkSingleModeScenarioTeamRaceObject)
 from game_structs.work_data_manager import WorkDataManagerObject
 from json_encoders.career import decode_career_data, decode_career_log
@@ -22,50 +19,15 @@ from .common import (ExtractorContext, ExtractorFingerprint, array_fingerprint, 
                      list_pointer_fingerprint, object_array_fingerprint, object_list_fingerprint,
                      object_pointer_fingerprint, pointer_fingerprint)
 
-ParamDeltaDictPtr: TypeAlias = C_Ptr[GenericDictionary[WorkSingleModeDataParamsIncDecInfoDictionaryEntry]]
-SuccessionFactorInfoObjectPtr: TypeAlias = C_Ptr[WorkSingleModeCharaDataSuccessionFactorInfoObject]
 ChangeParameterInfoObjectPtr: TypeAlias = C_Ptr[WorkSingleModeChangeParameterInfoObject]
-DataTurnInfoListPtr: TypeAlias = C_Ptr[GenericList[C_Ptr[WorkSingleModeDataTurnInfoObject]]]
+LivePerformancePtr: TypeAlias = C_Ptr[WorkSingleModeScenarioLivePerformanceDataObject]
 
 
-def _parameter_delta_dictionary_fingerprint(dictionary_ptr: ParamDeltaDictPtr) -> ExtractorFingerprint:
-    first_value: ExtractorFingerprint = "first", ("ptr", 0)
-    if dictionary_ptr and (entry := dictionary_ptr.contents.first()) is not None:
-        first_value = object_pointer_fingerprint("first", entry.value)
-    return "parameter_deltas", dictionary_pointer_fingerprint(dictionary_ptr), first_value
-
-
-def _career_succession_factor_fingerprint(value: SuccessionFactorInfoObjectPtr) -> ExtractorFingerprint:
+def _live_performance_fingerprint(name: str, value: LivePerformancePtr) -> ExtractorFingerprint:
     if not value:
-        return "succession_factor", pointer_fingerprint(value)
-    fields = value.contents.fields
-    if fields.infoList and (first_info := fields.infoList.contents.first()) is not None and first_info:
-        first_info_fields = first_info.contents.fields
-        factor_ids_fingerprint = "factor_ids", list_pointer_fingerprint(first_info_fields.factorIdList)
-    else:
-        factor_ids_fingerprint = "factor_ids", ("list", 0, 0, 0)
-    return (
-        "succession_factor",
-        pointer_fingerprint(value),
-        object_list_fingerprint("factor_info", fields.infoList),
-        factor_ids_fingerprint,
-    )
-
-
-def _career_lottery_program_fingerprint(value: C_Ptr[WorkSingleModeRaceDataObject]) -> ExtractorFingerprint:
-    if not value:
-        return "lottery_programs", pointer_fingerprint(value)
-    lottery_program_data_dict = value.contents.fields.lotteryProgramDataDict
-    if lottery_program_data_dict and (first_entry := lottery_program_data_dict.contents.first()) is not None:
-        program_list_fingerprint = object_list_fingerprint("programs", first_entry.value)
-    else:
-        program_list_fingerprint = "programs", ("list", 0, 0, 0), ("first", ("ptr", 0))
-    return (
-        "lottery_programs",
-        pointer_fingerprint(value),
-        dictionary_pointer_fingerprint(lottery_program_data_dict),
-        program_list_fingerprint,
-    )
+        return name, 0
+    f = value.contents.fields
+    return name, value.address, f.dance.value, f.passion.value, f.vocal.value, f.visual.value, f.mental.value
 
 
 def _career_live_change_parameter_fingerprint(value: ChangeParameterInfoObjectPtr) -> ExtractorFingerprint:
@@ -75,8 +37,8 @@ def _career_live_change_parameter_fingerprint(value: ChangeParameterInfoObjectPt
     return (
         "change_parameter",
         pointer_fingerprint(value),
-        object_pointer_fingerprint("performance", fields.performance),
-        object_pointer_fingerprint("performance_max", fields.performanceMax),
+        _live_performance_fingerprint("performance", fields.performance),
+        _live_performance_fingerprint("performance_max", fields.performanceMax),
         ("limit_performance", list_pointer_fingerprint(fields.limitPerformanceTypeList)),
     )
 
@@ -88,16 +50,9 @@ def _career_live_state_fingerprint(value: C_Ptr[WorkSingleModeScenarioLiveObject
     return (
         "scenario_live",
         pointer_fingerprint(value),
-        object_pointer_fingerprint("performance", fields.performance),
-        object_pointer_fingerprint("performance_max", fields.performanceMax),
-        ("next_music", array_fingerprint(fields.nextMusicIdArray)),
-        ("total_music", array_fingerprint(fields.totalMusicIdArray)),
-        ("effected_music", array_fingerprint(fields.currentLiveBonusMusicIdArray)),
-        object_array_fingerprint("tree_squares", fields.treeSquareInfoArray),
-        ("reservedTreeSquareId", fields.reservedTreeSquareId),
-        object_array_fingerprint("training_bonus", fields.trainingBonusArray),
-        object_list_fingerprint("live_evaluations", fields.evaluationInfoList),
-        object_list_fingerprint("live_results", fields.liveResultList),
+        _live_performance_fingerprint("performance", fields.performance),
+        _live_performance_fingerprint("performance_max", fields.performanceMax),
+        ("reservedTreeSquareId", fields.reservedTreeSquareId.value),
     )
 
 
@@ -214,37 +169,12 @@ def _career_active_chara_collections_fingerprint(chara: WorkSingleModeCharaDataO
     fields = chara.fields
     return (
         "chara_collections",
-        object_pointer_fingerprint("succession_first", fields.successionTrainedCharaInfoFirst),
-        object_pointer_fingerprint("succession_second", fields.successionTrainedCharaInfoSecond),
         object_list_fingerprint("acquired_skills", fields.acquiredSkillList),
         ("disabled_skills", list_pointer_fingerprint(fields.disableSkillIdList)),
         object_list_fingerprint("skill_tips", fields.skillTipsList),
-        object_array_fingerprint("support_cards", fields.equipSupportCardArray),
-        dictionary_pointer_fingerprint(fields.trainingLevelDic),
         object_list_fingerprint("evaluations", fields.evaluationList),
         ("nicknames", array_fingerprint(fields.acquiredNickNameIdArray)),
         ("chara_effects", array_fingerprint(fields.charaEffectIdArray)),
-        ("route_races", array_fingerprint(fields.routeRaceIdArray)),
-    )
-
-
-def _career_turn_command_list_fingerprint(value: DataTurnInfoListPtr) -> ExtractorFingerprint:
-    if value and (first_command := value.contents.first()) is not None and first_command:
-        first_command_fields = first_command.contents.fields
-        parameter_deltas = _parameter_delta_dictionary_fingerprint(first_command_fields.paramIncDecInfoDic)
-        bonus_parameter_deltas = _parameter_delta_dictionary_fingerprint(first_command_fields.bonusParamIncDecInfoDic)
-        live_parameter_deltas = ("live_parameter_deltas",
-                                 dictionary_pointer_fingerprint(first_command_fields.livePerformanceIncDecInfoDic))
-    else:
-        parameter_deltas = "parameter_deltas", ("dict", 0, 0, 0), ("first", ("ptr", 0))
-        bonus_parameter_deltas = parameter_deltas
-        live_parameter_deltas = "live_parameter_deltas", ("dict", 0, 0, 0)
-    return (
-        "commands",
-        object_list_fingerprint("turn_info", value),
-        parameter_deltas,
-        ("bonus_parameter_deltas", bonus_parameter_deltas),
-        live_parameter_deltas,
     )
 
 
@@ -253,9 +183,9 @@ def _active_home_info_fingerprint(home_info: C_Ptr[WorkSingleModeHomeInfoObject]
         return "home_info", pointer_fingerprint(home_info)
     command_lists_dict = home_info.contents.fields.turnInfoListDic
     if command_lists_dict and (first_command_list := command_lists_dict.contents.first()) is not None:
-        command_list_fingerprint = _career_turn_command_list_fingerprint(first_command_list.value)
+        command_list_fingerprint = object_list_fingerprint("commands", first_command_list.value)
     else:
-        command_list_fingerprint = "commands", ("turn_info", ("list", 0, 0, 0), ("first", ("ptr", 0)))
+        command_list_fingerprint = "commands", ("list", 0, 0, 0), ("first", ("ptr", 0))
     return (
         "home_info",
         pointer_fingerprint(home_info),
@@ -416,11 +346,6 @@ class CareerDataExtractionData:
         return (
             "career_data",
             active_view,
-            object_list_fingerprint("race_conditions", fields.raceConditions),
-            object_list_fingerprint("race_history", fields.raceHistoryInfoList),
-            object_array_fingerprint("win_saddles", fields.winSaddleArray),
-            _career_succession_factor_fingerprint(chara_fields.successionFactor),
-            _career_lottery_program_fingerprint(chara_fields.race),
             _career_race_fingerprint(self.race_sources()),
             _career_pending_actions_fingerprint(career),
             _career_log_fingerprint(career),
