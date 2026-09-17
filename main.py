@@ -192,13 +192,11 @@ def resolve_singleton[TSingletonObject: StructOrSimple](
         logger.warning("No %s instantiation found", type_string)
         return None
 
-    logger.debug("Matched singleton generic instantiation at index %d", matched.seq)
     static_fields_type = spec.static_fields_type
     # noinspection PyTypeHints
     static_fields_ptr_type = C_Ptr[static_fields_type]  # type: ignore[valid-type]
     static_fields_ptr = static_fields_ptr_type(int(matched.class_ptr.contents.static_fields))
     if not static_fields_ptr:
-        logger.debug("%s singleton static fields are null", spec.name)
         return None
     # noinspection PyTypeChecker
     return type_cast(C_Ptr[TSingletonObject], static_fields_ptr.contents._instance)  # type: ignore[attr-defined]
@@ -233,6 +231,23 @@ class PreparedExtractorRun:
     extractor: Extractor[Any, Any, Any]
     extraction_data: FingerprintableExtractionData
     fingerprint: ExtractorFingerprint
+
+
+@dataclass
+class ExtractorPassSkips:
+    """Routine skipped extractors, reported once after a completed pass."""
+
+    unavailable: list[str] = field(default_factory=list)
+    unchanged: list[str] = field(default_factory=list)
+
+    def log(self) -> None:
+        groups = []
+        if self.unchanged:
+            groups.append(f"unchanged=[{', '.join(self.unchanged)}]")
+        if self.unavailable:
+            groups.append(f"unavailable=[{', '.join(self.unavailable)}]")
+        if groups:
+            logger.debug("Extractor pass skips: %s", "; ".join(groups))
 
 
 METADATA_HANDLE_MISMATCH_QUARANTINE_THRESHOLD = 3
@@ -291,7 +306,8 @@ class ExtractionContext:
 def _prepare_extractor_runs(
         extractors: tuple[Extractor[Any, Any, Any], ...],
         data: Any,
-        state: Optional[ExtractionRunState]) -> tuple[PreparedExtractorRun, ...]:
+        state: Optional[ExtractionRunState],
+        skips: Optional[ExtractorPassSkips] = None) -> tuple[PreparedExtractorRun, ...]:
     """Prepare one pass; transients defer it while persistent type mismatches are isolated."""
     prepared_runs: list[PreparedExtractorRun] = []
     for extractor in extractors:
@@ -300,7 +316,8 @@ def _prepare_extractor_runs(
             if maybe_extraction_data is None:
                 if state is not None:
                     state.clear_metadata_handle_mismatch(extractor.name)
-                logger.debug("%s: extraction data unavailable; skipping write", extractor.name)
+                if skips is not None:
+                    skips.unavailable.append(extractor.name)
                 continue
             extraction_data = type_cast(FingerprintableExtractionData, maybe_extraction_data)
             fingerprint = extraction_data.fingerprint()
@@ -327,7 +344,7 @@ def _prepare_extractor_runs(
             continue
         if state is not None:
             state.clear_metadata_handle_mismatch(extractor.name)
-        if _skip_unchanged_extractor(extractor.name, fingerprint, state):
+        if _skip_unchanged_extractor(extractor.name, fingerprint, state, skips):
             continue
         prepared_runs.append(PreparedExtractorRun(extractor, extraction_data, fingerprint))
     return tuple(prepared_runs)
@@ -382,10 +399,12 @@ def _run_extractor_run(prepared: PreparedExtractorRun, state: Optional[Extractio
 def _skip_unchanged_extractor(
         name: str,
         fingerprint: ExtractorFingerprint,
-        state: Optional[ExtractionRunState]) -> bool:
+        state: Optional[ExtractionRunState],
+        skips: Optional[ExtractorPassSkips] = None) -> bool:
     if state is None or state.should_run(name, fingerprint):
         return False
-    logger.debug("%s: extraction data unchanged; skipping extractor", name)
+    if skips is not None:
+        skips.unchanged.append(name)
     return True
 
 
@@ -602,8 +621,10 @@ def _dump_from_singleton_roots(
     """Run all extractors from already-resolved singleton roots and return elapsed seconds."""
     t_start = time.perf_counter()
     ctx = ExtractionContext(roots)
-    prepared_runs = _prepare_extractor_runs(EXTRACTORS, ctx, state)
+    skips = ExtractorPassSkips()
+    prepared_runs = _prepare_extractor_runs(EXTRACTORS, ctx, state, skips)
     _run_extractor_runs(prepared_runs, state)
+    skips.log()
     return time.perf_counter() - t_start
 
 
@@ -621,17 +642,10 @@ def _run_extractor_pass(
         resolver: Il2CppResolutionManager,
         singleton_index: dict[tuple[int, int], SingletonGenericClassMatch],
         roots: ResolvedSingletonRoots,
-        state: ExtractionRunState,
-        pass_num: int,
-        label: str,
-        log: Callable[..., None]) -> float:
+        state: ExtractionRunState) -> float:
     _prepare_memory_pass(mem)
     try:
-        if pass_num > 1:
-            log("Refreshing singleton roots before %s pass %d", label.lower(), pass_num)
         _refresh_live_singleton_roots(resolver, singleton_index, roots)
-
-        log("%s extractor pass %d", label, pass_num)
         return _dump_from_singleton_roots(roots, state)
     finally:
         _finish_memory_pass(mem)
@@ -687,8 +701,7 @@ def _run_live_reload_loop(
             logger.info("Target process has exited; stopping live reload")
             return
 
-        elapsed = _run_extractor_pass(
-                mem, resolver, singleton_index, roots, state, pass_num, "Reload", logger.info)
+        elapsed = _run_extractor_pass(mem, resolver, singleton_index, roots, state)
         logger.info("Reload extractor pass %d completed in %.2fs", pass_num, elapsed)
 
         try:
@@ -719,8 +732,7 @@ def _run_live_daemon_loop(
     poll_interval = max(0.1, float(poll_interval))
     logger.info("Daemon mode started; polling every %.2fs", poll_interval)
     while mem.is_alive():
-        elapsed = _run_extractor_pass(
-                mem, resolver, singleton_index, roots, state, pass_num, "Daemon", logger.debug)
+        elapsed = _run_extractor_pass(mem, resolver, singleton_index, roots, state)
         logger.debug("Daemon extractor pass %d completed in %.2fs", pass_num, elapsed)
 
         pass_num += 1
@@ -771,9 +783,7 @@ def main() -> None:
             elif rerun_mode == "prompt":
                 _run_live_reload_loop(setup.mem, resolver, singleton_index, roots, args.poll_interval)
             else:
-                elapsed = _run_extractor_pass(
-                        setup.mem, resolver, singleton_index, roots, ExtractionRunState(), 1,
-                        "Minidump" if args.minidump else "Live", logger.info)
+                elapsed = _run_extractor_pass(setup.mem, resolver, singleton_index, roots, ExtractionRunState())
                 logger.info("Extractor pass completed in %.2fs", elapsed)
         finally:
             logger.info("Total time: %.2fs", time.perf_counter() - t_start)
