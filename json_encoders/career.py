@@ -223,8 +223,7 @@ def _decode_active_home_info(entry: C_Ptr[WorkSingleModeHomeInfoObject],
     }
 
 
-def _decode_pending_event(entry: WorkSingleModeDataEventInfoObject,
-                          succession: WorkSingleModeDataSuccessionEventInfoObject | None = None) -> dict[str, Any]:
+def _decode_pending_event(entry: WorkSingleModeDataEventInfoObject) -> dict[str, Any]:
     f = entry.fields
     array_tuple = (f.selectIndexArray, f.receiveItemIdArray, f.targetRaceIdArray, f.gainSelectIdIndexArray,
                    f.selectIconArray)
@@ -233,11 +232,6 @@ def _decode_pending_event(entry: WorkSingleModeDataEventInfoObject,
          "gain_select_id_index": gain.value, "select_icon": icon.value}
         for index, item, race, gain, icon in zip(*array_tuple, strict=True)
     ]
-    succession_info = None
-    if succession:
-        succession_fields = succession.fields
-        if (succession_fields.eventId.value, succession_fields.charaId.value) == (f.eventId.value, f.charaId.value):
-            succession_info = {"effect_type": succession_fields.effectType.value}
     return {
         "event_id": f.eventId.value,
         "chara_id": f.charaId.value,
@@ -248,21 +242,45 @@ def _decode_pending_event(entry: WorkSingleModeDataEventInfoObject,
             "show_clear": f.contentsInfoShowClear.value,
             "show_clear_sort_id": f.contentsInfoShowClearSortId.value,
             "choice_array": choices,
-            "is_effected_multi_chara": f.isEffectedMultiChara.value,
             "tips_training_partner_id": f.tipsTrainingPartnerId.value or None,
         },
-        "succession_event_info": succession_info,
+        "succession_event_info": None,
+        "minigame_result": None,
+    }
+
+
+def _decode_pending_succession_event(succession: WorkSingleModeDataSuccessionEventInfoObject) -> dict[str, Any] | None:
+    """Build the synthetic event retained by WorkSingleModeData.
+
+    ``ApplySuccessionEventInfo`` copies only the event/chara/effect fields into
+    ``successionEventInfo``; it does not retain a ``SingleModeEventInfo``
+    """
+    f = succession.fields
+    return {
+        "event_id": f.eventId.value,
+        "chara_id": f.charaId.value,
+        "story_id": 400000040,
+        "play_timing": 1,
+        "event_contents_info": {
+            "support_card_id": 0,
+            "show_clear": 0,
+            "show_clear_sort_id": 0,
+            "choice_array": [],
+            "tips_training_partner_id": None,
+        },
+        "succession_event_info": {"effect_type": f.effectType.value},
         "minigame_result": None,
     }
 
 
 def _decode_pending_events(career: WorkSingleModeDataObject) -> list[dict[str, Any]]:
     queues = career.fields.storyInfoListDic
-    if not queues:
-        return []
-    succession = career.fields.successionEventInfo.contents if career.fields.successionEventInfo else None
-    return [_decode_pending_event(event.contents, succession) for queue in queues.contents if queue.value
-            for event in queue.value.contents if event]
+    succession_ptr = career.fields.successionEventInfo
+    events = ([_decode_pending_event(event.contents) for queue in queues.contents if queue.value
+               for event in queue.value.contents if event] if queues else [])
+    if succession_ptr and (synthetic := _decode_pending_succession_event(succession_ptr.contents)):
+        events.append(synthetic)
+    return events
 
 
 def _decode_reserved_races(chara: WorkSingleModeCharaDataObject) -> list[dict[str, Any]]:
