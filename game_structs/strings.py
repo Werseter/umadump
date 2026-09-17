@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ctypes import c_int32, c_uint16
+from typing import overload
 
 from ctypes_utils import CStructureDataclass, C_Int, C_Ptr, PointerWrapperMixin
 from il2cpp_structs import RuntimeIl2CppObject
@@ -43,7 +44,15 @@ class SystemStringObjectPtr(PointerWrapperMixin, CStructureDataclass):
         chars_array_ptr = C_Ptr[c_uint16](chars_ptr)
         return ''.join(chr(x.value) for x in chars_array_ptr.as_span(length))
 
+    @overload
     def value_or(self, default: str = '') -> str:
+        ...
+
+    @overload
+    def value_or(self, default: None) -> str | None:
+        ...
+
+    def value_or(self, default: str | None = '') -> str | None:
         """Decode the managed string or return ``default`` for a null pointer."""
 
         return self.value if self._inner_ptr else default

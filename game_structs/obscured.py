@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ctypes import c_bool, c_int32, c_int64, c_uint64, c_uint8
+from typing import overload
 
 from ctypes_utils import CStructureDataclass, C_Bool, C_Int, C_Ptr, PointerWrapperMixin
 from game_structs.collections import GenericArrayPtr
@@ -107,7 +108,15 @@ class ObscuredStringPtr(PointerWrapperMixin, CStructureDataclass):
             raise ValueError("Cannot get string from null ObscuredString pointer")
         return self._inner_ptr.contents.value
 
+    @overload
     def value_or(self, default: str = '') -> str:
+        ...
+
+    @overload
+    def value_or(self, default: None) -> str | None:
+        ...
+
+    def value_or(self, default: str | None = '') -> str | None:
         """Decode the obscured string or return ``default`` for a null pointer."""
 
         return self.value if self._inner_ptr else default
