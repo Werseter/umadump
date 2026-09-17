@@ -29,6 +29,7 @@ from extractors.idle_single_mode import (IdleSingleModeOutput, extract_idle_sing
                                          resolve_idle_single_mode_data)
 from extractors.race import (RaceReplayOutput, extract_race_info_replay, race_replay_output_key,
                              resolve_race_info_replay)
+from extractors.talk_gallery import extract_talk_gallery, resolve_talk_gallery
 from extractors.team_stadium import extract_team_stadium_replay, resolve_team_stadium_replay
 from extractors.trained_chara import extract_trained_chara_data, resolve_trained_chara_data
 from extractors.trophies import extract_trophy_data, resolve_trophy_data
@@ -500,6 +501,12 @@ EXTRACTORS: tuple[Extractor[Any, Any, Any], ...] = (
             output_path=Path("event_data.json"),
             resolve=resolve_event_gallery,
             extract=extract_event_gallery,
+    ),
+    Extractor(
+            name="talk_gallery_data",
+            output_path=Path("talk_gallery_data.json"),
+            resolve=resolve_talk_gallery,
+            extract=extract_talk_gallery,
     ),
     Extractor(
             name="team_stadium_replay",

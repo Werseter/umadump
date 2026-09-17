@@ -35,3 +35,47 @@ class WorkGalleryDataFields(CStructureDataclass):
 class WorkGalleryDataObject(CStructureDataclass):
     _il2cpp_obj: RuntimeIl2CppObject
     fields: WorkGalleryDataFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.WorkAlreadyReadData
+# ---------------------------------------------------------------------------
+
+class WorkAlreadyReadDataFields(CStructureDataclass):
+    readHomeStoryIdList: C_Ptr[GenericList[c_int32]]
+    _ignored_1: ArrayType[C_UDeclPtr, L[5]]  # omitted: readShortStoryIdList … readHomeBannerIdList
+
+
+@register_runtime_validatable('Gallop::WorkAlreadyReadData')
+class WorkAlreadyReadDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: WorkAlreadyReadDataFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.WorkTalkGalleryData.NewTriiger
+# ---------------------------------------------------------------------------
+
+class WorkTalkGalleryDataNewTriigerFields(CStructureDataclass):
+    id: C_Int[c_int32]
+    charaId: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::WorkTalkGalleryData.NewTriiger')
+class WorkTalkGalleryDataNewTriigerObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: WorkTalkGalleryDataNewTriigerFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.WorkTalkGalleryData
+# ---------------------------------------------------------------------------
+
+class WorkTalkGalleryDataFields(CStructureDataclass):
+    newInfoList: C_Ptr[GenericList[C_Ptr[WorkTalkGalleryDataNewTriigerObject]]]
+
+
+@register_runtime_validatable('Gallop::WorkTalkGalleryData')
+class WorkTalkGalleryDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: WorkTalkGalleryDataFields

@@ -5,7 +5,7 @@ from typing import Literal as L
 from ctypes_utils import ArrayType, CStructureDataclass, C_Ptr, C_UDeclPtr
 from game_structs.cards import WorkCardDataObject, WorkSupportCardDataObject
 from game_structs.friends import WorkFriendDataObject
-from game_structs.gallery import WorkGalleryDataObject
+from game_structs.gallery import WorkAlreadyReadDataObject, WorkGalleryDataObject, WorkTalkGalleryDataObject
 from game_structs.honors import WorkHonorDataObject
 from game_structs.idle_single_mode import WorkIdleSingleModeDataObject
 from game_structs.single_mode import WorkSingleModeDataObject
@@ -34,9 +34,12 @@ class WorkDataManagerFields(CStructureDataclass):
     teamStadiumData: C_Ptr[WorkTeamStadiumDataObject]
     _ignored_5: ArrayType[C_UDeclPtr, L[5]]  # omitted: directoryData … dailyLegendRaceData
     honorData: C_Ptr[WorkHonorDataObject]
-    _ignored_6: ArrayType[C_UDeclPtr, L[8]]  # omitted: limitedSalesData … challengeMatchData
+    _ignored_6: C_UDeclPtr  # omitted: limitedSalesData
+    alreadyReadData: C_Ptr[WorkAlreadyReadDataObject]
+    _ignored_7: ArrayType[C_UDeclPtr, L[6]]  # omitted: lastCheckTime … challengeMatchData
     galleryData: C_Ptr[WorkGalleryDataObject]
-    _ignored_7: ArrayType[C_UDeclPtr, L[16]]  # omitted: talkGalleryData … optionData
+    talkGalleryData: C_Ptr[WorkTalkGalleryDataObject]
+    _ignored_8: ArrayType[C_UDeclPtr, L[15]]  # omitted: roomMatchData … optionData
     idleSingleModeData: C_Ptr[WorkIdleSingleModeDataObject]
 
 
