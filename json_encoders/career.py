@@ -4,22 +4,23 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any, TYPE_CHECKING, TypeAlias
 
+from career_log import CareerLogEntry, CareerLogObservation
 from ctypes_utils import C_Ptr
 from game_structs.collections import GenericArrayPtr, GenericDictionary, GenericList
 from game_structs.enums import (SingleModeCommandType, SingleModeLiveGainParameterType, SingleModeParameterType,
-                                SingleModeScenarioId)
+                                SingleModePlayingState, SingleModeScenarioId)
 from game_structs.master_data import MasterSingleModeWinsSaddleSingleModeWinsSaddleObject
 from game_structs.obscured import ObscuredInt
 from game_structs.race import (CharaRaceRewardObject, RaceHorseDataObject, RaceHorseDataRaceResultObject,
                                RaceRewardDataObject, RaceRewardSetDataObject)
 from game_structs.single_mode import (EquipSupportCardObject, SingleModeFreeCommandInfoObject,
                                       SingleModeFreeItemEffectObject, SingleModeFreePickUpItemObject,
-                                      SingleModeFreeUserItemObject, SingleModeNpcTeamDataObject,
-                                      SingleModeRivalRaceInfoObject, SingleModeTeamEventEffectInfoObject,
-                                      SingleModeTeamFrameOrderObject, SingleModeTeamOpponentListObject,
-                                      SingleModeTeamRaceCharaResultObject, SingleModeTeamRaceHistoryObject,
-                                      SingleModeTeamRandomInfoObject, TeamSoulSkillDictionaryEntry,
-                                      WorkSingleModeCharaDataEvaluationObject,
+                                      SingleModeFreeUserItemObject, SingleModeLogSubstanceObject,
+                                      SingleModeNpcTeamDataObject, SingleModeRivalRaceInfoObject,
+                                      SingleModeTeamEventEffectInfoObject, SingleModeTeamFrameOrderObject,
+                                      SingleModeTeamOpponentListObject, SingleModeTeamRaceCharaResultObject,
+                                      SingleModeTeamRaceHistoryObject, SingleModeTeamRandomInfoObject,
+                                      TeamSoulSkillDictionaryEntry, WorkSingleModeCharaDataEvaluationObject,
                                       WorkSingleModeCharaDataGroupOutingInfoObject, WorkSingleModeCharaDataObject,
                                       WorkSingleModeCharaDataSkillTipsObject,
                                       WorkSingleModeCharaDataSuccessionFactorInfoObject,
@@ -1291,6 +1292,64 @@ def _decode_career_race_context(data: CareerDataExtractionData) -> dict[str, Any
             context["race_reward_info"] = reward
             context["prev_chara_grade"] = runtime.prevGradeType
     return context
+
+
+def _decode_log_substance(entry: SingleModeLogSubstanceObject) -> dict[str, Any]:
+    f = entry.fields
+    return {
+        "chara_id_array": [value.value for value in f.charaIdList.contents] if f.charaIdList else [],
+        "name": f.name.value_or(),
+        "text": f.text.value_or(),
+        "color_text": f.colorText.value_or(),
+        "type": {"value": f.logType, "name": f.logType.name},
+        "sheet_id": f.sheetId.value_or(),
+        "voice_index": f.voiceIndex,
+        "selector_label": f.selectorLabel.value_or(),
+        "sound_type": {"value": f.soundType, "name": f.soundType.name},
+        "is_result": f.isResult,
+        "force_set_mob_icon": f.forceSetMobIcon,
+        "analyze_result_icon_id": f.analyzeResultIconId,
+    }
+
+
+def decode_career_log(data: CareerDataExtractionData) -> CareerLogObservation | None:
+    fields = data.career.fields
+    if not (pool_ptr := fields.groupLogPool):
+        return None
+    pool = pool_ptr.contents.fields
+    if not pool.logGroupPool:
+        return None
+    entries: list[CareerLogEntry] = []
+    current_sequence: int | None = None
+    for group_ptr in pool.logGroupPool.contents:
+        if not group_ptr:
+            continue
+        group = group_ptr.contents.fields
+        if group_ptr.address == pool.currentGroup.address:
+            current_sequence = len(entries)
+        payload = {
+            "type": {"value": group.groupType, "name": group.groupType.name},
+            "event_title": group.eventTitle.value_or(),
+            "dress_id": group.dressId,
+            "gender_id": group.genderId,
+            "training_level": group.trainingLev,
+            "training_kind": group.trainingKind,
+            "support_card_id": group.supportCardId,
+            "talker_id": group.talkerId,
+        }
+        entries.append(CareerLogEntry(group_ptr.address, 0, payload, None))
+        if group.substList:
+            entries.extend(CareerLogEntry(group_ptr.address, ptr.address, payload, _decode_log_substance(ptr.contents))
+                           for ptr in group.substList.contents if ptr)
+    cursor = {
+        "turn": fields.totalTurnNum.value,
+        "playing_state": SingleModePlayingState(fields.playingState.value).name,
+        "current_group_window_index": current_sequence,
+        "event_contents_type": {"value": pool.currentEventInfoType, "name": pool.currentEventInfoType.name},
+        "event_title": pool.eventTitleName.value_or(),
+    }
+    return CareerLogObservation(pool_ptr.address, fields.totalTurnNum.value, fields.playingState.value,
+                                cursor, tuple(entries))
 
 
 def decode_career_data(data: CareerDataExtractionData) -> dict[str, Any]:

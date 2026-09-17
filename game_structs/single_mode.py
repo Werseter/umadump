@@ -6,9 +6,10 @@ from typing import Literal as L
 from ctypes_utils import ArrayType, CStructureDataclass, C_Bool, C_Enum, C_EnumIn, C_Int, C_Ptr, C_UDeclPtr
 from game_structs.collections import GenericArrayPtr, GenericDictionary, GenericList
 from game_structs.enums import (CharaGradeType, ProperGrade, RaceMotivation, RoundResultType, RunningStyle,
-                                SingleModeCommandType, SingleModeEventPlayTiming, SingleModeParameterType,
-                                SingleModePlayingState, SingleModeState, TeamEditFlag, TeamParameterRank,
-                                TrainingCommandId)
+                                SingleModeCommandType, SingleModeEventContentsInfoType, SingleModeEventPlayTiming,
+                                SingleModeLogGroupType, SingleModeParameterType, SingleModePlayingState,
+                                SingleModeState, StoryLogInfoSoundType, StoryLogInfoType, TeamEditFlag,
+                                TeamParameterRank, TrainingCommandId)
 from game_structs.master_data import MasterSingleModeWinsSaddleSingleModeWinsSaddleObject
 from game_structs.obscured import ObscuredBool, ObscuredInt, ObscuredLong, ObscuredStringPtr
 from game_structs.race import CharaRaceRewardObject, RaceHorseDataObject, SingleRaceStartInfoObject
@@ -1380,6 +1381,72 @@ class SingleModeFactorSelectCommonObject(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
+# Gallop.SingleModeLogPool.SingleModeLogPoolInfoSubstance
+# ---------------------------------------------------------------------------
+
+class SingleModeLogSubstanceFields(CStructureDataclass):
+    charaIdList: C_Ptr[GenericList[c_int32]]
+    name: SystemStringObjectPtr
+    text: SystemStringObjectPtr
+    colorText: SystemStringObjectPtr
+    logType: C_Enum[StoryLogInfoType]
+    sheetId: SystemStringObjectPtr
+    voiceIndex: C_Int[c_int32]
+    selectorLabel: SystemStringObjectPtr
+    soundType: C_Enum[StoryLogInfoSoundType]
+    isResult: C_Bool[c_bool]
+    forceSetMobIcon: C_Bool[c_bool]
+    analyzeResultIconId: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::SingleModeLogPool.SingleModeLogPoolInfoSubstance')
+class SingleModeLogSubstanceObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeLogSubstanceFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleModeLogPool.SingleModeLogPoolInfoGroup
+# ---------------------------------------------------------------------------
+
+class SingleModeLogGroupFields(CStructureDataclass):
+    groupType: C_Enum[SingleModeLogGroupType]
+    eventTitle: SystemStringObjectPtr
+    dressId: C_Int[c_int32]
+    genderId: C_Int[c_int32]
+    trainingLev: C_Int[c_int32]
+    trainingKind: C_Int[c_int32]
+    supportCardId: C_Int[c_int32]
+    talkerId: C_Int[c_int32]
+    substList: C_Ptr[GenericList[C_Ptr[SingleModeLogSubstanceObject]]]
+
+
+@register_runtime_validatable('Gallop::SingleModeLogPool.SingleModeLogPoolInfoGroup')
+class SingleModeLogGroupObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeLogGroupFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleModeLogPool
+# ---------------------------------------------------------------------------
+
+class SingleModeLogPoolFields(CStructureDataclass):
+    logGroupPool: C_Ptr[GenericList[C_Ptr[SingleModeLogGroupObject]]]
+    currentGroup: C_Ptr[SingleModeLogGroupObject]
+    currentEventInfoType: C_Enum[SingleModeEventContentsInfoType]
+    eventTitleName: SystemStringObjectPtr
+    _ignored_1: c_bool  # omitted: privateForceMergeTextToPrev
+    _ignored_2: C_UDeclPtr  # omitted: tmpStrBuild
+
+
+@register_runtime_validatable('Gallop::SingleModeLogPool')
+class SingleModeLogPoolObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeLogPoolFields
+
+
+# ---------------------------------------------------------------------------
 # Gallop.WorkSingleModeData
 # ---------------------------------------------------------------------------
 
@@ -1398,7 +1465,7 @@ class WorkSingleModeDataFields(CStructureDataclass):
     changeParameterInfo: C_Ptr[WorkSingleModeChangeParameterInfoObject]
     raceHistoryInfoList: C_Ptr[GenericList[C_Ptr[RaceHistoryInfoObject]]]
     winSaddleArray: GenericArrayPtr[C_Ptr[MasterSingleModeWinsSaddleSingleModeWinsSaddleObject]]
-    groupLogPool: C_UDeclPtr
+    groupLogPool: C_Ptr[SingleModeLogPoolObject]
     _ignored_4: ArrayType[ObscuredBool, L[4]]  # omitted: isStepTurn … isForceChangeViewMonthStartView
     _ignored_5: ArrayType[ObscuredInt, L[2]]  # omitted: selectedTrainingCommandId, rentalCount
     _ignored_6: ObscuredLong  # omitted: prevFreeRentalTime

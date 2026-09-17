@@ -16,7 +16,7 @@ from game_structs.single_mode import (WorkSingleModeChangeParameterInfoObject, W
                                       WorkSingleModeScenarioFreeObject, WorkSingleModeScenarioLiveObject,
                                       WorkSingleModeScenarioTeamRaceObject)
 from game_structs.work_data_manager import WorkDataManagerObject
-from json_encoders.career import decode_career_data
+from json_encoders.career import decode_career_data, decode_career_log
 from logger import logger
 from .common import (ExtractorContext, ExtractorFingerprint, array_fingerprint, dictionary_pointer_fingerprint,
                      list_pointer_fingerprint, object_array_fingerprint, object_list_fingerprint,
@@ -264,6 +264,32 @@ def _active_home_info_fingerprint(home_info: C_Ptr[WorkSingleModeHomeInfoObject]
     )
 
 
+def _career_log_fingerprint(career: WorkSingleModeDataObject) -> ExtractorFingerprint:
+    if not (pool_ptr := career.fields.groupLogPool):
+        return "log", 0
+    pool = pool_ptr.contents.fields
+    result: ExtractorFingerprint = (
+        "log", pool_ptr.address, object_list_fingerprint("groups", pool.logGroupPool),
+        object_pointer_fingerprint("current_group", pool.currentGroup),
+        pool.currentEventInfoType, pool.eventTitleName.address,
+    )
+    if not pool.currentGroup:
+        return result
+    group = pool.currentGroup.contents.fields
+    result += (group.groupType, group.eventTitle.address, group.dressId, group.genderId,
+               group.trainingLev, group.trainingKind, group.supportCardId, group.talkerId,
+               object_list_fingerprint("substances", group.substList))
+    if group.substList and len(group.substList.contents):
+        substances = group.substList.contents
+        if tail_ptr := substances.span()[len(substances) - 1]:
+            tail = tail_ptr.contents.fields
+            result += (tail_ptr.address, tail.name.address, tail.text.address, tail.colorText.address,
+                       tail.sheetId.address, tail.selectorLabel.address, tail.voiceIndex,
+                       tail.logType, tail.soundType, tail.isResult, tail.forceSetMobIcon,
+                       tail.analyzeResultIconId, list_pointer_fingerprint(tail.charaIdList))
+    return result
+
+
 def _career_pending_actions_fingerprint(career: WorkSingleModeDataObject) -> ExtractorFingerprint:
     """Track pending events, factor choices and reserved race decks."""
     f = career.fields
@@ -397,6 +423,7 @@ class CareerDataExtractionData:
             _career_lottery_program_fingerprint(chara_fields.race),
             _career_race_fingerprint(self.race_sources()),
             _career_pending_actions_fingerprint(career),
+            _career_log_fingerprint(career),
         )
 
 
@@ -453,7 +480,7 @@ def extract_career_snapshot(data: CareerDataExtractionData) -> CareerArchiveSnap
     key, identity = career_archive_descriptor(data)
     logger.info("Decoded active career data: chara=%d card=%d turn=%d",
                 chara_info["single_mode_chara_id"], chara_info["card_id"], chara_info["turn"])
-    return CareerArchiveSnapshot(key, chara_info["turn"], identity, payload)
+    return CareerArchiveSnapshot(key, chara_info["turn"], identity, payload, decode_career_log(data))
 
 
 def career_snapshot_output_key(snapshot: CareerArchiveSnapshot) -> str:

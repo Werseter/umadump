@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
+from career_log import CareerLogManager, CareerLogObservation
 from logger import logger
 from update_check import CURRENT_VERSION
 
@@ -29,6 +30,7 @@ class CareerArchiveSnapshot:
     turn: int
     identity: CareerArchiveIdentity
     payload: dict[str, Any]
+    log_observation: CareerLogObservation | None = None
 
 
 def _write_json_file(name: str, output_path: Path, payload: Any) -> None:
@@ -101,6 +103,8 @@ def _career_manifest(identity: CareerArchiveIdentity) -> dict[str, Any]:
         "snapshot_phase": "career_observation",
         "snapshot_file_pattern": "turns/turn_{turn:03d}_{revision:03d}.json",
         "payload_format": "single_mode_load_response.data",
+        "log_file": "log.json",
+        "event_timeline_file": "events.json",
     }
 
 
@@ -187,7 +191,7 @@ def write_career_archive_snapshot(output_folder: Path, key: str, snapshot: Caree
     career_folder = output_folder / key
     ensure_career_manifest(career_folder, snapshot.identity)
     output_path = _next_turn_snapshot_path(career_folder / "turns", snapshot.turn, snapshot.payload)
-    if output_path is None:
-        return
-
-    _write_immutable_career_payload(key, f"turn {snapshot.turn}", output_path, snapshot.payload)
+    if output_path is not None:
+        _write_immutable_career_payload(key, f"turn {snapshot.turn}", output_path, snapshot.payload)
+    if snapshot.log_observation is not None:
+        CareerLogManager.write(career_folder, snapshot.log_observation)

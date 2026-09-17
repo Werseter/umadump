@@ -465,6 +465,46 @@ class SingleModePlayingState(SafeIntEnum):
     FactorLotteryEnd = 20
 
 
+@register_enum('Gallop::SingleModeLogInfoDefine.LogGroupType')
+class SingleModeLogGroupType(SafeIntEnum):
+    MainCharaEvent = 0
+    SupportCharaEvent = 1
+    MainScenarioEvent = 2
+    TypicalCharaEvent = 3
+    TypicalCharaNoIconEvent = 4
+    TrainingEvent = 5
+    RestEvent = 6
+    OutingEvent = 7
+    HealthRoomEvent = 8
+    RaceEvent = 9
+    ShopItemUseEvent = 10
+    LiveSkillGet = 11
+    VenusSpirit = 12
+    LogGroupTypeMax = 13
+
+
+@register_enum('Gallop::StoryLogInfo.InfoType')
+class StoryLogInfoType(SafeIntEnum):
+    Talk = 0
+    Choice = 1
+    System = 2
+
+
+@register_enum('Gallop::StoryLogInfo.SoundType')
+class StoryLogInfoSoundType(SafeIntEnum):
+    VoiceStory = 0
+    SeStoryRace = 1
+
+
+@register_enum('Gallop::SingleModeDefine.EventContentsInfoType')
+class SingleModeEventContentsInfoType(SafeIntEnum):
+    None_ = 0
+    TrainingChara = 1
+    SupportCard = 2
+    MainScenario = 3
+    Dress = 4
+
+
 @register_enum('Gallop::SingleModeEventPlayTiming')
 class SingleModeEventPlayTiming(SafeIntEnum):
     None_ = 0
