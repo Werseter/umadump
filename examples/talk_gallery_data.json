@@ -1,0 +1,12 @@
+{
+  "talk_gallery_list": [
+    {
+      "home_story_trigger_id": 1,
+      "new_flag": 0
+    },
+    {
+      "home_story_trigger_id": 2,
+      "new_flag": 1
+    }
+  ]
+}
