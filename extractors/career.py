@@ -281,6 +281,8 @@ def _career_race_sources(career: WorkSingleModeDataObject,
         saved_state = (saved.single_mode_chara_id, saved.turn, saved.playing_state)
         if chara_state == saved_state:
             loaded = holder
+    if loaded is None and runtime is None:
+        return None
     return CareerRaceSources(start, loaded, runtime)
 
 
@@ -291,6 +293,8 @@ def _career_race_fingerprint(sources: CareerRaceSources | None) -> ExtractorFing
     result: ExtractorFingerprint = (
         "race", sources.start.address, start.program_id, start.random_seed, start.continue_num,
         object_array_fingerprint("horses", start.race_horse_data),
+        object_pointer_fingerprint("loaded", sources.loaded) if sources.loaded else ("ptr", 0),
+        object_pointer_fingerprint("runtime", sources.runtime) if sources.runtime else ("ptr", 0),
     )
     if sources.loaded:
         loaded = sources.loaded.contents.fields
