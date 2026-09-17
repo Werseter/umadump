@@ -10,6 +10,8 @@ from game_structs.enums import (SingleModeCommandType, SingleModeLiveGainParamet
                                 SingleModeScenarioId)
 from game_structs.master_data import MasterSingleModeWinsSaddleSingleModeWinsSaddleObject
 from game_structs.obscured import ObscuredInt
+from game_structs.race import (CharaRaceRewardObject, RaceHorseDataObject, RaceHorseDataRaceResultObject,
+                               RaceRewardDataObject, RaceRewardSetDataObject)
 from game_structs.single_mode import (EquipSupportCardObject, SingleModeFreeCommandInfoObject,
                                       SingleModeFreeItemEffectObject, SingleModeFreePickUpItemObject,
                                       SingleModeFreeUserItemObject, SingleModeRivalRaceInfoObject,
@@ -17,9 +19,11 @@ from game_structs.single_mode import (EquipSupportCardObject, SingleModeFreeComm
                                       WorkSingleModeCharaDataGroupOutingInfoObject, WorkSingleModeCharaDataObject,
                                       WorkSingleModeCharaDataSkillTipsObject,
                                       WorkSingleModeCharaDataSuccessionFactorInfoObject,
+                                      WorkSingleModeDataEventInfoObject,
                                       WorkSingleModeDataLivePerformanceIncDecInfoDictionaryEntry,
                                       WorkSingleModeDataObject, WorkSingleModeDataParamsIncDecInfoDictionaryEntry,
-                                      WorkSingleModeDataRaceConditionObject, WorkSingleModeDataTurnInfoObject,
+                                      WorkSingleModeDataRaceConditionObject,
+                                      WorkSingleModeDataSuccessionEventInfoObject, WorkSingleModeDataTurnInfoObject,
                                       WorkSingleModeHomeInfoObject, WorkSingleModeScenarioFreeNpcResultObject,
                                       WorkSingleModeScenarioFreeTwinkleRaceNpcInfoObject,
                                       WorkSingleModeScenarioFreeTwinkleRaceNpcResultObject,
@@ -29,7 +33,7 @@ from game_structs.single_mode import (EquipSupportCardObject, SingleModeFreeComm
                                       WorkSingleModeScenarioTeamRaceTeamMemberObject)
 from game_structs.trained_chara import RaceHistoryInfoObject
 from .race import _decode_skill_data_entry
-from .trained_chara import _decode_acquired_skill_entry
+from .trained_chara import _decode_acquired_skill_entry, _decode_factor_info_entry
 
 if TYPE_CHECKING:
     from extractors.career import CareerDataExtractionData
@@ -44,6 +48,7 @@ LivePerformanceIncDecInfoDictPtr: TypeAlias = C_Ptr[
     GenericDictionary[WorkSingleModeDataLivePerformanceIncDecInfoDictionaryEntry]]
 LivePerformancePtr: TypeAlias = C_Ptr[WorkSingleModeScenarioLivePerformanceDataObject]
 LiveTrainingBonusArrayPtr: TypeAlias = GenericArrayPtr[C_Ptr[WorkSingleModeScenarioLiveTrainingBonusObject]]
+RaceRewardSets: TypeAlias = GenericArrayPtr[C_Ptr[RaceRewardSetDataObject]]
 
 _LIVE_TRAINING_BONUS_TARGET_TYPES: dict[SingleModeParameterType, SingleModeLiveGainParameterType] = {
     SingleModeParameterType.Speed: SingleModeLiveGainParameterType.Speed,
@@ -207,6 +212,85 @@ def _decode_active_home_info(entry: C_Ptr[WorkSingleModeHomeInfoObject],
         "free_continue_num": home_info_fields.freeContinueNum.value,
         "free_continue_time": home_info_fields.prevFreeContinueTime.value,
         "shortened_race_state": home_info_fields.shortenedRaceState.value,
+    }
+
+
+def _decode_pending_event(entry: WorkSingleModeDataEventInfoObject,
+                          succession: WorkSingleModeDataSuccessionEventInfoObject | None = None) -> dict[str, Any]:
+    f = entry.fields
+    array_tuple = (f.selectIndexArray, f.receiveItemIdArray, f.targetRaceIdArray, f.gainSelectIdIndexArray,
+                   f.selectIconArray)
+    choices = [
+        {"select_index": index.value, "receive_item_id": item.value, "target_race_id": race.value,
+         "gain_select_id_index": gain.value, "select_icon": icon.value}
+        for index, item, race, gain, icon in zip(*array_tuple, strict=True)
+    ]
+    succession_info = None
+    if succession:
+        succession_fields = succession.fields
+        if (succession_fields.eventId.value, succession_fields.charaId.value) == (f.eventId.value, f.charaId.value):
+            succession_info = {"effect_type": succession_fields.effectType.value}
+    return {
+        "event_id": f.eventId.value,
+        "chara_id": f.charaId.value,
+        "story_id": f.storyId.value,
+        "play_timing": f.playTiming.value,
+        "event_contents_info": {
+            "support_card_id": f.contentsInfoSupportCardId.value,
+            "show_clear": f.contentsInfoShowClear.value,
+            "show_clear_sort_id": f.contentsInfoShowClearSortId.value,
+            "choice_array": choices,
+            "is_effected_multi_chara": f.isEffectedMultiChara.value,
+            "tips_training_partner_id": f.tipsTrainingPartnerId.value or None,
+        },
+        "succession_event_info": succession_info,
+        "minigame_result": None,
+    }
+
+
+def _decode_pending_events(career: WorkSingleModeDataObject) -> list[dict[str, Any]]:
+    queues = career.fields.storyInfoListDic
+    if not queues:
+        return []
+    succession = career.fields.successionEventInfo.contents if career.fields.successionEventInfo else None
+    return [_decode_pending_event(event.contents, succession) for queue in queues.contents if queue.value
+            for event in queue.value.contents if event]
+
+
+def _decode_reserved_races(chara: WorkSingleModeCharaDataObject) -> list[dict[str, Any]]:
+    context = chara.fields.raceReserveContext
+    if not context or not (repository := context.contents.fields.reserveRepository):
+        return []
+    result: list[dict[str, Any]] = []
+    for entity in repository.contents.fields.entities:
+        if not entity or not (deck := entity.contents.fields.deckInfo):
+            continue
+        f = deck.contents.fields
+        result.append({
+            "deck_num": f.deck_num,
+            "deck_name": f.deck_name.value_or(),
+            "race_array": [{"year": race.contents.fields.year, "program_id": race.contents.fields.program_id}
+                           for race in f.race_array if race],
+        })
+    return result
+
+
+def _decode_resume_factor_select(career: WorkSingleModeDataObject) -> dict[str, Any] | None:
+    if not (value := career.fields.resumeFactorSelect):
+        return None
+    f = value.contents.fields
+    return {
+        "rank_score": f.rank_score,
+        "rank": f.rank,
+        "lottery_remain_num": f.lottery_remain_num,
+        "lottery_count": f.lottery_count,
+        "select_lottery_id": f.select_lottery_id,
+        "factor_select_info_array": [
+            {"lottery_id": item.contents.fields.lottery_id,
+             "factor_info_array": [_decode_factor_info_entry(factor.contents)
+                                   for factor in item.contents.fields.factor_info_array if factor]}
+            for item in f.factor_select_info_array if item
+        ],
     }
 
 
@@ -555,6 +639,186 @@ def _decode_active_team_command_info(home: C_Ptr[WorkSingleModeHomeInfoObject]) 
     return commands
 
 
+def _decode_career_race_horse_result(entry: RaceHorseDataRaceResultObject) -> dict[str, int]:
+    """Decode the retained values and explicit unavailable result fields."""
+    fields = entry.fields
+    return {
+        "viewer_id": 0,
+        "single_mode_chara_id": 0,
+        "race_num": 0,
+        "turn": fields.turn,
+        "program_id": fields.program_id,
+        "frame_order": 0,
+        "weather": 0,
+        "ground_condition": 0,
+        "running_style": 0,
+        "popularity": 0,
+        "result_rank": fields.result_rank,
+        "result_time": 0,
+        "bashin_diff": 0,
+        "bashin_diff_from_top": 0,
+        "skill_activate_count": 0,
+        "start_dash_state": 0,
+        "motivation": 0,
+        "is_excitement": 0,
+        "is_running_alone": 0,
+        "last_straight_line_rank": 0,
+        "auto_continue_num": 0,
+        "state": 0,
+    }
+
+
+def _decode_career_race_horse(entry: RaceHorseDataObject) -> dict[str, Any]:
+    fields = entry.fields
+    trainer_name = fields.trainer_name.value_or()
+    return {
+        "frame_order": fields.frame_order,
+        "viewer_id": fields.viewer_id,
+        "trainer_name": trainer_name if trainer_name else None,
+        "owner_viewer_id": fields.owner_viewer_id,
+        "owner_trainer_name": fields.owner_trainer_name.value_or(),
+        "single_mode_chara_id": fields.single_mode_chara_id,
+        "trained_chara_id": fields.trained_chara_id,
+        "nickname_id": fields.nickname_id,
+        "chara_id": fields.chara_id,
+        "card_id": fields.card_id,
+        "mob_id": fields.mob_id,
+        "rarity": fields.rarity,
+        "talent_level": fields.talent_level,
+        "skill_array": [_decode_skill_data_entry(skill.contents) for skill in fields.skill_array if skill],
+        "stamina": fields.stamina,
+        "speed": fields.speed,
+        "pow": fields.pow,
+        "guts": fields.guts,
+        "wiz": fields.wiz,
+        "running_style": fields.running_style,
+        "race_dress_id": fields.race_dress_id,
+        "chara_color_type": fields.chara_color_type,
+        "npc_type": fields.npc_type,
+        "final_grade": fields.final_grade,
+        "popularity": fields.popularity,
+        "popularity_mark_rank_array": [value.value for value in fields.popularity_mark_rank_array],
+        "proper_distance_short": fields.proper_distance_short,
+        "proper_distance_mile": fields.proper_distance_mile,
+        "proper_distance_middle": fields.proper_distance_middle,
+        "proper_distance_long": fields.proper_distance_long,
+        "proper_running_style_nige": fields.proper_running_style_nige,
+        "proper_running_style_senko": fields.proper_running_style_senko,
+        "proper_running_style_sashi": fields.proper_running_style_sashi,
+        "proper_running_style_oikomi": fields.proper_running_style_oikomi,
+        "proper_ground_turf": fields.proper_ground_turf,
+        "proper_ground_dirt": fields.proper_ground_dirt,
+        "motivation": fields.motivation,
+        "win_saddle_id_array": [value.value for value in fields.win_saddle_id_array],
+        "race_result_array": [
+            _decode_career_race_horse_result(race_result.contents)
+            for race_result in fields.race_result_array
+            if race_result
+        ],
+        "team_id": fields.team_id,
+        "team_member_id": fields.team_member_id,
+        "team_rank": fields.team_rank,
+        "single_mode_win_count": fields.single_mode_win_count,
+        "fan_count": fields.fan_count,
+        "item_id_array": [value.value for value in fields.item_id_array],
+        "motivation_change_flag": fields.motivation_change_flag,
+        "frame_order_change_flag": fields.frame_order_change_flag,
+    }
+
+
+def _decode_career_race_reward_data(entry: RaceRewardDataObject) -> dict[str, int]:
+    fields = entry.fields
+    return {
+        "item_type": fields.item_type,
+        "item_id": fields.item_id,
+        "item_num": fields.item_num,
+    }
+
+
+def _decode_career_race_reward(reward_info: C_Ptr[CharaRaceRewardObject]) -> dict[str, Any] | None:
+    if not reward_info:
+        return None
+    fields = reward_info.contents.fields
+    return {
+        "result_rank": fields.result_rank,
+        "result_time": fields.result_time,
+        "race_reward": [
+            _decode_career_race_reward_data(reward.contents)
+            for reward in fields.race_reward
+            if reward
+        ],
+        "race_reward_bonus": [
+            _decode_career_race_reward_data(reward.contents)
+            for reward in fields.race_reward_bonus
+            if reward
+        ],
+        "gained_fans": fields.gained_fans,
+        "campaign_id_array": [value.value for value in fields.campaign_id_array],
+        "race_reward_plus_bonus": [
+            _decode_career_race_reward_data(reward.contents)
+            for reward in fields.race_reward_plus_bonus
+            if reward
+        ],
+        "race_reward_bonus_win": [
+            _decode_career_race_reward_data(reward.contents)
+            for reward in fields.race_reward_bonus_win
+            if reward
+        ],
+    }
+
+
+def _decode_career_race_reward_set_array(value: RaceRewardSets) -> list[dict[str, int]]:
+    """Flatten current RaceInfo reward sets into the endpoint's reward list."""
+
+    rewards: list[dict[str, int]] = []
+    for reward_set in value:
+        if not reward_set:
+            continue
+        rewards.extend(
+                _decode_career_race_reward_data(reward.contents)
+                for reward in reward_set.contents.fields.reward_list
+                if reward
+        )
+    return rewards
+
+
+def _decode_runtime_race_reward(data: CareerDataExtractionData) -> dict[str, Any] | None:
+    """Decode a race-end reward from the current RaceInfo source.
+
+    ``ApplyRaceEnd`` updates RaceInfo directly, unlike the load-hydrated
+    RaceStartResultInfo reward pointer.  Do not substitute the latter here: a
+    stale reward would become immutable evidence for the wrong race program.
+    """
+    race_info = data.race_info
+    if not race_info or not (reward_single := race_info.contents.fields.raceRewardSingle):
+        return None
+    reward_single_fields = reward_single.contents.fields
+    if not reward_single_fields.reward:
+        return None
+    # RaceRewardInfoSingle has no rank. Only use history belonging to this turn and program.
+    career = data.career.fields
+    if not (history_ptr := career.raceHistoryInfoList):
+        return None
+    history = history_ptr.contents
+    if not len(history) or not (last_ptr := history.span()[len(history) - 1]):
+        return None
+    last = last_ptr.contents.fields
+    current_race = (career.totalTurnNum.value, race_info.contents.fields.singleRaceProgramId)
+    if (last.turn.value, last.programId.value) != current_race:
+        return None
+    reward_fields = reward_single_fields.reward.contents.fields
+    return {
+        "result_rank": last.resultRank.value,
+        "result_time": 0,
+        "race_reward": _decode_career_race_reward_set_array(reward_fields.rewardSetArray),
+        "race_reward_bonus": _decode_career_race_reward_set_array(reward_fields.bonusRewardSetArray),
+        "gained_fans": reward_single_fields.raceGainedFanCount,
+        "campaign_id_array": [],
+        "race_reward_plus_bonus": _decode_career_race_reward_set_array(reward_fields.rewardPlusBonusSetArray),
+        "race_reward_bonus_win": _decode_career_race_reward_set_array(reward_fields.bonusRewardWinSetArray),
+    }
+
+
 def _decode_active_team_data_set(chara: WorkSingleModeCharaDataObject,
                                  home: C_Ptr[WorkSingleModeHomeInfoObject]) -> dict[str, Any]:
     chara_fields = chara.fields
@@ -843,6 +1107,47 @@ def _decode_active_scenario_data_set(
     return {}
 
 
+def _decode_career_race_context(data: CareerDataExtractionData) -> dict[str, Any]:
+    """Decode only sources associated by the extractor with this observation."""
+    sources = data.race_sources()
+    context: dict[str, Any] = {
+        "race_start_info": None,
+        "race_scenario": None,
+        "race_reward_info": None,
+        "add_trophy_info": None,
+        "trophy_reward_info": None,
+        "prev_chara_grade": None,
+        "race_add_reward_info": [],
+    }
+    if sources is None:
+        return context
+    start = sources.start.contents.fields
+    context["race_start_info"] = {
+        "program_id": start.program_id,
+        "random_seed": start.random_seed,
+        "season": sources.runtime.contents.fields.season if sources.runtime else 0,
+        "weather": start.weather,
+        "ground_condition": start.ground_condition,
+        "race_horse_data": [_decode_career_race_horse(horse.contents) for horse in start.race_horse_data if horse],
+        "continue_num": start.continue_num,
+        "is_force_running_style": start.is_force_running_style,
+    }
+    if sources.loaded:
+        loaded = sources.loaded.contents.fields
+        context["race_scenario"] = loaded.raceScenario.value_or(None)
+        if loaded.rewardInfo:
+            context["race_reward_info"] = _decode_career_race_reward(loaded.rewardInfo)
+            context["prev_chara_grade"] = loaded.prevGradeType
+    if sources.runtime:
+        runtime = sources.runtime.contents.fields
+        if runtime.simDataBase64:
+            context["race_scenario"] = runtime.simDataBase64.value_or(None)
+        if (reward := _decode_runtime_race_reward(data)) is not None:
+            context["race_reward_info"] = reward
+            context["prev_chara_grade"] = runtime.prevGradeType
+    return context
+
+
 def decode_career_data(data: CareerDataExtractionData) -> dict[str, Any]:
     """Decode an API-shaped active-career snapshot from reflected work state.
 
@@ -868,23 +1173,17 @@ def decode_career_data(data: CareerDataExtractionData) -> dict[str, Any]:
             if chara_fields.scenarioId.value != SingleModeScenarioId.TeamRace else None
         ),
         "home_info": _decode_active_home_info(fields.homeInfo, training_levels),
-        "unchecked_event_array": [],
+        "unchecked_event_array": _decode_pending_events(career),
         "race_history": _decode_active_race_history(fields.raceHistoryInfoList),
         "win_saddle_id_array": _decode_active_win_saddle_ids(fields.winSaddleArray),
         "effected_factor_array": _decode_active_effected_factor_array(chara_fields.successionFactor),
-        "race_start_info": None,
-        "race_scenario": None,
-        "race_reward_info": None,
-        "add_trophy_info": None,
-        "trophy_reward_info": None,
-        "prev_chara_grade": None,
-        "race_add_reward_info": [],
-        "reserved_race_array": [],
+        **_decode_career_race_context(data),
+        "reserved_race_array": _decode_reserved_races(chara),
         "mission_list": [],
         "story_event_mission_list": [],
         "story_event_chara_bonus_list": [],
         "start_dress_info": [],
-        "resume_factor_select": None,
+        "resume_factor_select": _decode_resume_factor_select(career),
     }
 
     payload = {"single_mode_load_common": common}

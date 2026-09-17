@@ -7,12 +7,14 @@ from career_archive import CareerArchiveSnapshot, career_archive_descriptor
 from ctypes_utils import C_Ptr
 from game_structs.collections import GenericDictionary, GenericList
 from game_structs.enums import SingleModePlayingState, SingleModeScenarioId
+from game_structs.race import RaceInfoObject, SingleRaceStartInfoObject
 from game_structs.single_mode import (WorkSingleModeChangeParameterInfoObject, WorkSingleModeCharaDataObject,
                                       WorkSingleModeCharaDataSuccessionFactorInfoObject, WorkSingleModeDataObject,
                                       WorkSingleModeDataParamsIncDecInfoDictionaryEntry,
-                                      WorkSingleModeDataTurnInfoObject, WorkSingleModeHomeInfoObject,
-                                      WorkSingleModeRaceDataObject, WorkSingleModeScenarioFreeObject,
-                                      WorkSingleModeScenarioLiveObject, WorkSingleModeScenarioTeamRaceObject)
+                                      WorkSingleModeDataRaceStartResultInfoObject, WorkSingleModeDataTurnInfoObject,
+                                      WorkSingleModeHomeInfoObject, WorkSingleModeRaceDataObject,
+                                      WorkSingleModeScenarioFreeObject, WorkSingleModeScenarioLiveObject,
+                                      WorkSingleModeScenarioTeamRaceObject)
 from game_structs.work_data_manager import WorkDataManagerObject
 from json_encoders.career import decode_career_data
 from logger import logger
@@ -248,11 +250,98 @@ def _active_home_info_fingerprint(home_info: C_Ptr[WorkSingleModeHomeInfoObject]
     )
 
 
+def _career_pending_actions_fingerprint(career: WorkSingleModeDataObject) -> ExtractorFingerprint:
+    """Track pending events, factor choices and reserved race decks."""
+    f = career.fields
+    queues = f.storyInfoListDic
+    queue_versions = tuple(
+            (entry.key, object_list_fingerprint("events", entry.value)) for entry in queues.contents
+    ) if queues else ()
+    result: ExtractorFingerprint = (
+        dictionary_pointer_fingerprint(queues), queue_versions,
+        object_pointer_fingerprint("factor_select", f.resumeFactorSelect),
+    )
+    if f.resumeFactorSelect:
+        selection = f.resumeFactorSelect.contents.fields
+        result += (selection.lottery_count, selection.select_lottery_id,
+                   object_array_fingerprint("factor_choices", selection.factor_select_info_array))
+    context = f.character.contents.fields.raceReserveContext
+    if context and (repository := context.contents.fields.reserveRepository):
+        entities = repository.contents.fields.entities
+        result += (object_array_fingerprint("reserved_decks", entities),)
+        if entity := entities.first():
+            result += (object_pointer_fingerprint("first_deck", entity.contents.fields.deckInfo),)
+    return result
+
+
+@dataclass(frozen=True)
+class CareerRaceSources:
+    """Race members associated with the current career, rather than a second extractor."""
+
+    start: C_Ptr[SingleRaceStartInfoObject]
+    loaded: C_Ptr[WorkSingleModeDataRaceStartResultInfoObject] | None
+    runtime: C_Ptr[RaceInfoObject] | None
+
+
+def _career_race_sources(career: WorkSingleModeDataObject,
+                         runtime: C_Ptr[RaceInfoObject] | None) -> CareerRaceSources | None:
+    fields = career.fields
+    phase = fields.playingState.value
+    holder = fields.raceStartResultInfoData
+    if not holder:
+        return None
+    retained_fields = holder.contents.fields
+    if not (start := retained_fields.startInfo):
+        return None
+    start_fields = start.contents.fields
+    if start_fields.program_id <= 0 or not start_fields.race_horse_data:
+        return None
+    if len(start_fields.race_horse_data) == 0:
+        return None
+    if runtime:
+        race = runtime.contents.fields
+        if (race.singleRaceProgramId, race.randomSeed) != (start_fields.program_id, start_fields.random_seed):
+            logger.debug("career_data: ignoring RaceInfo for a different program/seed")
+            runtime = None
+    loaded: C_Ptr[WorkSingleModeDataRaceStartResultInfoObject] | None = None
+    if retained := retained_fields.charaInfo:
+        chara = fields.character.contents.fields
+        chara_state = (chara.id.value, fields.totalTurnNum.value, phase)
+        saved = retained.contents.fields
+        saved_state = (saved.single_mode_chara_id, saved.turn, saved.playing_state)
+        if chara_state == saved_state:
+            loaded = holder
+    return CareerRaceSources(start, loaded, runtime)
+
+
+def _career_race_fingerprint(sources: CareerRaceSources | None) -> ExtractorFingerprint:
+    if sources is None:
+        return "race", None
+    start = sources.start.contents.fields
+    result: ExtractorFingerprint = (
+        "race", sources.start.address, start.program_id, start.random_seed, start.continue_num,
+        object_array_fingerprint("horses", start.race_horse_data),
+    )
+    if sources.loaded:
+        loaded = sources.loaded.contents.fields
+        result += (loaded.raceScenario.address, loaded.prevGradeType,
+                   object_pointer_fingerprint("reward", loaded.rewardInfo))
+    if sources.runtime:
+        race = sources.runtime.contents.fields
+        result += (sources.runtime.address, race.season, race.prevGradeType, race.simDataBase64.address,
+                   object_pointer_fingerprint("race_reward", race.raceRewardSingle))
+    return result
+
+
 @dataclass(frozen=True)
 class CareerDataExtractionData:
     """Stable active-career input rooted at ``WorkDataManager.singleMode``."""
 
     career_ptr: C_Ptr[WorkSingleModeDataObject]
+    race_info: C_Ptr[RaceInfoObject] | None = None
+
+    def race_sources(self) -> CareerRaceSources | None:
+        return _career_race_sources(self.career, self.race_info)
 
     @property
     def career(self) -> WorkSingleModeDataObject:
@@ -277,6 +366,9 @@ class CareerDataExtractionData:
             chara_fields.routeId.value,
             chara_fields.startTime.value_or(),
             fields.totalTurnNum.value,
+            fields.state.value,
+            fields.playingState.value,
+            chara_fields.scenarioProgress.value,
             _active_home_info_fingerprint(fields.homeInfo),
             _career_active_chara_collections_fingerprint(chara),
             _career_scenario_fingerprint(career, chara),
@@ -289,6 +381,8 @@ class CareerDataExtractionData:
             object_array_fingerprint("win_saddles", fields.winSaddleArray),
             _career_succession_factor_fingerprint(chara_fields.successionFactor),
             _career_lottery_program_fingerprint(chara_fields.race),
+            _career_race_fingerprint(self.race_sources()),
+            _career_pending_actions_fingerprint(career),
         )
 
 
@@ -305,35 +399,16 @@ def resolve_active_career_data_ptr(wdm: WorkDataManagerObject) -> Optional[C_Ptr
     return career_data_ptr
 
 
-def career_home_info_is_ready(career: WorkSingleModeDataObject) -> bool:
-    home_info = career.fields.homeInfo
-    if not home_info:
-        logger.debug("career_data: waiting for WorkSingleModeData.homeInfo")
-        return False
-    turn_info_list_dic = home_info.contents.fields.turnInfoListDic
-    if not turn_info_list_dic:
-        logger.debug("career_data: waiting for WorkSingleModeHomeInfo.turnInfoListDic")
-        return False
-    dictionary = turn_info_list_dic.contents
-    if len(dictionary) == 0:
-        logger.debug("career_data: waiting for HomeInfo command lists")
-        return False
-    for entry in dictionary:
-        if entry.value and len(entry.value.contents) > 0:
-            return True
-    logger.debug("career_data: waiting for populated HomeInfo commands")
-    return False
-
-
 def is_career_data_ready(data: CareerDataExtractionData) -> bool:
     career = data.career
-    if career.fields.playingState.value != SingleModePlayingState.TurnStart:
-        return False
-    return career_home_info_is_ready(career)
+    fields = career.fields
+    chara = fields.character.contents.fields
+    return (chara.id.value > 0 and chara.cardId.value > 0 and fields.totalTurnNum.value > 0
+            and (fields.playingState.value != SingleModePlayingState.None_))
 
 
 def resolve_career_data_inputs(wdm: WorkDataManagerObject) -> Optional[CareerDataExtractionData]:
-    """Resolve active career state without applying the TurnStart snapshot gate."""
+    """Resolve the retained career root; readiness is checked separately."""
 
     career_ptr = resolve_active_career_data_ptr(wdm)
     if career_ptr is None:
@@ -342,7 +417,7 @@ def resolve_career_data_inputs(wdm: WorkDataManagerObject) -> Optional[CareerDat
 
 
 def resolve_career_snapshot(wdm: WorkDataManagerObject) -> Optional[CareerDataExtractionData]:
-    """Resolve only a TurnStart for turn snapshots."""
+    """Resolve active career observations, including non-command and terminal phases."""
 
     data = resolve_career_data_inputs(wdm)
     if data is None or not is_career_data_ready(data):
@@ -351,7 +426,11 @@ def resolve_career_snapshot(wdm: WorkDataManagerObject) -> Optional[CareerDataEx
 
 
 def resolve_career_snapshot_data(context: ExtractorContext) -> Optional[CareerDataExtractionData]:
-    return resolve_career_snapshot(context.work_data_manager)
+    data = resolve_career_snapshot(context.work_data_manager)
+    if data is None:
+        return None
+    race_static = context.race_manager_static
+    return CareerDataExtractionData(data.career_ptr, race_static.raceInfo if race_static else None)
 
 
 def extract_career_snapshot(data: CareerDataExtractionData) -> CareerArchiveSnapshot:
@@ -360,7 +439,7 @@ def extract_career_snapshot(data: CareerDataExtractionData) -> CareerArchiveSnap
     key, identity = career_archive_descriptor(data)
     logger.info("Decoded active career data: chara=%d card=%d turn=%d",
                 chara_info["single_mode_chara_id"], chara_info["card_id"], chara_info["turn"])
-    return CareerArchiveSnapshot(key, int(chara_info["turn"]), identity, payload)
+    return CareerArchiveSnapshot(key, chara_info["turn"], identity, payload)
 
 
 def career_snapshot_output_key(snapshot: CareerArchiveSnapshot) -> str:

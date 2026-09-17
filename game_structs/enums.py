@@ -465,6 +465,24 @@ class SingleModePlayingState(SafeIntEnum):
     FactorLotteryEnd = 20
 
 
+@register_enum('Gallop::SingleModeEventPlayTiming')
+class SingleModeEventPlayTiming(SafeIntEnum):
+    None_ = 0
+    TurnStart = 1
+    RaceStart = 2
+    RaceEnd = 3
+    TurnEnd = 4
+    ModeEnd = 5
+    CommandStart = 6
+    Continue = 7
+    MiniGameEnd = 8
+    TeamRaceEnd = 9
+    TeamRaceAfterEvent = 10
+    TeamRaceAfterTeamParameterRankUp = 11
+    LiveEnd = 12
+    GRSEnd = 13
+
+
 @register_enum('Gallop::SingleModeDefine.CommandType')
 class SingleModeCommandType(SafeIntEnum):
     None_ = 0

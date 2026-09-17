@@ -5,14 +5,15 @@ from typing import Literal as L
 
 from ctypes_utils import ArrayType, CStructureDataclass, C_Bool, C_Enum, C_EnumIn, C_Int, C_Ptr, C_UDeclPtr
 from game_structs.collections import GenericArrayPtr, GenericDictionary, GenericList
-from game_structs.enums import (ProperGrade, RaceMotivation, RunningStyle, SingleModeCommandType,
-                                SingleModeParameterType, SingleModePlayingState, SingleModeState, TeamEditFlag,
-                                TeamParameterRank, TrainingCommandId)
+from game_structs.enums import (CharaGradeType, ProperGrade, RaceMotivation, RunningStyle, SingleModeCommandType,
+                                SingleModeEventPlayTiming, SingleModeParameterType, SingleModePlayingState,
+                                SingleModeState, TeamEditFlag, TeamParameterRank, TrainingCommandId)
 from game_structs.master_data import MasterSingleModeWinsSaddleSingleModeWinsSaddleObject
 from game_structs.obscured import ObscuredBool, ObscuredInt, ObscuredLong, ObscuredStringPtr
+from game_structs.race import CharaRaceRewardObject, SingleRaceStartInfoObject
 from game_structs.skills import AcquiredSkillObject, SkillDataObject, SkillTipsObject
 from game_structs.strings import SystemStringObjectPtr
-from game_structs.trained_chara import RaceHistoryInfoObject
+from game_structs.trained_chara import FactorInfoObject, RaceHistoryInfoObject
 from il2cpp_structs import RuntimeIl2CppObject
 from schema_validation import register_runtime_validatable
 
@@ -792,6 +793,86 @@ class WorkSingleModeChangeParameterInfoObject(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
+# Gallop.SingleModeReservedRace
+# ---------------------------------------------------------------------------
+
+class SingleModeReservedRaceFields(CStructureDataclass):
+    year: C_Int[c_int32]
+    program_id: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::SingleModeReservedRace')
+class SingleModeReservedRaceObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeReservedRaceFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleModeReservedRaceDeck
+# ---------------------------------------------------------------------------
+
+class SingleModeReservedRaceDeckFields(CStructureDataclass):
+    deck_num: C_Int[c_int32]
+    deck_name: SystemStringObjectPtr
+    race_array: GenericArrayPtr[C_Ptr[SingleModeReservedRaceObject]]
+
+
+@register_runtime_validatable('Gallop::SingleModeReservedRaceDeck')
+class SingleModeReservedRaceDeckObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeReservedRaceDeckFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleModeRaceReserveDeckEntity
+# ---------------------------------------------------------------------------
+
+class SingleModeRaceReserveDeckEntityFields(CStructureDataclass):
+    _ignored_1: ArrayType[C_UDeclPtr, L[3]]  # omitted: reserveDict … programIdGetter
+    deckInfo: C_Ptr[SingleModeReservedRaceDeckObject]
+    _ignored_2: c_int32  # omitted: deckIndex
+    _ignored_3: C_UDeclPtr  # omitted: deckName
+    _ignored_4: c_int32  # omitted: reservedRaceCount
+
+
+@register_runtime_validatable('Gallop::SingleModeRaceReserveDeckEntity')
+class SingleModeRaceReserveDeckEntityObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeRaceReserveDeckEntityFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleModeRaceReserveRepository
+# ---------------------------------------------------------------------------
+
+class SingleModeRaceReserveRepositoryFields(CStructureDataclass):
+    entities: GenericArrayPtr[C_Ptr[SingleModeRaceReserveDeckEntityObject]]
+    _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # omitted: conditionalProgramIdGetter, onUpdateEvent
+
+
+@register_runtime_validatable('Gallop::SingleModeRaceReserveRepository')
+class SingleModeRaceReserveRepositoryObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeRaceReserveRepositoryFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleModeRaceReserve.Context
+# ---------------------------------------------------------------------------
+
+class SingleModeRaceReserveContextFields(CStructureDataclass):
+    _ignored_1: C_UDeclPtr  # omitted: entryViewModel
+    reserveRepository: C_Ptr[SingleModeRaceReserveRepositoryObject]
+    _ignored_2: ArrayType[C_UDeclPtr, L[6]]  # omitted: turnRepository … temp
+
+
+@register_runtime_validatable('Gallop.SingleModeRaceReserve::Context')
+class SingleModeRaceReserveContextObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeRaceReserveContextFields
+
+
+# ---------------------------------------------------------------------------
 # Gallop.WorkSingleModeCharaData
 # ---------------------------------------------------------------------------
 
@@ -859,15 +940,15 @@ class WorkSingleModeCharaDataFields(CStructureDataclass):
     successionFactor: C_Ptr[WorkSingleModeCharaDataSuccessionFactorInfoObject]
     isShortRace: ObscuredBool
     scenarioProgress: ObscuredInt
-    _ignored_9: C_UDeclPtr  # omitted: guestOutingInfoList
+    _ignored_8: C_UDeclPtr  # omitted: guestOutingInfoList
     race: C_Ptr[WorkSingleModeRaceDataObject]
-    _ignored_10: C_UDeclPtr  # omitted: skillUpgradeList
+    _ignored_9: C_UDeclPtr  # omitted: skillUpgradeList
     workScenarioURA: C_Ptr[WorkSingleModeScenarioURAObject]
     teamRace: C_Ptr[WorkSingleModeScenarioTeamRaceObject]
-    _ignored_12: C_UDeclPtr  # omitted: raceReserveContext
+    raceReserveContext: C_Ptr[SingleModeRaceReserveContextObject]
     workScenarioFree: C_Ptr[WorkSingleModeScenarioFreeObject]
     scenarioLive: C_Ptr[WorkSingleModeScenarioLiveObject]
-    _ignored_13: C_UDeclPtr  # omitted: scenarioVenus
+    _ignored_10: C_UDeclPtr  # omitted: scenarioVenus
 
 
 @register_runtime_validatable('Gallop::WorkSingleModeCharaData')
@@ -1003,14 +1084,32 @@ class WorkSingleModeDataRaceConditionObject(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
+# Gallop.WorkSingleModeData.SuccessionEventInfo
+# ---------------------------------------------------------------------------
+
+class WorkSingleModeDataSuccessionEventInfoFields(CStructureDataclass):
+    eventId: ObscuredInt
+    charaId: ObscuredInt
+    effectType: ObscuredInt
+
+
+@register_runtime_validatable('Gallop::WorkSingleModeData.SuccessionEventInfo')
+class WorkSingleModeDataSuccessionEventInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: WorkSingleModeDataSuccessionEventInfoFields
+
+
+# ---------------------------------------------------------------------------
 # Gallop.WorkSingleModeData.RaceStartResultInfo
 # ---------------------------------------------------------------------------
 
 class WorkSingleModeDataRaceStartResultInfoFields(CStructureDataclass):
-    _ignored_1: ArrayType[C_UDeclPtr, L[3]]  # omitted: startInfo, raceScenario, rewardInfo
+    startInfo: C_Ptr[SingleRaceStartInfoObject]
+    raceScenario: SystemStringObjectPtr
+    rewardInfo: C_Ptr[CharaRaceRewardObject]
     charaInfo: C_Ptr[SingleModeCharaObject]
-    _ignored_2: ArrayType[C_UDeclPtr, L[2]]  # omitted: addTrophyInfo, trophyRewardInfo
-    _ignored_3: c_int32  # omitted: prevGradeType
+    _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # omitted: addTrophyInfo, trophyRewardInfo
+    prevGradeType: C_Enum[CharaGradeType]
 
 
 @register_runtime_validatable('Gallop::WorkSingleModeData.RaceStartResultInfo')
@@ -1020,36 +1119,105 @@ class WorkSingleModeDataRaceStartResultInfoObject(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
+# Gallop.WorkSingleModeData.EventInfo
+# ---------------------------------------------------------------------------
+
+class WorkSingleModeDataEventInfoFields(CStructureDataclass):
+    eventId: ObscuredInt
+    charaId: ObscuredInt
+    storyId: ObscuredInt
+    contentsInfoSupportCardId: ObscuredInt
+    selectIndexArray: GenericArrayPtr[ObscuredInt]
+    receiveItemIdArray: GenericArrayPtr[ObscuredInt]
+    targetRaceIdArray: GenericArrayPtr[ObscuredInt]
+    gainSelectIdIndexArray: GenericArrayPtr[ObscuredInt]
+    selectIconArray: GenericArrayPtr[ObscuredInt]
+    playTiming: C_EnumIn[SingleModeEventPlayTiming, ObscuredInt]
+    contentsInfoShowClear: ObscuredInt
+    contentsInfoShowClearSortId: ObscuredInt
+    isEffectedMultiChara: ObscuredBool
+    tipsTrainingPartnerId: ObscuredInt
+
+
+@register_runtime_validatable('Gallop::WorkSingleModeData.EventInfo')
+class WorkSingleModeDataEventInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: WorkSingleModeDataEventInfoFields
+
+
+class WorkSingleModeDataStoryInfoListDictionaryEntry(CStructureDataclass):
+    hashCode: C_Int[c_int32]
+    _ignored_1: c_int32  # omitted: next
+    key: C_Enum[SingleModeEventPlayTiming]
+    value: C_Ptr[GenericList[C_Ptr[WorkSingleModeDataEventInfoObject]]]
+
+
+# ---------------------------------------------------------------------------
+# Gallop.FactorSelectInfo
+# ---------------------------------------------------------------------------
+
+class FactorSelectInfoFields(CStructureDataclass):
+    lottery_id: C_Int[c_int32]
+    factor_info_array: GenericArrayPtr[C_Ptr[FactorInfoObject]]
+
+
+@register_runtime_validatable('Gallop::FactorSelectInfo')
+class FactorSelectInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: FactorSelectInfoFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleModeFactorSelectCommon
+# ---------------------------------------------------------------------------
+
+class SingleModeFactorSelectCommonFields(CStructureDataclass):
+    rank_score: C_Int[c_int32]
+    rank: C_Int[c_int32]
+    lottery_remain_num: C_Int[c_int32]
+    lottery_count: C_Int[c_int32]
+    select_lottery_id: C_Int[c_int32]
+    factor_select_info_array: GenericArrayPtr[C_Ptr[FactorSelectInfoObject]]
+
+
+@register_runtime_validatable('Gallop::SingleModeFactorSelectCommon')
+class SingleModeFactorSelectCommonObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeFactorSelectCommonFields
+
+
+# ---------------------------------------------------------------------------
 # Gallop.WorkSingleModeData
 # ---------------------------------------------------------------------------
 
 class WorkSingleModeDataFields(CStructureDataclass):
-    _ignored_1: C_UDeclPtr  # omitted: storyInfoListDic
-    _ignored_2: c_bool  # omitted: isExistPlayingData
+    storyInfoListDic: C_Ptr[GenericDictionary[WorkSingleModeDataStoryInfoListDictionaryEntry]]
+    _ignored_1: c_bool  # omitted: isExistPlayingData
     isPlaying: C_Bool[c_bool]
     totalTurnNum: ObscuredInt
     character: C_Ptr[WorkSingleModeCharaDataObject]
     raceConditions: C_Ptr[GenericList[C_Ptr[WorkSingleModeDataRaceConditionObject]]]
     homeInfo: C_Ptr[WorkSingleModeHomeInfoObject]
-    _ignored_3: ObscuredInt  # omitted: addMusicId
+    _ignored_2: ObscuredInt  # omitted: addMusicId
     state: C_EnumIn[SingleModeState, ObscuredInt]
     playingState: C_EnumIn[SingleModePlayingState, ObscuredInt]
-    _ignored_4: ArrayType[C_UDeclPtr, L[2]]  # omitted: scenarioIdList, difficultyInfoList
+    _ignored_3: ArrayType[C_UDeclPtr, L[2]]  # omitted: scenarioIdList, difficultyInfoList
     changeParameterInfo: C_Ptr[WorkSingleModeChangeParameterInfoObject]
     raceHistoryInfoList: C_Ptr[GenericList[C_Ptr[RaceHistoryInfoObject]]]
     winSaddleArray: GenericArrayPtr[C_Ptr[MasterSingleModeWinsSaddleSingleModeWinsSaddleObject]]
     groupLogPool: C_UDeclPtr
-    _ignored_5: ArrayType[ObscuredBool, L[4]]  # omitted: isStepTurn … isForceChangeViewMonthStartView
-    _ignored_6: ArrayType[ObscuredInt, L[2]]  # omitted: selectedTrainingCommandId, rentalCount
-    _ignored_7: ObscuredLong  # omitted: prevFreeRentalTime
-    _ignored_8: C_UDeclPtr  # omitted: successionEventInfo
+    _ignored_4: ArrayType[ObscuredBool, L[4]]  # omitted: isStepTurn … isForceChangeViewMonthStartView
+    _ignored_5: ArrayType[ObscuredInt, L[2]]  # omitted: selectedTrainingCommandId, rentalCount
+    _ignored_6: ObscuredLong  # omitted: prevFreeRentalTime
+    successionEventInfo: C_Ptr[WorkSingleModeDataSuccessionEventInfoObject]
     raceStartResultInfoData: C_Ptr[WorkSingleModeDataRaceStartResultInfoObject]
-    _ignored_9: C_UDeclPtr  # omitted: racePieceCampaignInfoList
-    _ignored_10: ArrayType[C_UDeclPtr, L[4]]  # omitted: storyEventBonusDict … eventChoiceRewardDict
-    _ignored_11: c_int32  # omitted: cachedRewardEventId
-    _ignored_12: C_UDeclPtr  # omitted: defaultRunningStyleArray
-    _ignored_13: ObscuredBool  # omitted: isUmaplan
-    _ignored_14: C_UDeclPtr  # omitted: logAdditiveBuffer
+    _ignored_7: ArrayType[C_UDeclPtr, L[2]]  # omitted: racePieceCampaignInfoList, storyEventBonusDict
+    resumeFactorSelect: C_Ptr[SingleModeFactorSelectCommonObject]
+    _ignored_8: ArrayType[C_UDeclPtr, L[2]]  # omitted: skillUpgradeFactorSelect, eventChoiceRewardDict
+    _ignored_9: c_int32  # omitted: cachedRewardEventId
+    _ignored_10: C_UDeclPtr  # omitted: defaultRunningStyleArray
+    _ignored_11: ObscuredBool  # omitted: isUmaplan
+    _ignored_12: C_UDeclPtr  # omitted: logAdditiveBuffer
 
 
 @register_runtime_validatable('Gallop::WorkSingleModeData')

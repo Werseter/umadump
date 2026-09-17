@@ -217,6 +217,76 @@ class HorseDataObject(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
+# Gallop.SingleRaceStartInfo
+# ---------------------------------------------------------------------------
+
+class SingleRaceStartInfoFields(CStructureDataclass):
+    program_id: C_Int[c_int32]
+    random_seed: C_Int[c_int32]
+    weather: C_Int[c_int32]
+    ground_condition: C_Int[c_int32]
+    race_horse_data: GenericArrayPtr[C_Ptr[RaceHorseDataObject]]
+    continue_num: C_Int[c_int32]
+    is_force_running_style: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::SingleRaceStartInfo')
+class SingleRaceStartInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleRaceStartInfoFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.RaceRewardSetData
+# ---------------------------------------------------------------------------
+
+class RaceRewardSetDataFields(CStructureDataclass):
+    reward_list: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
+    _ignored_1: ArrayType[c_int32, L[2]]  # omitted: trainer_exp, love_point
+    _ignored_2: C_UDeclPtr  # omitted: trained_chara_param
+
+
+@register_runtime_validatable('Gallop::RaceRewardSetData')
+class RaceRewardSetDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: RaceRewardSetDataFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.RaceInfo.RaceReplayCheckInfo
+# ---------------------------------------------------------------------------
+
+class RaceInfoRaceReplayCheckInfoFields(CStructureDataclass):
+    rewardSetArray: GenericArrayPtr[C_Ptr[RaceRewardSetDataObject]]
+    rewardPlusBonusSetArray: GenericArrayPtr[C_Ptr[RaceRewardSetDataObject]]
+    bonusRewardSetArray: GenericArrayPtr[C_Ptr[RaceRewardSetDataObject]]
+    bonusRewardWinSetArray: GenericArrayPtr[C_Ptr[RaceRewardSetDataObject]]
+    _ignored_1: c_bool  # omitted: isItemNumLimit
+
+
+@register_runtime_validatable('Gallop::RaceInfo.RaceReplayCheckInfo')
+class RaceInfoRaceReplayCheckInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: RaceInfoRaceReplayCheckInfoFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.RaceInfo.RaceRewardInfoSingle
+# ---------------------------------------------------------------------------
+
+class RaceInfoRaceRewardInfoSingleFields(CStructureDataclass):
+    reward: C_Ptr[RaceInfoRaceReplayCheckInfoObject]
+    raceGainedFanCount: C_Int[c_int32]
+    _ignored_1: C_UDeclPtr  # omitted: RaceAfterPlayer
+
+
+@register_runtime_validatable('Gallop::RaceInfo.RaceRewardInfoSingle')
+class RaceInfoRaceRewardInfoSingleObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: RaceInfoRaceRewardInfoSingleFields
+
+
+# ---------------------------------------------------------------------------
 # Gallop.RaceInfo
 # ---------------------------------------------------------------------------
 
@@ -269,7 +339,8 @@ class RaceInfoFields(CStructureDataclass):
     laneDistanceMax: C_Float[c_float]
     _ignored_4: ArrayType[C_UDeclPtr, L[3]]  # omitted: replayCheckInfo, replayCheckInfoDaily, replayCheckInfoLegend
     isDailyLegendRace: C_Bool[c_bool]
-    _ignored_5: ArrayType[C_UDeclPtr, L[2]]  # omitted: replayCheckInfoChallengeMatch, raceRewardSingle
+    _ignored_5: C_UDeclPtr  # omitted: replayCheckInfoChallengeMatch
+    raceRewardSingle: C_Ptr[RaceInfoRaceRewardInfoSingleObject]
     resultHorseIndex: C_Int[c_int32]
     prevGradeType: C_Enum[CharaGradeType]
     mainStoryRaceGimmickType: C_Enum[MainStoryRaceGimmickType]

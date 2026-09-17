@@ -23,7 +23,7 @@ _TURN_SNAPSHOT_FILE_RE = re.compile(r"turn_(?P<turn>\d+)(?:_(?P<revision>\d+))?\
 
 @dataclass(frozen=True)
 class CareerArchiveSnapshot:
-    """One immutable TurnStart observation."""
+    """One immutable career observation, ordered within its turn."""
 
     key: str
     turn: int
@@ -98,7 +98,7 @@ def _career_manifest(identity: CareerArchiveIdentity) -> dict[str, Any]:
         "created_utc": datetime.now(UTC).isoformat(),
         "dumper_version": CURRENT_VERSION,
         "identity": identity,
-        "snapshot_phase": "turn_start",
+        "snapshot_phase": "career_observation",
         "snapshot_file_pattern": "turns/turn_{turn:03d}_{revision:03d}.json",
         "payload_format": "single_mode_load_response.data",
     }
@@ -182,7 +182,7 @@ def _next_turn_snapshot_path(turns_folder: Path, turn: int, payload: dict[str, A
 
 
 def write_career_archive_snapshot(output_folder: Path, key: str, snapshot: CareerArchiveSnapshot) -> None:
-    """Persist a TurnStart observation without overwriting prior evidence."""
+    """Persist a career observation without overwriting prior evidence."""
 
     career_folder = output_folder / key
     ensure_career_manifest(career_folder, snapshot.identity)
