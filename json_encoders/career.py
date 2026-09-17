@@ -310,13 +310,13 @@ def _decode_resume_factor_select(career: WorkSingleModeDataObject) -> dict[str, 
         "rank": f.rank,
         "lottery_remain_num": f.lottery_remain_num,
         "lottery_count": f.lottery_count,
-        "select_lottery_id": f.select_lottery_id,
         "factor_select_info_array": [
             {"lottery_id": item.contents.fields.lottery_id,
              "factor_info_array": [_decode_factor_info_entry(factor.contents)
                                    for factor in item.contents.fields.factor_info_array if factor]}
             for item in f.factor_select_info_array if item
         ],
+        "factor_relottery_info_array": [],
     }
 
 
