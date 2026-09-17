@@ -5,12 +5,13 @@ from typing import Literal as L
 
 from ctypes_utils import ArrayType, CStructureDataclass, C_Bool, C_Enum, C_EnumIn, C_Int, C_Ptr, C_UDeclPtr
 from game_structs.collections import GenericArrayPtr, GenericDictionary, GenericList
-from game_structs.enums import (CharaGradeType, ProperGrade, RaceMotivation, RunningStyle, SingleModeCommandType,
-                                SingleModeEventPlayTiming, SingleModeParameterType, SingleModePlayingState,
-                                SingleModeState, TeamEditFlag, TeamParameterRank, TrainingCommandId)
+from game_structs.enums import (CharaGradeType, ProperGrade, RaceMotivation, RoundResultType, RunningStyle,
+                                SingleModeCommandType, SingleModeEventPlayTiming, SingleModeParameterType,
+                                SingleModePlayingState, SingleModeState, TeamEditFlag, TeamParameterRank,
+                                TrainingCommandId)
 from game_structs.master_data import MasterSingleModeWinsSaddleSingleModeWinsSaddleObject
 from game_structs.obscured import ObscuredBool, ObscuredInt, ObscuredLong, ObscuredStringPtr
-from game_structs.race import CharaRaceRewardObject, SingleRaceStartInfoObject
+from game_structs.race import CharaRaceRewardObject, RaceHorseDataObject, SingleRaceStartInfoObject
 from game_structs.skills import AcquiredSkillObject, SkillDataObject, SkillTipsObject
 from game_structs.strings import SystemStringObjectPtr
 from game_structs.trained_chara import FactorInfoObject, RaceHistoryInfoObject
@@ -513,15 +514,198 @@ class WorkSingleModeScenarioTeamRaceDeckDataObject(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
+# Gallop.SingleModeTeamRandomInfo
+# ---------------------------------------------------------------------------
+
+class SingleModeTeamRandomInfoFields(CStructureDataclass):
+    team_race_set_id: C_Int[c_int32]
+    member_id: C_Int[c_int32]
+    chara_id: C_Int[c_int32]
+    npc_id: C_Int[c_int32]
+    running_style: C_Int[c_int32]
+    frame_order: C_Int[c_int32]
+    motivation: C_Int[c_int32]
+    stamina: C_Int[c_int32]
+    speed: C_Int[c_int32]
+    pow: C_Int[c_int32]
+    guts: C_Int[c_int32]
+    wiz: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::SingleModeTeamRandomInfo')
+class SingleModeTeamRandomInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeTeamRandomInfoFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleModeNpcTeamData
+# ---------------------------------------------------------------------------
+
+class SingleModeNpcTeamDataFields(CStructureDataclass):
+    distance_type: C_Int[c_int32]
+    member_id: C_Int[c_int32]
+    base_npc_id: C_Int[c_int32]
+    npc_id: C_Int[c_int32]
+    running_style: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::SingleModeNpcTeamData')
+class SingleModeNpcTeamDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeNpcTeamDataFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleModeTeamRaceHistory
+# ---------------------------------------------------------------------------
+
+class SingleModeTeamRaceHistoryFields(CStructureDataclass):
+    race_num: C_Int[c_int32]
+    turn: C_Int[c_int32]
+    team_race_set_id: C_Int[c_int32]
+    result_state: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::SingleModeTeamRaceHistory')
+class SingleModeTeamRaceHistoryObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeTeamRaceHistoryFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleModeTeamFrameOrder
+# ---------------------------------------------------------------------------
+
+class SingleModeTeamFrameOrderFields(CStructureDataclass):
+    distance_type: C_Int[c_int32]
+    race_order: C_Int[c_int32]
+    random_info_array: GenericArrayPtr[C_Ptr[SingleModeTeamRandomInfoObject]]
+
+
+@register_runtime_validatable('Gallop::SingleModeTeamFrameOrder')
+class SingleModeTeamFrameOrderObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeTeamFrameOrderFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleModeTeamOpponentList
+# ---------------------------------------------------------------------------
+
+class SingleModeTeamOpponentListFields(CStructureDataclass):
+    team_race_set_id: C_Int[c_int32]
+    team_power: C_Int[c_int32]
+    team_rank: C_Int[c_int32]
+    team_data_array: GenericArrayPtr[C_Ptr[SingleModeNpcTeamDataObject]]
+    win_up_rank: C_Int[c_int32]
+    lose_down_rank: C_Int[c_int32]
+    draw_rank: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::SingleModeTeamOpponentList')
+class SingleModeTeamOpponentListObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeTeamOpponentListFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleModeTeamEventEffectInfo
+# ---------------------------------------------------------------------------
+
+class SingleModeTeamEventEffectInfoFields(CStructureDataclass):
+    is_summarize_team_member: C_Bool[c_bool]
+    gain_speed: C_Int[c_int32]
+    gain_stamina: C_Int[c_int32]
+    gain_power: C_Int[c_int32]
+    gain_guts: C_Int[c_int32]
+    gain_wiz: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::SingleModeTeamEventEffectInfo')
+class SingleModeTeamEventEffectInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeTeamEventEffectInfoFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleModeTeamRaceCharaResult
+# ---------------------------------------------------------------------------
+
+class SingleModeTeamRaceCharaResultFields(CStructureDataclass):
+    frame_order: C_Int[c_int32]
+    chara_id: C_Int[c_int32]
+    npc_id: C_Int[c_int32]
+    team_id: C_Int[c_int32]
+    finish_order: C_Int[c_int32]
+    finish_time: C_Int[c_int32]
+    popularity: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::SingleModeTeamRaceCharaResult')
+class SingleModeTeamRaceCharaResultObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeTeamRaceCharaResultFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.WorkSingleModeScenarioTeamRace.SingleTeamRaceResult
+# ---------------------------------------------------------------------------
+
+class WorkSingleModeScenarioTeamRaceSingleTeamRaceResultFields(CStructureDataclass):
+    raceNum: ObscuredInt
+    round: ObscuredInt
+    raceInstanceId: ObscuredInt
+    weather: ObscuredInt
+    season: ObscuredInt
+    groundCondition: ObscuredInt
+    randomSeed: ObscuredInt
+    raceScenario: ObscuredStringPtr
+    roundResult: C_Enum[RoundResultType]
+    continueNum: ObscuredInt
+    charaResultArray: GenericArrayPtr[C_Ptr[SingleModeTeamRaceCharaResultObject]]
+    raceHorseData: GenericArrayPtr[C_Ptr[RaceHorseDataObject]]
+
+
+@register_runtime_validatable('Gallop::WorkSingleModeScenarioTeamRace.SingleTeamRaceResult')
+class WorkSingleModeScenarioTeamRaceSingleTeamRaceResultObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: WorkSingleModeScenarioTeamRaceSingleTeamRaceResultFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.WorkSingleModeScenarioTeamRace.SoulSkillInfo
+# ---------------------------------------------------------------------------
+
+class WorkSingleModeScenarioTeamRaceSoulSkillInfoFields(CStructureDataclass):
+    skillTips: GenericArrayPtr[C_Ptr[SkillTipsObject]]
+    notUpSkillTips: GenericArrayPtr[C_Ptr[SkillTipsObject]]
+    notGetSkill: GenericArrayPtr[c_int32]
+
+
+@register_runtime_validatable('Gallop::WorkSingleModeScenarioTeamRace.SoulSkillInfo')
+class WorkSingleModeScenarioTeamRaceSoulSkillInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: WorkSingleModeScenarioTeamRaceSoulSkillInfoFields
+
+
+class TeamSoulSkillDictionaryEntry(CStructureDataclass):
+    hashCode: C_Int[c_int32]
+    _ignored_1: c_int32  # omitted: next
+    key: C_Int[c_int32]
+    value: C_Ptr[WorkSingleModeScenarioTeamRaceSoulSkillInfoObject]
+
+
+# ---------------------------------------------------------------------------
 # Gallop.WorkSingleModeScenarioTeamRace
 # ---------------------------------------------------------------------------
 
 class WorkSingleModeScenarioTeamRaceFields(CStructureDataclass):
     _ignored_1: C_UDeclPtr  # omitted: teamName
     teamNameId: C_Int[c_int32]
-    _ignored_2: c_int32  # omitted: finalWinType
-    _ignored_3: c_bool  # omitted: isBossBattle
-    _ignored_4: ObscuredInt  # omitted: addMusicId
+    finalWinType: C_Enum[RoundResultType]
+    _ignored_2: c_bool  # omitted: isBossBattle
+    _ignored_3: ObscuredInt  # omitted: addMusicId
     teamParameterRankSpeed: C_Enum[TeamParameterRank]
     teamParameterRankStamina: C_Enum[TeamParameterRank]
     teamParameterRankPower: C_Enum[TeamParameterRank]
@@ -531,13 +715,22 @@ class WorkSingleModeScenarioTeamRaceFields(CStructureDataclass):
     isScoutEnable: C_Bool[c_bool]
     teamTotalPower: ObscuredInt
     teamRanking: ObscuredInt
-    _ignored_5: C_UDeclPtr  # omitted: teamHonorName
+    _ignored_4: C_UDeclPtr  # omitted: teamHonorName
     teamHonorId: ObscuredInt
     teamMemberList: C_Ptr[GenericList[C_Ptr[WorkSingleModeScenarioTeamRaceTeamMemberObject]]]
     deckDataList: C_Ptr[GenericList[C_Ptr[WorkSingleModeScenarioTeamRaceDeckDataObject]]]
-    _ignored_6: ArrayType[C_UDeclPtr, L[2]]  # omitted: teamRaceDeckTeamMemberList, runRaceDeckDataList
-    _ignored_7: c_int32  # omitted: selectedTeamRaceSetId
-    _ignored_8: ArrayType[C_UDeclPtr, L[10]]  # omitted: singleTeamResultList … deckBuilder
+    _ignored_5: ArrayType[C_UDeclPtr, L[2]]  # omitted: teamRaceDeckTeamMemberList, runRaceDeckDataList
+    _ignored_6: c_int32  # omitted: selectedTeamRaceSetId
+    singleTeamResultList: C_Ptr[GenericList[C_Ptr[WorkSingleModeScenarioTeamRaceSingleTeamRaceResultObject]]]
+    teamFrameOrderArray: GenericArrayPtr[C_Ptr[SingleModeTeamFrameOrderObject]]
+    opponentListArray: GenericArrayPtr[C_Ptr[SingleModeTeamOpponentListObject]]
+    _ignored_7: C_UDeclPtr  # omitted: selectedOpponent
+    teamEventEffectInfo: C_Ptr[SingleModeTeamEventEffectInfoObject]
+    teamRaceHistoryArray: GenericArrayPtr[C_Ptr[SingleModeTeamRaceHistoryObject]]
+    skillTipsArray: GenericArrayPtr[C_Ptr[SkillTipsObject]]
+    soulSkillTipsDictionary: C_Ptr[GenericDictionary[TeamSoulSkillDictionaryEntry]]
+    spSoulSkillTipsDictionary: C_Ptr[GenericDictionary[TeamSoulSkillDictionaryEntry]]
+    _ignored_8: C_UDeclPtr  # omitted: deckBuilder
     _ignored_9: ArrayType[c_int32, L[2]]  # omitted: playerMemberCount, gameQuality
     teamEditFlag: C_Enum[TeamEditFlag]
 

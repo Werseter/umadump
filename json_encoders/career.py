@@ -14,7 +14,11 @@ from game_structs.race import (CharaRaceRewardObject, RaceHorseDataObject, RaceH
                                RaceRewardDataObject, RaceRewardSetDataObject)
 from game_structs.single_mode import (EquipSupportCardObject, SingleModeFreeCommandInfoObject,
                                       SingleModeFreeItemEffectObject, SingleModeFreePickUpItemObject,
-                                      SingleModeFreeUserItemObject, SingleModeRivalRaceInfoObject,
+                                      SingleModeFreeUserItemObject, SingleModeNpcTeamDataObject,
+                                      SingleModeRivalRaceInfoObject, SingleModeTeamEventEffectInfoObject,
+                                      SingleModeTeamFrameOrderObject, SingleModeTeamOpponentListObject,
+                                      SingleModeTeamRaceCharaResultObject, SingleModeTeamRaceHistoryObject,
+                                      SingleModeTeamRandomInfoObject, TeamSoulSkillDictionaryEntry,
                                       WorkSingleModeCharaDataEvaluationObject,
                                       WorkSingleModeCharaDataGroupOutingInfoObject, WorkSingleModeCharaDataObject,
                                       WorkSingleModeCharaDataSkillTipsObject,
@@ -30,7 +34,10 @@ from game_structs.single_mode import (EquipSupportCardObject, SingleModeFreeComm
                                       WorkSingleModeScenarioLivePerformanceDataObject,
                                       WorkSingleModeScenarioLiveTrainingBonusObject,
                                       WorkSingleModeScenarioTeamRaceDeckDataObject,
+                                      WorkSingleModeScenarioTeamRaceObject,
+                                      WorkSingleModeScenarioTeamRaceSingleTeamRaceResultObject,
                                       WorkSingleModeScenarioTeamRaceTeamMemberObject)
+from game_structs.skills import SkillTipsObject
 from game_structs.trained_chara import RaceHistoryInfoObject
 from .race import _decode_skill_data_entry
 from .trained_chara import _decode_acquired_skill_entry, _decode_factor_info_entry
@@ -819,6 +826,133 @@ def _decode_runtime_race_reward(data: CareerDataExtractionData) -> dict[str, Any
     }
 
 
+def _decode_team_random(entry: SingleModeTeamRandomInfoObject) -> dict[str, Any]:
+    f = entry.fields
+    return {
+        "team_race_set_id": f.team_race_set_id,
+        "member_id": f.member_id,
+        "chara_id": f.chara_id,
+        "npc_id": f.npc_id,
+        "running_style": f.running_style,
+        "frame_order": f.frame_order,
+        "motivation": f.motivation,
+        "stamina": f.stamina,
+        "speed": f.speed,
+        "pow": f.pow,
+        "guts": f.guts,
+        "wiz": f.wiz,
+    }
+
+
+def _decode_team_npc(entry: SingleModeNpcTeamDataObject) -> dict[str, Any]:
+    f = entry.fields
+    return {
+        "distance_type": f.distance_type,
+        "member_id": f.member_id,
+        "base_npc_id": f.base_npc_id,
+        "npc_id": f.npc_id,
+        "running_style": f.running_style,
+    }
+
+
+def _decode_team_history(entry: SingleModeTeamRaceHistoryObject) -> dict[str, Any]:
+    f = entry.fields
+    return {
+        "race_num": f.race_num,
+        "turn": f.turn,
+        "team_race_set_id": f.team_race_set_id,
+        "result_state": f.result_state,
+    }
+
+
+def _decode_team_effect(entry: SingleModeTeamEventEffectInfoObject) -> dict[str, Any]:
+    f = entry.fields
+    return {
+        "is_summarize_team_member": f.is_summarize_team_member,
+        "gain_speed": f.gain_speed,
+        "gain_stamina": f.gain_stamina,
+        "gain_power": f.gain_power,
+        "gain_guts": f.gain_guts,
+        "gain_wiz": f.gain_wiz,
+    }
+
+
+def _decode_team_frame(entry: SingleModeTeamFrameOrderObject) -> dict[str, Any]:
+    f = entry.fields
+    return {"distance_type": f.distance_type, "race_order": f.race_order,
+            "random_info_array": [_decode_team_random(item.contents) for item in f.random_info_array if item]}
+
+
+def _decode_team_opponent(entry: SingleModeTeamOpponentListObject) -> dict[str, Any]:
+    f = entry.fields
+    return {
+        "team_race_set_id": f.team_race_set_id, "team_power": f.team_power, "team_rank": f.team_rank,
+        "team_data_array": [_decode_team_npc(item.contents) for item in f.team_data_array if item],
+        "win_up_rank": f.win_up_rank, "lose_down_rank": f.lose_down_rank, "draw_rank": f.draw_rank,
+    }
+
+
+def _decode_skill_tips_entry(entry: SkillTipsObject) -> dict[str, int]:
+    f = entry.fields
+    return {"group_id": f.group_id, "rarity": f.rarity, "level": f.level}
+
+
+def _decode_team_chara_result(entry: SingleModeTeamRaceCharaResultObject) -> dict[str, int]:
+    f = entry.fields
+    return {
+        "frame_order": f.frame_order,
+        "chara_id": f.chara_id,
+        "npc_id": f.npc_id,
+        "team_id": f.team_id,
+        "finish_order": f.finish_order,
+        "finish_time": f.finish_time,
+        "popularity": f.popularity,
+    }
+
+
+def _decode_team_result(entry: WorkSingleModeScenarioTeamRaceSingleTeamRaceResultObject) -> dict[str, Any]:
+    f = entry.fields
+    return {
+        "distance_type": f.raceNum.value,
+        "race_instance_id": f.raceInstanceId.value,
+        "season": f.season.value,
+        "weather": f.weather.value,
+        "ground_condition": f.groundCondition.value,
+        "random_seed": f.randomSeed.value,
+        "race_horse_data_array": [_decode_career_race_horse(item.contents) for item in f.raceHorseData if item],
+        "race_scenario": f.raceScenario.value_or(None),
+        "round": f.round.value,
+        "win_type": f.roundResult,
+        "chara_result_array": [_decode_team_chara_result(item.contents) for item in f.charaResultArray if item],
+        "continue_num": f.continueNum.value,
+    }
+
+
+def _decode_team_soul_tips(value: C_Ptr[GenericDictionary[TeamSoulSkillDictionaryEntry]]) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for entry in value.contents if value else ():
+        if not entry.value:
+            continue
+        f = entry.value.contents.fields
+        result.append({
+            "training_partner_id": entry.key,
+            "skill_tips_array": [_decode_skill_tips_entry(item.contents) for item in f.skillTips if item],
+            "not_up_skill_tips_array": [_decode_skill_tips_entry(item.contents) for item in f.notUpSkillTips if item],
+            "not_up_skill_id_array": [item.value for item in f.notGetSkill],
+        })
+    return result
+
+
+def _decode_team_command_result(team: WorkSingleModeScenarioTeamRaceObject) -> dict[str, Any] | None:
+    f = team.fields
+    skills = [_decode_skill_tips_entry(item.contents) for item in f.skillTipsArray if item]
+    soul = _decode_team_soul_tips(f.soulSkillTipsDictionary)
+    special = _decode_team_soul_tips(f.spSoulSkillTipsDictionary)
+    if not (skills or soul or special):
+        return None
+    return {"skill_tips_array": skills, "soul_skill_tips_array": soul, "sp_soul_skill_tips_array": special}
+
+
 def _decode_active_team_data_set(chara: WorkSingleModeCharaDataObject,
                                  home: C_Ptr[WorkSingleModeHomeInfoObject]) -> dict[str, Any]:
     chara_fields = chara.fields
@@ -862,19 +996,30 @@ def _decode_active_team_data_set(chara: WorkSingleModeCharaDataObject,
             if evaluation
         ]
 
+    race_results = []
+    if results := team_fields.singleTeamResultList:
+        race_results = [_decode_team_result(item.contents) for item in results.contents if item]
     return {
         "team_info": team_info,
         "command_info_array": _decode_active_team_command_info(home),
         "evaluation_info_array": evaluation_info_array,
         "scenario_progress": chara_fields.scenarioProgress.value,
-        "frame_order_info_array": None,
-        "race_result_array": None,
-        "final_win_type": None,
-        "opponent_info_array": None,
-        "event_effect_info": None,
+        "frame_order_info_array": [
+            _decode_team_frame(item.contents) for item in team_fields.teamFrameOrderArray if item
+        ] if team_fields.teamFrameOrderArray else None,
+        "race_result_array": race_results or None,
+        "final_win_type": team_fields.finalWinType if race_results else None,
+        "opponent_info_array": [
+            _decode_team_opponent(item.contents) for item in team_fields.opponentListArray if item
+        ] if team_fields.opponentListArray else None,
+        "event_effect_info": (
+            _decode_team_effect(team_fields.teamEventEffectInfo.contents) if team_fields.teamEventEffectInfo else None
+        ),
         "not_up_team_parameter_info": {"status_array": []},
-        "team_race_history_array": [],
-        "command_result": None,
+        "team_race_history_array": [
+            _decode_team_history(item.contents) for item in team_fields.teamRaceHistoryArray if item
+        ],
+        "command_result": _decode_team_command_result(team.contents),
     }
 
 

@@ -105,11 +105,25 @@ def _career_team_state_fingerprint(value: C_Ptr[WorkSingleModeScenarioTeamRaceOb
     if not value:
         return "scenario_team", pointer_fingerprint(value)
     fields = value.contents.fields
+    soul_skills = []
+    for dictionary in (fields.soulSkillTipsDictionary, fields.spSoulSkillTipsDictionary):
+        first_value: ExtractorFingerprint = ("first", ("ptr", 0))
+        if dictionary and (entry := dictionary.contents.first()) is not None:
+            first_value = object_pointer_fingerprint("first", entry.value)
+        soul_skills.append((dictionary_pointer_fingerprint(dictionary), first_value))
     return (
         "scenario_team",
         pointer_fingerprint(value),
         object_list_fingerprint("team_members", fields.teamMemberList),
         object_list_fingerprint("team_deck", fields.deckDataList),
+        fields.finalWinType,
+        object_array_fingerprint("frame_order", fields.teamFrameOrderArray),
+        object_array_fingerprint("opponents", fields.opponentListArray),
+        object_pointer_fingerprint("team_effect", fields.teamEventEffectInfo),
+        object_array_fingerprint("team_history", fields.teamRaceHistoryArray),
+        object_list_fingerprint("team_results", fields.singleTeamResultList),
+        object_array_fingerprint("team_skills", fields.skillTipsArray),
+        tuple(soul_skills),
     )
 
 
