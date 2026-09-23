@@ -4,15 +4,17 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from ctypes_utils import C_Ptr
-from game_structs.enums import IdleSingleModePlayingState
+from game_structs.enums import IdleSingleModePlayingState, SingleModeState
 from game_structs.idle_single_mode import ObscuredIdleSingleModeProgressLogInfoObject, WorkIdleSingleModeDataObject
 from game_structs.single_mode import SingleModeCharaObject, WorkSingleModeDataObject
+from game_structs.trained_chara import TrainedCharaDataObject
 from game_structs.work_data_manager import WorkDataManagerObject
 from json_encoders.common import timestamp_to_str
 from json_encoders.idle_single_mode import decode_idle_single_mode
 from logger import logger
 from .common import (ExtractorContext, ExtractorFingerprint, safe_filename_component,
                      validated_object_pointer_fingerprint)
+from .trained_chara import resolve_trained_chara_extraction_data
 
 
 @dataclass(frozen=True)
@@ -29,6 +31,7 @@ class IdleSingleModeExtractionData:
     end_time: int
     progress_log_info: C_Ptr[ObscuredIdleSingleModeProgressLogInfoObject]
     finalized_chara_info: C_Ptr[SingleModeCharaObject]
+    finalized_veteran: C_Ptr[TrainedCharaDataObject] | None = None
 
     def fingerprint(self) -> ExtractorFingerprint:
         return (
@@ -39,6 +42,7 @@ class IdleSingleModeExtractionData:
             self.end_time,
             validated_object_pointer_fingerprint(self.progress_log_info),
             validated_object_pointer_fingerprint(self.finalized_chara_info),
+            validated_object_pointer_fingerprint(self.finalized_veteran) if self.finalized_veteran else ("ptr", 0),
         )
 
 
@@ -71,6 +75,28 @@ def _resolve_idle_career_data_ptr(wdm: WorkDataManagerObject) -> Optional[C_Ptr[
     return idle_career_data_ptr
 
 
+def _retrieve_finalized_veteran(wdm: WorkDataManagerObject,
+                                chara_info: SingleModeCharaObject) -> Optional[C_Ptr[TrainedCharaDataObject]]:
+    # NOTE: The fans are a tentative identity member but can't find a better match
+    trained_chara_data = resolve_trained_chara_extraction_data(wdm)
+    if trained_chara_data is not None and len(trained_chara_data.entries) > 0:
+        if last_veteran_ptr := trained_chara_data.entries.span()[trained_chara_data.entries.fields.count - 1].value:
+            last_veteran = last_veteran_ptr.contents.fields
+            last_veteran_identity = {
+                'card_id': last_veteran.cardId.value,
+                'scenario_id': last_veteran.scenarioId.value,
+                'fans': last_veteran.fans.value,
+            }
+            chara_info_identity = {
+                'card_id': chara_info.fields.card_id,
+                'scenario_id': chara_info.fields.scenario_id,
+                'fans': chara_info.fields.fans,
+            }
+            if last_veteran_identity == chara_info_identity:
+                return last_veteran_ptr
+    return None
+
+
 def resolve_idle_single_mode(wdm: WorkDataManagerObject) -> Optional[IdleSingleModeExtractionData]:
     if not (idle_career_data_ptr := _resolve_idle_career_data_ptr(wdm)):
         return None
@@ -87,6 +113,10 @@ def resolve_idle_single_mode(wdm: WorkDataManagerObject) -> Optional[IdleSingleM
     if not (finalized_chara_info_ptr := race_start_result_info_data.fields.charaInfo):
         return None
 
+    finalized_veteran: C_Ptr[TrainedCharaDataObject] | None = None
+    if career_data.fields.state.value == SingleModeState.FinishComplete:
+        finalized_veteran = _retrieve_finalized_veteran(wdm, finalized_chara_info_ptr.contents)
+
     return IdleSingleModeExtractionData(
             state=IdleSingleModePlayingState(idle_career_data.state.value),
             chara_info=idle_career_data.charaInfo,
@@ -94,6 +124,7 @@ def resolve_idle_single_mode(wdm: WorkDataManagerObject) -> Optional[IdleSingleM
             end_time=idle_career_data.endTime,
             progress_log_info=idle_career_data.progressLogInfo,
             finalized_chara_info=finalized_chara_info_ptr,
+            finalized_veteran=finalized_veteran,
     )
 
 

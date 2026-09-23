@@ -16,6 +16,7 @@ from game_structs.single_mode import (EvaluationInfoObject, GroupOutingInfoObjec
 from game_structs.skills import SkillTipsObject
 from .common import timestamp_to_str
 from .race import _decode_skill_data_entry
+from .trained_chara import _decode_trained_chara_entry
 
 if TYPE_CHECKING:
     from extractors.idle_single_mode import IdleSingleModeExtractionData
@@ -325,11 +326,15 @@ def _decode_obscured_idle_single_mode_progress_log_info(progress: ObscuredIdleSi
 
 def decode_idle_single_mode(data: IdleSingleModeExtractionData) -> dict[str, Any]:
     progress_log_info = data.progress_log_info.contents
+    trained_chara = _decode_trained_chara_entry(data.finalized_veteran.contents) if data.finalized_veteran else None
     return {
         "progress_info": _decode_idle_single_mode_progress_info(data),
         "progress_log_info": _decode_obscured_idle_single_mode_progress_log_info(progress_log_info),
         "end_info": {
             "chara_info": _decode_single_mode_chara(data.finalized_chara_info.contents),
             "reward_summary_info": _decode_idle_single_mode_race_reward_summary(progress_log_info),
+        },
+        "extra_data": {
+            "trained_chara": trained_chara,
         }
     }

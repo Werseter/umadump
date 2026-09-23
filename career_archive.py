@@ -31,6 +31,7 @@ class CareerArchiveSnapshot:
     identity: CareerArchiveIdentity
     payload: dict[str, Any]
     log_observation: CareerLogObservation | None = None
+    finalized_veteran: dict[str, Any] | None = None
 
 
 def _write_json_file(name: str, output_path: Path, payload: Any) -> None:
@@ -185,6 +186,11 @@ def _next_turn_snapshot_path(turns_folder: Path, turn: int, payload: dict[str, A
     return output_path
 
 
+def _save_finalized_veteran(folder: Path, finalized_veteran: dict[str, Any]) -> None:
+    path = folder / "veteran.json"
+    _write_json_file(f"career veteran", path, finalized_veteran)
+
+
 def write_career_archive_snapshot(output_folder: Path, key: str, snapshot: CareerArchiveSnapshot) -> None:
     """Persist a career observation without overwriting prior evidence."""
 
@@ -195,3 +201,5 @@ def write_career_archive_snapshot(output_folder: Path, key: str, snapshot: Caree
         _write_immutable_career_payload(key, f"turn {snapshot.turn}", output_path, snapshot.payload)
     if snapshot.log_observation is not None:
         CareerLogManager.write(career_folder, snapshot.log_observation)
+    if snapshot.finalized_veteran is not None:
+        _save_finalized_veteran(career_folder, snapshot.finalized_veteran)

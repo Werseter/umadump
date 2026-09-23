@@ -1,23 +1,26 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, TypeAlias
+from typing import Any, Optional, TypeAlias
 
 from career_archive import CareerArchiveSnapshot, career_archive_descriptor
 from ctypes_utils import C_Ptr
-from game_structs.enums import SingleModePlayingState, SingleModeScenarioId
+from game_structs.enums import SingleModePlayingState, SingleModeScenarioId, SingleModeState
 from game_structs.race import RaceInfoObject, SingleRaceStartInfoObject
 from game_structs.single_mode import (WorkSingleModeChangeParameterInfoObject, WorkSingleModeCharaDataObject,
                                       WorkSingleModeDataObject, WorkSingleModeDataRaceStartResultInfoObject,
                                       WorkSingleModeHomeInfoObject, WorkSingleModeScenarioFreeObject,
                                       WorkSingleModeScenarioLiveObject, WorkSingleModeScenarioLivePerformanceDataObject,
                                       WorkSingleModeScenarioTeamRaceObject)
+from game_structs.trained_chara import TrainedCharaDataObject
 from game_structs.work_data_manager import WorkDataManagerObject
 from json_encoders.career import decode_career_data, decode_career_log
+from json_encoders.trained_chara import _decode_trained_chara_entry
 from logger import logger
 from .common import (ExtractorContext, ExtractorFingerprint, array_fingerprint, dictionary_pointer_fingerprint,
                      list_pointer_fingerprint, object_array_fingerprint, object_list_fingerprint,
                      object_pointer_fingerprint, pointer_fingerprint)
+from .trained_chara import resolve_trained_chara_extraction_data
 
 ChangeParameterInfoObjectPtr: TypeAlias = C_Ptr[WorkSingleModeChangeParameterInfoObject]
 LivePerformancePtr: TypeAlias = C_Ptr[WorkSingleModeScenarioLivePerformanceDataObject]
@@ -313,6 +316,7 @@ class CareerDataExtractionData:
 
     career_ptr: C_Ptr[WorkSingleModeDataObject]
     race_info: C_Ptr[RaceInfoObject] | None = None
+    finalized_veteran: C_Ptr[TrainedCharaDataObject] | None = None
 
     def race_sources(self) -> CareerRaceSources | None:
         return _career_race_sources(self.career, self.race_info)
@@ -332,6 +336,7 @@ class CareerDataExtractionData:
         fields = career.fields
         chara = fields.character.contents
         chara_fields = chara.fields
+        veteran = self.finalized_veteran
         active_view = (
             pointer_fingerprint(self.career_ptr),
             chara_fields.id.value,
@@ -353,6 +358,7 @@ class CareerDataExtractionData:
             _career_race_fingerprint(self.race_sources()),
             _career_pending_actions_fingerprint(career),
             _career_log_fingerprint(career),
+            object_pointer_fingerprint("finalized_veteran", veteran) if veteran else ("ptr", 0),
         )
 
 
@@ -395,12 +401,44 @@ def resolve_career_snapshot(wdm: WorkDataManagerObject) -> Optional[CareerDataEx
     return data
 
 
+def _retrieve_finalized_veteran(wdm: WorkDataManagerObject,
+                                character: WorkSingleModeCharaDataObject) -> Optional[C_Ptr[TrainedCharaDataObject]]:
+    # NOTE: The fans are a tentative identity member but can't find a better match
+    trained_chara_data = resolve_trained_chara_extraction_data(wdm)
+    if trained_chara_data is not None and len(trained_chara_data.entries) > 0:
+        if last_veteran_ptr := trained_chara_data.entries.span()[trained_chara_data.entries.fields.count - 1].value:
+            last_veteran = last_veteran_ptr.contents.fields
+            last_veteran_identity = {
+                'card_id': last_veteran.cardId.value,
+                'scenario_id': last_veteran.scenarioId.value,
+                'fans': last_veteran.fans.value,
+            }
+            chara_info_identity = {
+                'card_id': character.fields.cardId.value,
+                'scenario_id': character.fields.scenarioId.value,
+                'fans': character.fields.fanCount.value,
+            }
+            if last_veteran_identity == chara_info_identity:
+                return last_veteran_ptr
+    return None
+
+
 def resolve_career_snapshot_data(context: ExtractorContext) -> Optional[CareerDataExtractionData]:
     data = resolve_career_snapshot(context.work_data_manager)
     if data is None:
         return None
     race_static = context.race_manager_static
-    return CareerDataExtractionData(data.career_ptr, race_static.raceInfo if race_static else None)
+
+    finalized_veteran: C_Ptr[TrainedCharaDataObject] | None = None
+    if data.career_ptr.contents.fields.state.value == SingleModeState.FinishComplete:
+        finalized_veteran = _retrieve_finalized_veteran(context.work_data_manager,
+                                                        data.career_ptr.contents.fields.character.contents)
+
+    return CareerDataExtractionData(
+            career_ptr=data.career_ptr,
+            race_info=race_static.raceInfo if race_static else None,
+            finalized_veteran=finalized_veteran,
+    )
 
 
 def extract_career_snapshot(data: CareerDataExtractionData) -> CareerArchiveSnapshot:
@@ -409,7 +447,8 @@ def extract_career_snapshot(data: CareerDataExtractionData) -> CareerArchiveSnap
     key, identity = career_archive_descriptor(data)
     logger.info("Decoded active career data: chara=%d card=%d turn=%d",
                 chara_info["single_mode_chara_id"], chara_info["card_id"], chara_info["turn"])
-    return CareerArchiveSnapshot(key, chara_info["turn"], identity, payload, decode_career_log(data))
+    finalized_veteran = _decode_trained_chara_entry(data.finalized_veteran.contents) if data.finalized_veteran else None
+    return CareerArchiveSnapshot(key, chara_info["turn"], identity, payload, decode_career_log(data), finalized_veteran)
 
 
 def career_snapshot_output_key(snapshot: CareerArchiveSnapshot) -> str:
