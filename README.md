@@ -57,6 +57,44 @@ structured JSON data.
 
 ---
 
+## Output JSON contract
+
+[`output_validation.jq`](output_validation.jq) is the public jq normalization
+contract for comparing selected API payloads with umadump exports. It records
+intentional placeholders, omissions, extensions, and ordering normalization.
+Each section names the API source, dump file, and filters to apply to both sides.
+
+The contract works directly with jq; no separate validator is required. API entry
+points consume the complete decoded response envelope. Export entry points consume
+the dump itself; exports needing no normalization use `pass_through`. For example:
+
+```sh
+jq -L . 'include "output_validation"; career_load_api' response.json
+jq -L . 'include "output_validation"; pass_through' turn_024_010.json
+```
+
+Use files representing the same observation. The contract does not select matching
+captures or perform the comparison.
+
+## Career observations
+
+The career extractor records active state in the shape of a load API response
+after save-and-exit. Logs and event summaries are proprietary companion formats,
+not part of that API payload. The event summary is derived exclusively from the
+full log and retains headings and result effects without story dialogue.
+
+### Archive files
+
+- `manifest.json`: persistent identity and archive description; existing
+  manifests are checked, never rewritten.
+- `turns/turn_###_###.json`: API-shaped load data. The first observation is `_000`;
+  a changed payload gets the next revision. Repeated identical observations do
+  not create another file. Earlier evidence remains immutable.
+- `log.json`: reconciled dialogue, choices, result text, and heading-only groups.
+- `events.json`: a projection of the same records containing event headings and
+  result effects, without story dialogue.
+- `veteran.json`: optional finalized character attachment.
+
 ## Trophy exports
 
 Login-only trophies are written to `trophy_data_limited.json`. Open the Trophy
