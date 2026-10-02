@@ -94,6 +94,37 @@ def _decode_race_horse_data_entry(entry: RaceHorseDataObject) -> dict[str, Any]:
     }
 
 
+def _race_setup_frame_orders(random_seed: int, horse_count: int) -> list[int]:
+    """Return the gate sequence used to serialize race horses."""
+    mask = 0xFFFFFFFF
+    state = random_seed & mask
+    gates = list(range(1, horse_count + 1))
+    frame_orders: list[int] = []
+    while gates:
+        # deterministic xorshift32 PRNG setup
+        state ^= (state << 13) & mask
+        state ^= state >> 17
+        state ^= (state << 5) & mask
+        # swap the selected gate to the tail, then pop to output
+        selected_index = state % len(gates)
+        gates[selected_index], gates[-1] = gates[-1], gates[selected_index]
+        frame_orders.append(gates.pop())
+    return frame_orders
+
+
+def restore_race_horse_order(race_horses: list[dict[str, Any]], random_seed: int) -> list[dict[str, Any]]:
+    """Restore API order from the race setup gate assignment, retaining invalid inputs unchanged."""
+    seed = random_seed & 0xFFFFFFFF
+    if not race_horses or seed == 0:
+        return race_horses
+
+    horses_by_frame = {horse["frame_order"]: horse for horse in race_horses}
+    if horses_by_frame.keys() != set(range(1, len(race_horses) + 1)):
+        return race_horses
+
+    return [horses_by_frame[frame] for frame in _race_setup_frame_orders(seed, len(race_horses))]
+
+
 def _decode_race_course_set(value: RaceCourseSetObject) -> dict[str, int]:
     f = value.fields
 

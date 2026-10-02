@@ -5,7 +5,7 @@ from typing import Any, Optional, TYPE_CHECKING
 
 from game_structs.team_stadium import (TeamStadiumRaceCharaResultObject, TeamStadiumRaceResultObject,
                                        TeamStadiumResultBonusDataObject, TeamStadiumResultScoreDataObject)
-from .race import _decode_race_horse_data_entry
+from .race import _decode_race_horse_data_entry, restore_race_horse_order
 
 if TYPE_CHECKING:
     from extractors.team_stadium import TeamStadiumReplayExtractionData
@@ -56,7 +56,7 @@ def _decode_team_stadium_race_result(race_result_obj: TeamStadiumRaceResultObjec
                                      opponent_evaluate: int) -> Optional[tuple[dict[str, Any], dict[str, Any]]]:
     f = race_result_obj.fields
     race_horse_data_array = [_decode_race_horse_data_entry(x.contents) for x in f.raceHorseDataArray]
-    race_horse_data_array.sort(key=lambda x: (x["mob_id"], x["team_id"], x["team_member_id"]))
+    race_horse_data_array = restore_race_horse_order(race_horse_data_array, f.randomSeed.value)
 
     race_start_params = {
         "round": f.round.value,
