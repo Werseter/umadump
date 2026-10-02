@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, TypeAlias
 
+from ctypes_utils import C_Ptr
 from game_structs.collections import GenericDictionary
-from game_structs.trained_chara import FavoriteDataDictionaryEntry, TrainedCharaDataDictionaryEntry
+from game_structs.trained_chara import (FavoriteDataDictionaryEntry, TrainedCharaDataDictionaryEntry,
+                                        TrainedCharaDataObject)
 from game_structs.work_data_manager import WorkDataManagerObject
 from json_encoders.trained_chara import decode_trained_chara_dictionary
 from logger import logger
@@ -47,6 +49,27 @@ def resolve_trained_chara_extraction_data(wdm: WorkDataManagerObject) -> Optiona
     dictionary = dictionary_ptr.contents
     fav_dictionary = fav_dictionary_ptr.contents
     return TrainedCharaExtractionData(entries=dictionary, favorite_entries=fav_dictionary)
+
+
+VeteranIdentity: TypeAlias = tuple[int, int, int]  # card_id, scenario_id, fans
+
+
+def resolve_finalized_veteran(wdm: WorkDataManagerObject,
+                              identity: VeteranIdentity) -> Optional[C_Ptr[TrainedCharaDataObject]]:
+    """Match the last active veteran from the rebuilt dictionary by card/scenario/fans."""
+    data = resolve_trained_chara_extraction_data(wdm)
+    if data is None:
+        return None
+
+    entry = data.entries.last()
+    if entry is None or not entry.value:
+        return None
+
+    fields = entry.value.contents.fields
+    if (fields.cardId.value, fields.scenarioId.value, fields.fans.value) == identity:
+        return entry.value
+
+    return None
 
 
 def resolve_trained_chara_data(context: ExtractorContext) -> Optional[TrainedCharaExtractionData]:

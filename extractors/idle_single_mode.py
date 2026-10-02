@@ -14,7 +14,7 @@ from json_encoders.idle_single_mode import decode_idle_single_mode
 from logger import logger
 from .common import (ExtractorContext, ExtractorFingerprint, safe_filename_component,
                      validated_object_pointer_fingerprint)
-from .trained_chara import resolve_trained_chara_extraction_data
+from .trained_chara import resolve_finalized_veteran
 
 
 @dataclass(frozen=True)
@@ -75,28 +75,6 @@ def _resolve_idle_career_data_ptr(wdm: WorkDataManagerObject) -> Optional[C_Ptr[
     return idle_career_data_ptr
 
 
-def _retrieve_finalized_veteran(wdm: WorkDataManagerObject,
-                                chara_info: SingleModeCharaObject) -> Optional[C_Ptr[TrainedCharaDataObject]]:
-    # NOTE: The fans are a tentative identity member but can't find a better match
-    trained_chara_data = resolve_trained_chara_extraction_data(wdm)
-    if trained_chara_data is not None and len(trained_chara_data.entries) > 0:
-        if last_veteran_ptr := trained_chara_data.entries.span()[trained_chara_data.entries.fields.count - 1].value:
-            last_veteran = last_veteran_ptr.contents.fields
-            last_veteran_identity = {
-                'card_id': last_veteran.cardId.value,
-                'scenario_id': last_veteran.scenarioId.value,
-                'fans': last_veteran.fans.value,
-            }
-            chara_info_identity = {
-                'card_id': chara_info.fields.card_id,
-                'scenario_id': chara_info.fields.scenario_id,
-                'fans': chara_info.fields.fans,
-            }
-            if last_veteran_identity == chara_info_identity:
-                return last_veteran_ptr
-    return None
-
-
 def resolve_idle_single_mode(wdm: WorkDataManagerObject) -> Optional[IdleSingleModeExtractionData]:
     if not (idle_career_data_ptr := _resolve_idle_career_data_ptr(wdm)):
         return None
@@ -115,7 +93,8 @@ def resolve_idle_single_mode(wdm: WorkDataManagerObject) -> Optional[IdleSingleM
 
     finalized_veteran: C_Ptr[TrainedCharaDataObject] | None = None
     if career_data.fields.state.value == SingleModeState.FinishComplete:
-        finalized_veteran = _retrieve_finalized_veteran(wdm, finalized_chara_info_ptr.contents)
+        chara = finalized_chara_info_ptr.contents.fields
+        finalized_veteran = resolve_finalized_veteran(wdm, (chara.card_id, chara.scenario_id, chara.fans))
 
     return IdleSingleModeExtractionData(
             state=IdleSingleModePlayingState(idle_career_data.state.value),

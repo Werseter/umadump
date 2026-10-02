@@ -106,6 +106,7 @@ def _career_manifest(identity: CareerArchiveIdentity) -> dict[str, Any]:
         "payload_format": "single_mode_load_response.data",
         "log_file": "log.json",
         "event_timeline_file": "events.json",
+        "finalized_veteran_file": "veteran.json",
     }
 
 

@@ -20,7 +20,7 @@ from logger import logger
 from .common import (ExtractorContext, ExtractorFingerprint, array_fingerprint, dictionary_pointer_fingerprint,
                      list_pointer_fingerprint, object_array_fingerprint, object_list_fingerprint,
                      object_pointer_fingerprint, pointer_fingerprint)
-from .trained_chara import resolve_trained_chara_extraction_data
+from .trained_chara import resolve_finalized_veteran
 
 ChangeParameterInfoObjectPtr: TypeAlias = C_Ptr[WorkSingleModeChangeParameterInfoObject]
 LivePerformancePtr: TypeAlias = C_Ptr[WorkSingleModeScenarioLivePerformanceDataObject]
@@ -416,28 +416,6 @@ def resolve_career_snapshot(wdm: WorkDataManagerObject) -> Optional[CareerDataEx
     return data
 
 
-def _retrieve_finalized_veteran(wdm: WorkDataManagerObject,
-                                character: WorkSingleModeCharaDataObject) -> Optional[C_Ptr[TrainedCharaDataObject]]:
-    # NOTE: The fans are a tentative identity member but can't find a better match
-    trained_chara_data = resolve_trained_chara_extraction_data(wdm)
-    if trained_chara_data is not None and len(trained_chara_data.entries) > 0:
-        if last_veteran_ptr := trained_chara_data.entries.span()[trained_chara_data.entries.fields.count - 1].value:
-            last_veteran = last_veteran_ptr.contents.fields
-            last_veteran_identity = {
-                'card_id': last_veteran.cardId.value,
-                'scenario_id': last_veteran.scenarioId.value,
-                'fans': last_veteran.fans.value,
-            }
-            chara_info_identity = {
-                'card_id': character.fields.cardId.value,
-                'scenario_id': character.fields.scenarioId.value,
-                'fans': character.fields.fanCount.value,
-            }
-            if last_veteran_identity == chara_info_identity:
-                return last_veteran_ptr
-    return None
-
-
 def resolve_career_snapshot_data(context: ExtractorContext) -> Optional[CareerDataExtractionData]:
     data = resolve_career_snapshot(context.work_data_manager)
     if data is None:
@@ -445,9 +423,11 @@ def resolve_career_snapshot_data(context: ExtractorContext) -> Optional[CareerDa
     race_static = context.race_manager_static
 
     finalized_veteran: C_Ptr[TrainedCharaDataObject] | None = None
-    if data.career_ptr.contents.fields.state.value == SingleModeState.FinishComplete:
-        finalized_veteran = _retrieve_finalized_veteran(context.work_data_manager,
-                                                        data.career_ptr.contents.fields.character.contents)
+    career_fields = data.career.fields
+    if career_fields.state.value == SingleModeState.FinishComplete:
+        chara = career_fields.character.contents.fields
+        chara_identity = (chara.cardId.value, chara.scenarioId.value, chara.fanCount.value)
+        finalized_veteran = resolve_finalized_veteran(context.work_data_manager, chara_identity)
 
     return CareerDataExtractionData(
             career_ptr=data.career_ptr,
