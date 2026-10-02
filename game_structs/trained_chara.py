@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ctypes import c_bool, c_int32, c_int64
+from ctypes import c_bool, c_int32
 from typing import Literal as L
 
 from ctypes_utils import ArrayType, CStructureDataclass, C_Bool, C_Enum, C_EnumIn, C_Int, C_Ptr, C_UDeclPtr
@@ -92,27 +92,6 @@ class SuccessionCharaDataFields(CStructureDataclass):
 class SuccessionCharaDataObject(CStructureDataclass):
     _il2cpp_obj: RuntimeIl2CppObject
     fields: SuccessionCharaDataFields
-
-
-# ---------------------------------------------------------------------------
-# Gallop.SuccessionHistory
-# ---------------------------------------------------------------------------
-
-class SuccessionHistoryFields(CStructureDataclass):
-    id: C_Int[c_int32]
-    viewer_id: C_Int[c_int64]
-    trained_chara_id: C_Int[c_int32]
-    hisotry_type: C_Int[c_int32]
-    succession_card_id: C_Int[c_int32]
-    date: C_Int[c_int32]
-    user_name: SystemStringObjectPtr
-    circle_name: SystemStringObjectPtr
-
-
-@register_runtime_validatable('Gallop::SuccessionHistory')
-class SuccessionHistoryObject(CStructureDataclass):
-    _il2cpp_obj: RuntimeIl2CppObject
-    fields: SuccessionHistoryFields
 
 
 # ---------------------------------------------------------------------------

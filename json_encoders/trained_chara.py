@@ -9,8 +9,7 @@ from game_structs.enums import SuccessionCharaPosition
 from game_structs.skills import AcquiredSkillObject
 from game_structs.trained_chara import (FactorDataObject, FactorDataUpgradeHistoryObject, FactorInfoObject,
                                         FavoriteDataDictionaryEntry, RaceHistoryInfoObject, SuccessionCharaDataObject,
-                                        SuccessionHistoryObject, TrainedCharaDataObject,
-                                        TrainedCharaSupportCardDataObject)
+                                        TrainedCharaDataObject, TrainedCharaSupportCardDataObject)
 from logger import logger
 from .common import JST, timestamp_to_str
 
@@ -107,25 +106,8 @@ def _decode_succession_chara_entry(entry: SuccessionCharaDataObject) -> dict[str
         "rarity": f.rarity.value,
         "talent_level": f.level.value,
         "factor_info_array": [_decode_factor_data_entry(x.contents) for x in f.factorDataArray],
-        "factor_extend_array": _decode_factor_extend_array(f.positionId.value, f.factorDataArray),
         "win_saddle_id_array": [x.value for x in f.winSaddleIdArray],
         "owner_viewer_id": f.ownerViewerId.value
-    }
-
-
-def _decode_succession_history_entry(entry: SuccessionHistoryObject) -> dict[str, Any]:
-    f = entry.fields
-
-    return {
-        "id": f.id,
-        "viewer_id": f.viewer_id,
-        "trained_chara_id": f.trained_chara_id,
-        "history_type": f.hisotry_type,
-        "succession_card_id": f.succession_card_id,
-        "date": f.date,
-        "rental_viewer_id": 0,
-        "user_name": f.user_name.value,
-        "circle_name": f.circle_name.value
     }
 
 

@@ -127,7 +127,6 @@
             "level": 0
           }
         ],
-        "factor_extend_array": [],
         "win_saddle_id_array": [],
         "owner_viewer_id": 0
       },
@@ -147,7 +146,6 @@
             "level": 0
           }
         ],
-        "factor_extend_array": [],
         "win_saddle_id_array": [
           24,
           91
