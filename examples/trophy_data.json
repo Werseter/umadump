@@ -4,15 +4,15 @@
     "create_time": "0000-00-00 00:00:00",
     "race_instance_info_array": [
       {
-        "race_instance_id": 0,
+        "race_instance_id": 100101,
         "trophy_chara_info_array": [
           {
             "chara_id": 1004,
-            "win_count": 0
+            "win_count": 1
           },
           {
             "chara_id": 1006,
-            "win_count": 0
+            "win_count": 2
           }
         ]
       }

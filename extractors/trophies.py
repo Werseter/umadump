@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from ctypes import c_int32
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 from ctypes_utils import C_Ptr
 from game_structs.collections import GenericDictionary, GenericList
@@ -77,6 +77,16 @@ class TrophyDataExtractionData:
         return "trophy_data", dictionary_fingerprint(self.entries), self._first_trophy_entry_probe()
 
 
+@dataclass(frozen=True)
+class TrophyDataOutput:
+    key: str
+    payload: list[dict[str, object]]
+
+
+def trophy_data_output_key(output: TrophyDataOutput) -> str:
+    return output.key
+
+
 def resolve_trophy_data_extraction_data(wdm: WorkDataManagerObject) -> Optional[TrophyDataExtractionData]:
     """Resolve trophy data pointer."""
 
@@ -97,7 +107,14 @@ def resolve_trophy_data(context: ExtractorContext) -> Optional[TrophyDataExtract
     return resolve_trophy_data_extraction_data(context.work_data_manager)
 
 
-def extract_trophy_data(data: TrophyDataExtractionData) -> list[dict[str, object]]:
-    trophies = decode_trophy_data(data)
+def extract_trophy_data(data: TrophyDataExtractionData) -> Optional[TrophyDataOutput]:
+    def has_zero_id(trophy: dict[str, Any]) -> bool:
+        return any(race["race_instance_id"] == 0 for race in trophy["race_instance_info_array"])
+
+    decoded = decode_trophy_data(data)
+    limited = any(not trophy or has_zero_id(trophy) for trophy in decoded)
+    trophies = [trophy for trophy in decoded if trophy]
     logger.info("Decoded trophy data with %d trophy entries", len(trophies))
-    return trophies
+    if not trophies:
+        return None
+    return TrophyDataOutput(key="trophy_data_limited" if limited else "trophy_data", payload=trophies)

@@ -57,6 +57,15 @@ structured JSON data.
 
 ---
 
+## Trophy exports
+
+Login-only trophies are written to `trophy_data_limited.json`. Open the Trophy
+screen to populate race IDs and win counts for `trophy_data.json`. Both use the
+same JSON shape; a limited or incomplete capture does not overwrite the detailed
+file.
+
+---
+
 ## What it does
 
 1. Opens a memory backend (live process or minidump file).

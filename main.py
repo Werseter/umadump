@@ -32,7 +32,7 @@ from extractors.race import (RaceReplayOutput, extract_race_info_replay, race_re
 from extractors.talk_gallery import extract_talk_gallery, resolve_talk_gallery
 from extractors.team_stadium import extract_team_stadium_replay, resolve_team_stadium_replay
 from extractors.trained_chara import extract_trained_chara_data, resolve_trained_chara_data
-from extractors.trophies import extract_trophy_data, resolve_trophy_data
+from extractors.trophies import TrophyDataOutput, extract_trophy_data, resolve_trophy_data, trophy_data_output_key
 from game_structs.race import RaceManagerObject, RaceManagerSingletonStaticFields, RaceManagerStaticFields
 from game_structs.work_data_manager import WorkDataManagerObject, WorkDataManagerSingletonStaticFields
 from il2cpp_runtime import build_resolver, setup_memory
@@ -459,6 +459,10 @@ def _write_idle_single_mode_json(output_folder: Path, key: str, ism: IdleSingleM
     _write_json_file(f"{output_folder.name}[{key}]", output_path, ism.payload)
 
 
+def _write_trophy_data_json(output_folder: Path, key: str, trophies: TrophyDataOutput) -> None:
+    _write_json_file(key, output_folder / f"{key}.json", trophies.payload)
+
+
 EXTRACTORS: tuple[Extractor[Any, Any, Any], ...] = (
     Extractor(
             name="support_cards",
@@ -492,7 +496,9 @@ EXTRACTORS: tuple[Extractor[Any, Any, Any], ...] = (
     ),
     Extractor(
             name="trophy_data",
-            output_path=Path("trophy_data.json"),
+            output_folder=Path("."),
+            key_fn=trophy_data_output_key,
+            writer=_write_trophy_data_json,
             resolve=resolve_trophy_data,
             extract=extract_trophy_data,
     ),

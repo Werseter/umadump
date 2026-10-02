@@ -1,0 +1,21 @@
+[
+  {
+    "trophy_id": 1001,
+    "create_time": "0000-00-00 00:00:00",
+    "race_instance_info_array": [
+      {
+        "race_instance_id": 0,
+        "trophy_chara_info_array": [
+          {
+            "chara_id": 1004,
+            "win_count": 0
+          },
+          {
+            "chara_id": 1006,
+            "win_count": 0
+          }
+        ]
+      }
+    ]
+  }
+]
