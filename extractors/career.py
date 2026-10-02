@@ -212,14 +212,12 @@ def _career_log_fingerprint(career: WorkSingleModeDataObject) -> ExtractorFinger
     result += (group.groupType, group.eventTitle.address, group.dressId, group.genderId,
                group.trainingLev, group.trainingKind, group.supportCardId, group.talkerId,
                object_list_fingerprint("substances", group.substList))
-    if group.substList and len(group.substList.contents):
-        substances = group.substList.contents
-        if tail_ptr := substances.span()[len(substances) - 1]:
-            tail = tail_ptr.contents.fields
-            result += (tail_ptr.address, tail.name.address, tail.text.address, tail.colorText.address,
-                       tail.sheetId.address, tail.selectorLabel.address, tail.voiceIndex,
-                       tail.logType, tail.soundType, tail.isResult, tail.forceSetMobIcon,
-                       tail.analyzeResultIconId, list_pointer_fingerprint(tail.charaIdList))
+    if group.substList and (tail_ptr := group.substList.contents.last()):
+        tail = tail_ptr.contents.fields
+        result += (tail_ptr.address, tail.name.address, tail.text.address, tail.colorText.address,
+                   tail.sheetId.address, tail.selectorLabel.address, tail.voiceIndex,
+                   tail.logType, tail.soundType, tail.isResult, tail.forceSetMobIcon,
+                   tail.analyzeResultIconId, list_pointer_fingerprint(tail.charaIdList))
     return result
 
 

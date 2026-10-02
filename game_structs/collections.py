@@ -6,6 +6,7 @@ from typing import Iterator, Literal as L, Optional, cast as type_cast
 from ctypes_utils import (ArrayType, CStructureDataclass, C_Int, C_Ptr, C_UDeclPtr, C_VoidPtr, PointerWrapperMixin,
                           RuntimeGenericMixin, Span, StructOrSimple)
 from il2cpp_structs import RuntimeIl2CppObject
+from schema_validation import TransientContainerStateError
 
 
 # ---------------------------------------------------------------------------
@@ -58,6 +59,17 @@ class GenericArrayPtr[CDT: StructOrSimple](PointerWrapperMixin, CStructureDatacl
         return list(iter(self))
 
 
+def _container_items_span[CDT: StructOrSimple](container: str, count: int, items: GenericArrayPtr[CDT]) -> Span[CDT]:
+    """Validate backing capacity and bound the fresh view to the used storage count."""
+
+    span = items.span()
+    capacity = len(span)
+    if not 0 <= count <= capacity:
+        raise TransientContainerStateError(container, count, items.address, capacity)
+    span.count = count
+    return span
+
+
 class GenericListFields[CDT: StructOrSimple](CStructureDataclass, RuntimeGenericMixin[CDT]):
     items: GenericArrayPtr[CDT]
     size: C_Int[c_int32]
@@ -72,27 +84,34 @@ class GenericList[CDT: StructOrSimple](CStructureDataclass, RuntimeGenericMixin[
     fields: GenericListFields[CDT]
 
     def span(self) -> Span[CDT]:
-        if len(self) == 0:
+        """Return the validated logical list range, excluding unused capacity."""
+
+        size = len(self)
+        if size <= 0:
             return Span(C_VoidPtr(0), 0)  # type: ignore[arg-type]
-        return self.fields.items.span()
+        return _container_items_span("GenericList", size, self.fields.items)
 
     def __iter__(self) -> Iterator[CDT]:
         """Iterate list items up to logical ``size`` (not array capacity)."""
 
-        cnt = 0
-        for entry in iter(self.span()):
-            if cnt >= len(self):
-                break
-            yield entry
-            cnt += 1
+        return iter(self.span())
 
     def __len__(self) -> int:
-        return self.fields.size
+        size = self.fields.size
+        if size < 0:
+            items = self.fields.items
+            raise TransientContainerStateError("GenericList", size, items.address, len(items))
+        return size
 
     def first(self) -> Optional[CDT]:
         """Return the first logical list item."""
 
         return next(iter(self), None)
+
+    def last(self) -> Optional[CDT]:
+        """Return the logical tail directly, without materializing the list."""
+
+        return next(reversed(self.span()), None)
 
     @property
     def value(self) -> list[CDT]:
@@ -118,7 +137,8 @@ class GenericDictionaryFields[CDT: StructOrSimple = GenericDictionaryEntry](CStr
     _ignored_1: C_UDeclPtr  # omitted: buckets
     entries: GenericArrayPtr[CDT]
     count: C_Int[c_int32]
-    _ignored_2: ArrayType[c_int32, L[2]]  # omitted: freeList, freeCount
+    _ignored_2: c_int32  # omitted: freeList
+    freeCount: C_Int[c_int32]
     version: C_Int[c_int32]
     _ignored_3: ArrayType[C_UDeclPtr, L[4]]  # omitted: comparer, keys, values, syncRoot
 
@@ -130,27 +150,46 @@ class GenericDictionary[CDT: StructOrSimple](CStructureDataclass, RuntimeGeneric
     fields: GenericDictionaryFields[CDT]
 
     def span(self) -> Span[CDT]:
-        if len(self) == 0:
+        """Return the validated used storage range, including deleted slots."""
+
+        count = self.fields.count
+        live_count = len(self)
+        if count == 0:
             return Span(C_VoidPtr(0), 0)  # type: ignore[arg-type]
-        return self.fields.entries.span()
+        entries = _container_items_span("GenericDictionary", count, self.fields.entries)
+        if live_count == 0:
+            return Span(C_VoidPtr(0), 0)  # type: ignore[arg-type]
+        return entries
 
     def __iter__(self) -> Iterator[CDT]:
-        """Yield entries with valid hash codes."""
+        """Yield active entries from the dictionary's used entry range."""
 
-        valid = 0
-        for entry in iter(self.span()):
-            # noinspection PyUnnecessaryCast
-            if type_cast(GenericDictionaryEntry, entry).hashCode > 0:
-                valid += 1
+        for entry in self.span():
+            typed_entry = type_cast(GenericDictionaryEntry, entry)
+            if typed_entry.hashCode >= 0:
                 yield entry
 
     def __len__(self) -> int:
-        return self.fields.count
+        count = self.fields.count
+        free_count = self.fields.freeCount
+        if not 0 <= free_count <= count:
+            items = self.fields.entries
+            raise TransientContainerStateError("GenericDictionary", count, items.address, len(items),
+                                               free_count=free_count)
+        return count - free_count
 
     def first(self) -> Optional[CDT]:
         """Return the first live dictionary entry."""
 
         return next(iter(self), None)
+
+    def last(self) -> Optional[CDT]:
+        """Return the last active entry in used storage order."""
+
+        for entry in reversed(self.span()):
+            if type_cast(GenericDictionaryEntry, entry).hashCode >= 0:
+                return entry
+        return None
 
     @property
     def value(self) -> list[CDT]:

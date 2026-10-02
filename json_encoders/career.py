@@ -826,7 +826,7 @@ def _decode_runtime_race_reward(data: CareerDataExtractionData) -> dict[str, Any
     if not (history_ptr := career.raceHistoryInfoList):
         return None
     history = history_ptr.contents
-    if not len(history) or not (last_ptr := history.span()[len(history) - 1]):
+    if not (last_ptr := history.last()):
         return None
     last = last_ptr.contents.fields
     current_race = (career.totalTurnNum.value, race_info.contents.fields.singleRaceProgramId)

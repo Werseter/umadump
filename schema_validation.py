@@ -83,6 +83,24 @@ class TransientRuntimeValidationError(RuntimeValidationError):
     """Raised when runtime validation observes an Il2Cpp object mid-update."""
 
 
+class TransientContainerStateError(TransientRuntimeValidationError):
+    """A managed container's observed counts violate its storage or bookkeeping invariants."""
+
+    def __init__(self, container: str, count: int, array_address: int, capacity: int,
+                 *, free_count: int | None = None) -> None:
+        self.container = container
+        self.count = int(count)
+        self.array_address = int(array_address)
+        self.capacity = int(capacity)
+        self.free_count = free_count
+        if free_count is None:
+            message = f"{container} reports count={self.count}, but backing array "
+        else:
+            message = (f"{container} reports count={self.count}, freeCount={free_count} "
+                       f"(expected 0 <= freeCount <= count); backing array ")
+        super().__init__(f"{message}0x{self.array_address:X} has capacity={self.capacity}")
+
+
 class RuntimeTypeMetadataHandleMismatchError(RuntimeValidationError):
     """A live pointer does not name the expected Il2Cpp object type.
 
