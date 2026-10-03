@@ -145,7 +145,8 @@ def _decode_active_training_partners(entry: WorkSingleModeDataTurnInfoObject) ->
     return partners
 
 
-def _decode_active_params_inc_dec_info_array(params_inc_dec_info_dic: ParamIncDecInfoDictPtr) -> list[dict[str, int]]:
+def _decode_active_params_inc_dec_info_array(params_inc_dec_info_dic: ParamIncDecInfoDictPtr, *,
+                                             strip_scenario_hp: bool = False) -> list[dict[str, int]]:
     if not params_inc_dec_info_dic:
         return []
     deltas: list[dict[str, int]] = []
@@ -154,9 +155,15 @@ def _decode_active_params_inc_dec_info_array(params_inc_dec_info_dic: ParamIncDe
         if not value:
             continue
         delta_fields = value.contents.fields
+        target_type = int(parameter_delta.key)
+        delta_value = delta_fields.value.value
+        if strip_scenario_hp and target_type == SingleModeParameterType.Hp:
+            if not (bonus := delta_fields.bonusValue.value):
+                continue
+            delta_value -= bonus
         deltas.append({
-            "target_type": int(parameter_delta.key),
-            "value": delta_fields.value.value,
+            "target_type": target_type,
+            "value": delta_value,
         })
     return deltas
 
@@ -173,6 +180,18 @@ def _iter_active_home_commands(home: C_Ptr[WorkSingleModeHomeInfoObject]) -> Ite
                 yield int(command_list.key), command.contents
 
 
+def _decode_common_command_deltas(entry: WorkSingleModeDataTurnInfoObject) -> list[dict[str, int]]:
+    fields = entry.fields
+    base = fields.paramIncDecInfoDic
+    scenario = fields.bonusParamIncDecInfoDic
+    if base and scenario:  # HP-specific deduplication
+        for delta in scenario.contents:
+            if delta.key == SingleModeParameterType.Hp and (value := delta.value):
+                if _scenario_hp := value.contents.fields.value.value:
+                    return _decode_active_params_inc_dec_info_array(base, strip_scenario_hp=True)
+    return _decode_active_params_inc_dec_info_array(base)
+
+
 def _decode_active_home_command_info(entry: WorkSingleModeDataTurnInfoObject, command_type: int,
                                      training_levels: dict[int, int]) -> dict[str, Any]:
     command_fields = entry.fields
@@ -184,7 +203,7 @@ def _decode_active_home_command_info(entry: WorkSingleModeDataTurnInfoObject, co
         "is_enable": int(command_fields.isEnable.value),
         "training_partner_array": [partner["position_id"] for partner in partners],
         "tips_event_partner_array": [partner["position_id"] for partner in partners if partner["is_tips"]],
-        "params_inc_dec_info_array": _decode_active_params_inc_dec_info_array(command_fields.paramIncDecInfoDic),
+        "params_inc_dec_info_array": _decode_common_command_deltas(entry),
         "failure_rate": command_fields.trainingFailureRate,
         "level": training_levels.get(command_id, 0),
     }

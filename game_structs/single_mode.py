@@ -1158,7 +1158,7 @@ class WorkSingleModeCharaDataObject(CStructureDataclass):
 
 class WorkSingleModeDataParamsIncDecInfoFields(CStructureDataclass):
     value: ObscuredInt
-    _ignored_1: ObscuredInt  # omitted: bonusValue
+    bonusValue: ObscuredInt
 
 
 @register_runtime_validatable('Gallop::WorkSingleModeData.ParamsIncDecInfo')
