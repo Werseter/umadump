@@ -87,6 +87,7 @@ def _decode_race_horse_data_entry(entry: RaceHorseDataObject) -> dict[str, Any]:
         "team_member_id": f.team_member_id,
         "team_rank": f.team_rank,
         "single_mode_win_count": f.single_mode_win_count,
+        "fan_count": f.fan_count,
         "item_id_array": [x.value for x in f.item_id_array],
         "motivation_change_flag": f.motivation_change_flag,
         "frame_order_change_flag": f.frame_order_change_flag,

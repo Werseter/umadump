@@ -116,7 +116,7 @@ def decode_team_stadium_replay(data: TeamStadiumReplayExtractionData) -> Optiona
         "support_card_bonus": data.support_card_bonus,
         "user_team_data_array_copy": [],
         "user_trained_chara_array_copy": [],
-        "opponent_info_copy": {},
-        "opponent_chara_info_array_latest_copy": [],
+        "opponent_info_copy": None,
+        "opponent_chara_info_array_latest_copy": None,
     }
     return match_payload
