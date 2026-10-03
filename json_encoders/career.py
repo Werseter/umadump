@@ -1084,13 +1084,13 @@ def _decode_active_team_data_set(chara: WorkSingleModeCharaDataObject,
     }
 
 
-def _decode_active_ura_command_info(home_info: C_Ptr[WorkSingleModeHomeInfoObject]) -> list[dict[str, int]]:
+def _decode_active_ura_command_info(home_info: C_Ptr[WorkSingleModeHomeInfoObject]) -> list[dict[str, Any]]:
     """Rebuild the URA command extension from the authoritative HomeInfo partner flags."""
 
-    result: list[dict[str, int]] = []
+    result: list[dict[str, Any]] = []
     for command_type, command in _iter_active_home_commands(home_info):
         partners = _decode_active_training_partners(command)
-        versus_partner_id = next((partner["position_id"] for partner in partners if partner["is_versus_event"]), 0)
+        versus_partner_id = next((partner["position_id"] for partner in partners if partner["is_versus_event"]), None)
         result.append({
             "command_type": command_type,
             "command_id": command.fields.commandId.value,
