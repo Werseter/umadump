@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional, TypeAlias
+from typing import Optional, TypeAlias
 
 from career_archive import CareerArchiveSnapshot, career_archive_descriptor
 from ctypes_utils import C_Ptr

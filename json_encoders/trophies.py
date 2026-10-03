@@ -49,9 +49,9 @@ def _build_limited_trophy_race_instance_info_array(chara_id_list: GenericList[c_
 
 def _decode_work_trophy_data_entry(entry: TrophyDataDictionaryEntry) -> dict[str, Any]:
     f = entry.value.contents.fields
-    if f.raceCharaDataDic and f.raceCharaDataDic.contents.fields.count != 0:
+    if f.raceCharaDataDic and len(f.raceCharaDataDic.contents):
         race_instance_info_array = _build_trophy_room_race_instance_info_array(f.raceCharaDataDic.contents)
-    elif f.charaIdList and f.charaIdList.contents.fields.size != 0:
+    elif f.charaIdList and len(f.charaIdList.contents):
         race_instance_info_array = _build_limited_trophy_race_instance_info_array(f.charaIdList.contents)
     else:
         return {}
@@ -66,6 +66,6 @@ def _decode_work_trophy_data_entry(entry: TrophyDataDictionaryEntry) -> dict[str
 def decode_trophy_data(data: TrophyDataExtractionData) -> list[dict[str, Any]]:
     """Descend WorkDataManager -> WorkTrophyData"""
     trophy_data = data.entries
-    logger.debug("WorkTrophyData dictionary: count=%d", trophy_data.fields.count)
+    logger.debug("WorkTrophyData dictionary: count=%d", len(trophy_data))
 
     return [_decode_work_trophy_data_entry(entry) for entry in trophy_data]

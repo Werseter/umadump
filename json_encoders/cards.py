@@ -41,7 +41,7 @@ def decode_support_card_dictionary(data: SupportCardExtractionData) -> list[dict
     result: list[dict[str, Any]] = []
 
     support_card_data_dict = data.entries
-    logger.debug("SupportCard dictionary: count=%d", support_card_data_dict.fields.count)
+    logger.debug("SupportCard dictionary: count=%d", len(support_card_data_dict))
 
     for entry in support_card_data_dict:
         decoded = _decode_support_card_entry(entry)
@@ -81,7 +81,7 @@ def decode_card_data_dictionary(data: CardDataExtractionData) -> list[dict[str, 
     result: list[dict[str, Any]] = []
 
     card_data_dict = data.entries
-    logger.debug("CardData dictionary: count=%d", card_data_dict.fields.count)
+    logger.debug("CardData dictionary: count=%d", len(card_data_dict))
 
     for entry in card_data_dict:
         decoded = _decode_card_data_entry(entry)

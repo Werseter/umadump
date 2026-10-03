@@ -172,9 +172,7 @@ def _decode_work_friend_data(data: FriendDataExtractionData) -> dict[str, Any]:
 
 def decode_friend_data(data: FriendDataExtractionData) -> dict[str, Any]:
     """Descend WorkDataManager -> WorkFriendData"""
-    logger.debug("FriendData: follows=%d, followers=%d",
-                 data.follow_list.fields.size,
-                 data.follower_list.fields.size)
+    logger.debug("FriendData: follows=%d, followers=%d", len(data.follow_list), len(data.follower_list))
 
     result = _decode_work_friend_data(data)
     return result

@@ -325,8 +325,7 @@ def decode_trained_chara_dictionary(data: TrainedCharaExtractionData) -> list[di
     """Descend WorkDataManager -> WorkTrainedCharaData -> Dictionary<int, TrainedCharaData>."""
     result: dict[int, dict[str, Any]] = {}
 
-    logger.debug("TrainedChara dictionary: count=%d, favorite_count=%d",
-                 data.entries.fields.count, data.favorite_entries.fields.count)
+    logger.debug("TrainedChara dictionary: count=%d, favorite_count=%d", len(data.entries), len(data.favorite_entries))
 
     for entry in data.entries:
         decoded = _decode_trained_chara_entry(entry.value.contents)
