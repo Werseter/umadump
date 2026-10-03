@@ -26,7 +26,7 @@ def _decode_support_card_entry(entry: SupportCardDataDictionaryEntry) -> Optiona
         "limit_break_count": f.limitBreakCount.value,
         "favorite_flag": int(f.isFavoriteLock.value),
         "stock": f.stock.value,
-        "possess_time": 0,
+        "possess_time": timestamp_to_str(f.createTime.value),
         "create_time": timestamp_to_str(f.createTime.value),
         "extra_data": {
             "level": f.level.value,
