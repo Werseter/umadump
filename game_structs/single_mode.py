@@ -699,6 +699,30 @@ class TeamSoulSkillDictionaryEntry(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
+# Gallop.WorkSingleModeScenarioTeamRace.RunRaceDeckData
+# ---------------------------------------------------------------------------
+
+class WorkSingleModeScenarioTeamRaceRunRaceDeckDataFields(CStructureDataclass):
+    distanceType: ObscuredInt
+    memberId: ObscuredInt
+    charaId: ObscuredInt
+    runningStyle: ObscuredInt
+    round: ObscuredInt
+    raceFrameOrder: ObscuredInt
+    _ignored_1: C_UDeclPtr  # omitted: playerTeamMember
+    motivation: ObscuredInt
+    _ignored_2: ArrayType[c_bool, L[4]]  # omitted: isPlayerTeam, isSingleModeChara, isRivalChara, isMobChara
+    _ignored_3: ArrayType[c_int32, L[5]]  # omitted: mobId, mobCharaId, npcUniqueCharaSupCardId, npcCharaDressId, npcId
+    opponentInfo: C_Ptr[SingleModeTeamRandomInfoObject]
+
+
+@register_runtime_validatable('Gallop::WorkSingleModeScenarioTeamRace.RunRaceDeckData')
+class WorkSingleModeScenarioTeamRaceRunRaceDeckDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: WorkSingleModeScenarioTeamRaceRunRaceDeckDataFields
+
+
+# ---------------------------------------------------------------------------
 # Gallop.WorkSingleModeScenarioTeamRace
 # ---------------------------------------------------------------------------
 
@@ -721,19 +745,20 @@ class WorkSingleModeScenarioTeamRaceFields(CStructureDataclass):
     teamHonorId: ObscuredInt
     teamMemberList: C_Ptr[GenericList[C_Ptr[WorkSingleModeScenarioTeamRaceTeamMemberObject]]]
     deckDataList: C_Ptr[GenericList[C_Ptr[WorkSingleModeScenarioTeamRaceDeckDataObject]]]
-    _ignored_5: ArrayType[C_UDeclPtr, L[2]]  # omitted: teamRaceDeckTeamMemberList, runRaceDeckDataList
+    _ignored_5: C_UDeclPtr  # omitted: teamRaceDeckTeamMemberList
+    runRaceDeckDataList: C_Ptr[GenericList[C_Ptr[WorkSingleModeScenarioTeamRaceRunRaceDeckDataObject]]]
     _ignored_6: c_int32  # omitted: selectedTeamRaceSetId
     singleTeamResultList: C_Ptr[GenericList[C_Ptr[WorkSingleModeScenarioTeamRaceSingleTeamRaceResultObject]]]
     teamFrameOrderArray: GenericArrayPtr[C_Ptr[SingleModeTeamFrameOrderObject]]
     opponentListArray: GenericArrayPtr[C_Ptr[SingleModeTeamOpponentListObject]]
-    _ignored_7: C_UDeclPtr  # omitted: selectedOpponent
+    selectedOpponent: C_Ptr[SingleModeTeamOpponentListObject]
     teamEventEffectInfo: C_Ptr[SingleModeTeamEventEffectInfoObject]
     teamRaceHistoryArray: GenericArrayPtr[C_Ptr[SingleModeTeamRaceHistoryObject]]
     skillTipsArray: GenericArrayPtr[C_Ptr[SkillTipsObject]]
     soulSkillTipsDictionary: C_Ptr[GenericDictionary[TeamSoulSkillDictionaryEntry]]
     spSoulSkillTipsDictionary: C_Ptr[GenericDictionary[TeamSoulSkillDictionaryEntry]]
-    _ignored_8: C_UDeclPtr  # omitted: deckBuilder
-    _ignored_9: ArrayType[c_int32, L[2]]  # omitted: playerMemberCount, gameQuality
+    _ignored_7: C_UDeclPtr  # omitted: deckBuilder
+    _ignored_8: ArrayType[c_int32, L[2]]  # omitted: playerMemberCount, gameQuality
     teamEditFlag: C_Enum[TeamEditFlag]
 
 

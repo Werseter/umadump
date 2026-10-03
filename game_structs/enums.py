@@ -465,6 +465,13 @@ class SingleModePlayingState(SafeIntEnum):
     FactorLotteryEnd = 20
 
 
+TEAM_RACE_PLAYING_STATES = frozenset((
+    SingleModePlayingState.TeamRaceTop,
+    SingleModePlayingState.TeamRacePlaying,
+    SingleModePlayingState.TeamRaceResult,
+))
+
+
 @register_enum('Gallop::SingleModeLogInfoDefine.LogGroupType')
 class SingleModeLogGroupType(SafeIntEnum):
     MainCharaEvent = 0

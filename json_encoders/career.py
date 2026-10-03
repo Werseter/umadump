@@ -8,7 +8,7 @@ from career_log import CareerLogEntry, CareerLogObservation
 from ctypes_utils import C_Ptr
 from game_structs.collections import GenericArrayPtr, GenericDictionary, GenericList
 from game_structs.enums import (SingleModeCommandType, SingleModeLiveGainParameterType, SingleModeParameterType,
-                                SingleModePlayingState, SingleModeScenarioId)
+                                SingleModePlayingState, SingleModeScenarioId, TEAM_RACE_PLAYING_STATES)
 from game_structs.master_data import MasterSingleModeWinsSaddleSingleModeWinsSaddleObject
 from game_structs.obscured import ObscuredInt
 from game_structs.race import (CharaRaceRewardObject, RaceHorseDataObject, RaceHorseDataRaceResultObject,
@@ -36,6 +36,7 @@ from game_structs.single_mode import (EquipSupportCardObject, SingleModeFreeComm
                                       WorkSingleModeScenarioLiveTrainingBonusObject,
                                       WorkSingleModeScenarioTeamRaceDeckDataObject,
                                       WorkSingleModeScenarioTeamRaceObject,
+                                      WorkSingleModeScenarioTeamRaceRunRaceDeckDataObject,
                                       WorkSingleModeScenarioTeamRaceSingleTeamRaceResultObject,
                                       WorkSingleModeScenarioTeamRaceTeamMemberObject)
 from game_structs.skills import SkillTipsObject
@@ -58,6 +59,8 @@ LivePerformanceIncDecInfoDictPtr: TypeAlias = C_Ptr[
 LivePerformancePtr: TypeAlias = C_Ptr[WorkSingleModeScenarioLivePerformanceDataObject]
 LiveTrainingBonusArrayPtr: TypeAlias = GenericArrayPtr[C_Ptr[WorkSingleModeScenarioLiveTrainingBonusObject]]
 RaceRewardSets: TypeAlias = GenericArrayPtr[C_Ptr[RaceRewardSetDataObject]]
+TeamFrameArrayPtr: TypeAlias = GenericArrayPtr[C_Ptr[SingleModeTeamFrameOrderObject]]
+TeamRunningDecks: TypeAlias = GenericList[C_Ptr[WorkSingleModeScenarioTeamRaceRunRaceDeckDataObject]]
 
 _LIVE_TRAINING_BONUS_TARGET_TYPES: dict[SingleModeParameterType, SingleModeLiveGainParameterType] = {
     SingleModeParameterType.Speed: SingleModeLiveGainParameterType.Speed,
@@ -243,7 +246,7 @@ def _decode_active_home_info(entry: C_Ptr[WorkSingleModeHomeInfoObject],
     }
 
 
-def _decode_pending_event(entry: WorkSingleModeDataEventInfoObject) -> dict[str, Any]:
+def _decode_pending_event(entry: WorkSingleModeDataEventInfoObject, is_team: bool) -> dict[str, Any]:
     f = entry.fields
     array_tuple = (f.selectIndexArray, f.receiveItemIdArray, f.targetRaceIdArray, f.gainSelectIdIndexArray,
                    f.selectIconArray)
@@ -262,6 +265,7 @@ def _decode_pending_event(entry: WorkSingleModeDataEventInfoObject) -> dict[str,
             "show_clear": f.contentsInfoShowClear.value,
             "show_clear_sort_id": f.contentsInfoShowClearSortId.value,
             "choice_array": choices,
+            **({"is_effected_multi_chara": f.isEffectedMultiChara.value} if is_team else {}),
             "tips_training_partner_id": f.tipsTrainingPartnerId.value or None,
         },
         "succession_event_info": None,
@@ -269,7 +273,8 @@ def _decode_pending_event(entry: WorkSingleModeDataEventInfoObject) -> dict[str,
     }
 
 
-def _decode_pending_succession_event(succession: WorkSingleModeDataSuccessionEventInfoObject) -> dict[str, Any] | None:
+def _decode_pending_succession_event(succession: WorkSingleModeDataSuccessionEventInfoObject,
+                                     is_team: bool) -> dict[str, Any] | None:
     """Build the synthetic event retained by WorkSingleModeData.
 
     ``ApplySuccessionEventInfo`` copies only the event/chara/effect fields into
@@ -286,6 +291,7 @@ def _decode_pending_succession_event(succession: WorkSingleModeDataSuccessionEve
             "show_clear": 0,
             "show_clear_sort_id": 0,
             "choice_array": [],
+            **({"is_effected_multi_chara": False} if is_team else {}),
             "tips_training_partner_id": None,
         },
         "succession_event_info": {"effect_type": f.effectType.value},
@@ -294,11 +300,13 @@ def _decode_pending_succession_event(succession: WorkSingleModeDataSuccessionEve
 
 
 def _decode_pending_events(career: WorkSingleModeDataObject) -> list[dict[str, Any]]:
+    chara = career.fields.character.contents
+    is_team = chara.fields.scenarioId.value == SingleModeScenarioId.TeamRace
     queues = career.fields.storyInfoListDic
     succession_ptr = career.fields.successionEventInfo
-    events = ([_decode_pending_event(event.contents) for queue in queues.contents if queue.value
+    events = ([_decode_pending_event(event.contents, is_team) for queue in queues.contents if queue.value
                for event in queue.value.contents if event] if queues else [])
-    if succession_ptr and (synthetic := _decode_pending_succession_event(succession_ptr.contents)):
+    if succession_ptr and (synthetic := _decode_pending_succession_event(succession_ptr.contents, is_team)):
         events.append(synthetic)
     return events
 
@@ -628,12 +636,13 @@ def _decode_active_live_data_set(
     }
 
 
-def _decode_active_team_member(value: WorkSingleModeScenarioTeamRaceTeamMemberObject) -> dict[str, int]:
+def _decode_active_team_member(value: WorkSingleModeScenarioTeamRaceTeamMemberObject,
+                               partner_ids: dict[int, int]) -> dict[str, int]:
     """Decode one persistent Aoharu team member into its API response shape."""
 
     fields = value.fields
     return {
-        "training_partner_id": fields.charaId.value,
+        "training_partner_id": partner_ids.get(fields.charaId.value, 0),
         "speed": fields.speed.value,
         "stamina": fields.stamina.value,
         "power": fields.power.value,
@@ -887,22 +896,20 @@ def _decode_runtime_race_reward(source: CareerRaceSources, history: RaceHistory,
     }
 
 
-def _decode_team_random(entry: SingleModeTeamRandomInfoObject) -> dict[str, Any]:
+def _decode_team_random(entry: SingleModeTeamRandomInfoObject, base_npc_ids: dict[int, int]) -> dict[str, Any]:
     f = entry.fields
-    return {
+    result = {
         "team_race_set_id": f.team_race_set_id,
         "member_id": f.member_id,
         "chara_id": f.chara_id,
+        "base_npc_id": base_npc_ids.get(f.npc_id, 0),
         "npc_id": f.npc_id,
         "running_style": f.running_style,
-        "frame_order": f.frame_order,
-        "motivation": f.motivation,
-        "stamina": f.stamina,
-        "speed": f.speed,
-        "pow": f.pow,
-        "guts": f.guts,
-        "wiz": f.wiz,
     }
+    if f.team_race_set_id:
+        result.update(stamina=f.stamina, speed=f.speed, pow=f.pow, guts=f.guts, wiz=f.wiz)
+    result.update(frame_order=f.frame_order, motivation=f.motivation)
+    return result
 
 
 def _decode_team_npc(entry: SingleModeNpcTeamDataObject) -> dict[str, Any]:
@@ -938,10 +945,66 @@ def _decode_team_effect(entry: SingleModeTeamEventEffectInfoObject) -> dict[str,
     }
 
 
-def _decode_team_frame(entry: SingleModeTeamFrameOrderObject) -> dict[str, Any]:
+def _decode_team_frame(entry: SingleModeTeamFrameOrderObject, base_npc_ids: dict[int, int]) -> dict[str, Any]:
     f = entry.fields
     return {"distance_type": f.distance_type, "race_order": f.race_order,
-            "random_info_array": [_decode_team_random(item.contents) for item in f.random_info_array if item]}
+            "random_info_array": [_decode_team_random(item.contents, base_npc_ids)
+                                  for item in f.random_info_array if item]}
+
+
+def _team_base_npc_ids(team: WorkSingleModeScenarioTeamRaceObject) -> dict[int, int]:
+    base_npc_ids: dict[int, int] = {}
+    for opponent_ptr in team.fields.opponentListArray:
+        if not opponent_ptr:
+            continue
+        opponent = opponent_ptr.contents
+        for npc_ptr in opponent.fields.team_data_array:
+            if not npc_ptr:
+                continue
+            npc = npc_ptr.contents
+            fields = npc.fields
+            base_npc_ids[fields.npc_id] = fields.base_npc_id
+    return base_npc_ids
+
+
+def _decode_retained_team_frames(value: TeamFrameArrayPtr, base_npc_ids: dict[int, int]) -> list[dict[str, Any]]:
+    return [_decode_team_frame(item.contents, base_npc_ids) for item in value if item]
+
+
+def _decode_running_team_member(entry: WorkSingleModeScenarioTeamRaceRunRaceDeckDataObject,
+                                base_npc_ids: dict[int, int]) -> dict[str, Any]:
+    fields = entry.fields
+    if opponent := fields.opponentInfo:
+        return _decode_team_random(opponent.contents, base_npc_ids)
+    return {
+        "team_race_set_id": 0, "member_id": fields.memberId.value, "chara_id": fields.charaId.value,
+        "base_npc_id": 0, "npc_id": 0, "running_style": fields.runningStyle.value,
+        "frame_order": fields.raceFrameOrder.value, "motivation": fields.motivation.value,
+    }
+
+
+def _decode_running_team_frames(decks: TeamRunningDecks, base_npc_ids: dict[int, int]) -> list[dict[str, Any]] | None:
+    frames: dict[tuple[int, int], dict[str, Any]] = {}
+    for deck_ptr in decks:
+        if not deck_ptr:
+            continue
+        deck = deck_ptr.contents
+        fields = deck.fields
+        key = fields.distanceType.value, fields.round.value
+        if key not in frames:
+            frames[key] = {"distance_type": key[0], "race_order": key[1], "random_info_array": []}
+        frames[key]['random_info_array'].append(_decode_running_team_member(deck, base_npc_ids))
+    return list(frames.values()) or None
+
+
+def _decode_team_frames(team: WorkSingleModeScenarioTeamRaceObject) -> list[dict[str, Any]] | None:
+    fields = team.fields
+    base_npc_ids = _team_base_npc_ids(team)
+    if frames := fields.teamFrameOrderArray:
+        return _decode_retained_team_frames(frames, base_npc_ids)
+    if decks := fields.runRaceDeckDataList:
+        return _decode_running_team_frames(decks.contents, base_npc_ids)
+    return None
 
 
 def _decode_team_opponent(entry: SingleModeTeamOpponentListObject) -> dict[str, Any]:
@@ -973,6 +1036,7 @@ def _decode_team_chara_result(entry: SingleModeTeamRaceCharaResultObject) -> dic
 
 def _decode_team_result(entry: WorkSingleModeScenarioTeamRaceSingleTeamRaceResultObject) -> dict[str, Any]:
     f = entry.fields
+    horses = [_decode_career_race_horse(item.contents) for item in f.raceHorseData if item]
     return {
         "distance_type": f.raceNum.value,
         "race_instance_id": f.raceInstanceId.value,
@@ -980,7 +1044,7 @@ def _decode_team_result(entry: WorkSingleModeScenarioTeamRaceSingleTeamRaceResul
         "weather": f.weather.value,
         "ground_condition": f.groundCondition.value,
         "random_seed": f.randomSeed.value,
-        "race_horse_data_array": [_decode_career_race_horse(item.contents) for item in f.raceHorseData if item],
+        "race_horse_data_array": horses,
         "race_scenario": f.raceScenario.value_or(None),
         "round": f.round.value,
         "win_type": f.roundResult,
@@ -1014,13 +1078,55 @@ def _decode_team_command_result(team: WorkSingleModeScenarioTeamRaceObject) -> d
     return {"skill_tips_array": skills, "soul_skill_tips_array": soul, "sp_soul_skill_tips_array": special}
 
 
-def _decode_active_team_data_set(chara: WorkSingleModeCharaDataObject,
-                                 home: C_Ptr[WorkSingleModeHomeInfoObject]) -> dict[str, Any]:
+def _decode_team_race_context(career: WorkSingleModeDataObject, team: WorkSingleModeScenarioTeamRaceObject,
+                              history: RaceHistory) -> dict[str, Any]:
+    # Result/deck/selected-opponent objects can survive subsequent ordinary turns.
+    if career.fields.playingState.value not in TEAM_RACE_PLAYING_STATES:
+        return {"frame_order_info_array": None, "race_result_array": None,
+                "final_win_type": None, "opponent_info_array": None}
+    fields = team.fields
+    results = []
+    if fields.singleTeamResultList:
+        results = [_decode_team_result(item.contents) for item in fields.singleTeamResultList.contents if item]
+    if results:
+        horses = (horse for race in results for horse in race['race_horse_data_array'])
+        _augment_career_race_history(horses, career.fields.character.contents, history)
+    opponents = None
+    if fields.selectedOpponent and results:
+        opponents = [_decode_team_opponent(fields.selectedOpponent.contents)]
+    elif fields.opponentListArray:
+        opponents = [_decode_team_opponent(item.contents) for item in fields.opponentListArray if item]
+    return {
+        "frame_order_info_array": _decode_team_frames(team),
+        "race_result_array": results or None,
+        "final_win_type": fields.finalWinType if results else None,
+        "opponent_info_array": opponents,
+    }
+
+
+def _decode_team_evaluation(entry: WorkSingleModeCharaDataEvaluationObject) -> dict[str, int]:
+    fields = entry.fields
+    return {
+        "target_id": fields.targetId.value,
+        "chara_id": fields.guestCharaId.value,
+        "member_state": fields.interestState.value,
+        "soul_threshold_id": fields.soulThresholdId.value,
+        "soul_event_state": fields.soulEventState.value,
+    }
+
+
+def _decode_active_team_data_set(career: WorkSingleModeDataObject, chara: WorkSingleModeCharaDataObject,
+                                 history: RaceHistory) -> dict[str, Any]:
     chara_fields = chara.fields
     if not (team := chara_fields.teamRace):
         return {}
 
     team_fields = team.contents.fields
+    evaluation_info_array = []
+    if chara_fields.evaluationList:
+        evaluation_info_array = [_decode_team_evaluation(item.contents)
+                                 for item in chara_fields.evaluationList.contents if item]
+    partner_ids = {entry['chara_id']: entry['target_id'] for entry in evaluation_info_array}
     team_info = {
         "team_name_id": team_fields.teamNameId,
         "speed_rank": int(team_fields.teamParameterRankSpeed),
@@ -1035,7 +1141,8 @@ def _decode_active_team_data_set(chara: WorkSingleModeCharaDataObject,
         "guide_partner_count": team_fields.guidePartnerCount,
         "is_scout_enable": team_fields.isScoutEnable,
         "team_chara_info_array": [
-            _decode_active_team_member(member.contents) for member in team_fields.teamMemberList.contents if member
+            _decode_active_team_member(member.contents, partner_ids)
+            for member in team_fields.teamMemberList.contents if member
         ] if team_fields.teamMemberList else [],
         "team_data_array": [
             _decode_active_team_deck_entry(entry.contents) for entry in team_fields.deckDataList.contents if entry
@@ -1043,36 +1150,12 @@ def _decode_active_team_data_set(chara: WorkSingleModeCharaDataObject,
         "team_edit_flag": int(team_fields.teamEditFlag),
     }
 
-    evaluation_info_array: list[dict[str, int]] = []
-    if chara_fields.evaluationList:
-        evaluation_info_array = [
-            {
-                "target_id": evaluation.contents.fields.targetId.value,
-                "chara_id": evaluation.contents.fields.guestCharaId.value,
-                "member_state": evaluation.contents.fields.interestState.value,
-                "soul_threshold_id": evaluation.contents.fields.soulThresholdId.value,
-                "soul_event_state": evaluation.contents.fields.soulEventState.value,
-            }
-            for evaluation in chara_fields.evaluationList.contents
-            if evaluation
-        ]
-
-    race_results = []
-    if results := team_fields.singleTeamResultList:
-        race_results = [_decode_team_result(item.contents) for item in results.contents if item]
     return {
         "team_info": team_info,
-        "command_info_array": _decode_active_team_command_info(home),
+        "command_info_array": _decode_active_team_command_info(career.fields.homeInfo),
         "evaluation_info_array": evaluation_info_array,
         "scenario_progress": chara_fields.scenarioProgress.value,
-        "frame_order_info_array": [
-            _decode_team_frame(item.contents) for item in team_fields.teamFrameOrderArray if item
-        ] if team_fields.teamFrameOrderArray else None,
-        "race_result_array": race_results or None,
-        "final_win_type": team_fields.finalWinType if race_results else None,
-        "opponent_info_array": [
-            _decode_team_opponent(item.contents) for item in team_fields.opponentListArray if item
-        ] if team_fields.opponentListArray else None,
+        **_decode_team_race_context(career, team.contents, history),
         "event_effect_info": (
             _decode_team_effect(team_fields.teamEventEffectInfo.contents) if team_fields.teamEventEffectInfo else None
         ),
@@ -1295,6 +1378,7 @@ def _decode_active_free_data_set(
 def _decode_active_scenario_data_set(
         career: WorkSingleModeDataObject,
         chara: WorkSingleModeCharaDataObject,
+        history: RaceHistory,
 ) -> dict[str, Any]:
     """Decode the one API scenario extension selected by the authoritative scenario ID."""
 
@@ -1305,7 +1389,7 @@ def _decode_active_scenario_data_set(
     if scenario_id == SingleModeScenarioId.URA:
         return {"ura_data_set": _decode_active_ura_data_set(chara, career_fields.homeInfo)}
     if scenario_id == SingleModeScenarioId.TeamRace:
-        return {"team_data_set": _decode_active_team_data_set(chara, career_fields.homeInfo)}
+        return {"team_data_set": _decode_active_team_data_set(career, chara, history)}
     if scenario_id == SingleModeScenarioId.Live:
         return {"live_data_set": _decode_active_live_data_set(career, chara, career_fields.homeInfo)}
     if scenario_id == SingleModeScenarioId.Free:
@@ -1472,5 +1556,5 @@ def decode_career_data(data: CareerDataExtractionData) -> dict[str, Any]:
     }
 
     payload = {"single_mode_load_common": common}
-    payload.update(_decode_active_scenario_data_set(career, chara))
+    payload.update(_decode_active_scenario_data_set(career, chara, history))
     return payload

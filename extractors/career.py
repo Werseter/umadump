@@ -5,7 +5,7 @@ from typing import Optional, TypeAlias
 
 from career_archive import CareerArchiveSnapshot, career_archive_descriptor
 from ctypes_utils import C_Ptr
-from game_structs.enums import SingleModePlayingState, SingleModeScenarioId, SingleModeState
+from game_structs.enums import SingleModePlayingState, SingleModeScenarioId, SingleModeState, TEAM_RACE_PLAYING_STATES
 from game_structs.race import RaceInfoObject, SingleRaceStartInfoObject
 from game_structs.single_mode import (WorkSingleModeChangeParameterInfoObject, WorkSingleModeCharaDataObject,
                                       WorkSingleModeDataObject, WorkSingleModeDataRaceStartResultInfoObject,
@@ -59,7 +59,8 @@ def _career_live_state_fingerprint(value: C_Ptr[WorkSingleModeScenarioLiveObject
     )
 
 
-def _career_team_state_fingerprint(value: C_Ptr[WorkSingleModeScenarioTeamRaceObject]) -> ExtractorFingerprint:
+def _career_team_state_fingerprint(value: C_Ptr[WorkSingleModeScenarioTeamRaceObject],
+                                   playing_state: int) -> ExtractorFingerprint:
     if not value:
         return "scenario_team", pointer_fingerprint(value)
     fields = value.contents.fields
@@ -69,20 +70,26 @@ def _career_team_state_fingerprint(value: C_Ptr[WorkSingleModeScenarioTeamRaceOb
         if dictionary and (entry := dictionary.contents.first()) is not None:
             first_value = object_pointer_fingerprint("first", entry.value)
         soul_skills.append((dictionary_pointer_fingerprint(dictionary), first_value))
-    return (
+    result: ExtractorFingerprint = (
         "scenario_team",
         pointer_fingerprint(value),
         object_list_fingerprint("team_members", fields.teamMemberList),
         object_list_fingerprint("team_deck", fields.deckDataList),
-        fields.finalWinType,
-        object_array_fingerprint("frame_order", fields.teamFrameOrderArray),
-        object_array_fingerprint("opponents", fields.opponentListArray),
         object_pointer_fingerprint("team_effect", fields.teamEventEffectInfo),
         object_array_fingerprint("team_history", fields.teamRaceHistoryArray),
-        object_list_fingerprint("team_results", fields.singleTeamResultList),
         object_array_fingerprint("team_skills", fields.skillTipsArray),
         tuple(soul_skills),
     )
+    if playing_state in TEAM_RACE_PLAYING_STATES:
+        result += (
+            fields.finalWinType,
+            object_array_fingerprint("frame_order", fields.teamFrameOrderArray),
+            object_list_fingerprint("running_deck", fields.runRaceDeckDataList),
+            object_array_fingerprint("opponents", fields.opponentListArray),
+            object_list_fingerprint("team_results", fields.singleTeamResultList),
+            object_pointer_fingerprint("selected_opponent", fields.selectedOpponent),
+        )
+    return result
 
 
 def _career_free_change_parameter_fingerprint(value: ChangeParameterInfoObjectPtr) -> ExtractorFingerprint:
@@ -152,7 +159,7 @@ def _career_scenario_fingerprint(career: WorkSingleModeDataObject,
             return "scenario_ura", pointer_fingerprint(ura)
         return "scenario_ura", pointer_fingerprint(ura), ura.contents.fields.versusLevel.value
     if scenario_id == SingleModeScenarioId.TeamRace:
-        return _career_team_state_fingerprint(chara_fields.teamRace)
+        return _career_team_state_fingerprint(chara_fields.teamRace, fields.playingState.value)
     if scenario_id == SingleModeScenarioId.Live:
         return (
             "scenario_live",
