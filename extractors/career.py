@@ -374,11 +374,28 @@ def resolve_active_career_data_ptr(wdm: WorkDataManagerObject) -> Optional[C_Ptr
 
 
 def is_career_data_ready(data: CareerDataExtractionData) -> bool:
+    """Return whether the career root has a coherent archive payload."""
+
     career = data.career
     fields = career.fields
     chara = fields.character.contents.fields
-    return (chara.id.value > 0 and chara.cardId.value > 0 and fields.totalTurnNum.value > 0
-            and (fields.playingState.value != SingleModePlayingState.None_))
+
+    if fields.playingState.value == SingleModePlayingState.None_:
+        return False
+
+    if chara.id.value <= 0 or chara.cardId.value <= 0 or fields.totalTurnNum.value <= 0:
+        return False
+
+    if not chara.startTime.value_or():
+        return False
+
+    if not (home_info := fields.homeInfo):
+        return False
+
+    if not (command_lists_dict := home_info.contents.fields.turnInfoListDic):
+        return False
+
+    return (first_command_list := command_lists_dict.contents.first()) is not None and bool(first_command_list.value)
 
 
 def resolve_career_data_inputs(wdm: WorkDataManagerObject) -> Optional[CareerDataExtractionData]:
