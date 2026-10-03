@@ -12,10 +12,11 @@ from game_structs.enums import (CharaGradeType, ProperGrade, RaceMotivation, Rou
                                 TeamParameterRank, TrainingCommandId)
 from game_structs.master_data import MasterSingleModeWinsSaddleSingleModeWinsSaddleObject
 from game_structs.obscured import ObscuredBool, ObscuredInt, ObscuredLong, ObscuredStringPtr
-from game_structs.race import CharaRaceRewardObject, RaceHorseDataObject, SingleRaceStartInfoObject
+from game_structs.race import CharaRaceRewardObject, RaceHorseDataObject, RaceRewardDataObject, SingleRaceStartInfoObject
 from game_structs.skills import AcquiredSkillObject, SkillDataObject, SkillTipsObject
 from game_structs.strings import SystemStringObjectPtr
 from game_structs.trained_chara import FactorInfoObject, RaceHistoryInfoObject
+from game_structs.trophies import LoginUserTrophyInfoObject
 from il2cpp_structs import RuntimeIl2CppObject
 from schema_validation import register_runtime_validatable
 
@@ -1302,7 +1303,8 @@ class WorkSingleModeDataRaceStartResultInfoFields(CStructureDataclass):
     raceScenario: SystemStringObjectPtr
     rewardInfo: C_Ptr[CharaRaceRewardObject]
     charaInfo: C_Ptr[SingleModeCharaObject]
-    _ignored_1: ArrayType[C_UDeclPtr, L[2]]  # omitted: addTrophyInfo, trophyRewardInfo
+    addTrophyInfo: C_Ptr[LoginUserTrophyInfoObject]
+    trophyRewardInfo: C_Ptr[RaceRewardDataObject]
     prevGradeType: C_Enum[CharaGradeType]
 
 

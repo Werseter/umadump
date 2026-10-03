@@ -1,7 +1,7 @@
 """Active-career extraction and API-shaped snapshot decoding."""
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from typing import Any, TYPE_CHECKING, TypeAlias
 
 from career_log import CareerLogEntry, CareerLogObservation
@@ -12,7 +12,7 @@ from game_structs.enums import (SingleModeCommandType, SingleModeLiveGainParamet
 from game_structs.master_data import MasterSingleModeWinsSaddleSingleModeWinsSaddleObject
 from game_structs.obscured import ObscuredInt
 from game_structs.race import (CharaRaceRewardObject, RaceHorseDataObject, RaceHorseDataRaceResultObject,
-                               RaceRewardDataObject, RaceRewardSetDataObject)
+                               RaceRewardDataObject, RaceRewardSetDataObject, SingleRaceStartInfoObject)
 from game_structs.single_mode import (EquipSupportCardObject, SingleModeFreeCommandInfoObject,
                                       SingleModeFreeItemEffectObject, SingleModeFreePickUpItemObject,
                                       SingleModeFreeUserItemObject, SingleModeLogSubstanceObject,
@@ -40,15 +40,16 @@ from game_structs.single_mode import (EquipSupportCardObject, SingleModeFreeComm
                                       WorkSingleModeScenarioTeamRaceTeamMemberObject)
 from game_structs.skills import SkillTipsObject
 from game_structs.trained_chara import RaceHistoryInfoObject
-from .race import _decode_skill_data_entry
+from .race import _decode_skill_data_entry, restore_race_horse_order
 from .trained_chara import _decode_acquired_skill_entry, _decode_factor_info_entry
 
 if TYPE_CHECKING:
-    from extractors.career import CareerDataExtractionData
+    from extractors.career import CareerDataExtractionData, CareerRaceSources
 
 ParamIncDecInfoDictPtr: TypeAlias = C_Ptr[GenericDictionary[WorkSingleModeDataParamsIncDecInfoDictionaryEntry]]
 HomeCommand: TypeAlias = tuple[int, WorkSingleModeDataTurnInfoObject]
 RaceHistoryListPtr: TypeAlias = C_Ptr[GenericList[C_Ptr[RaceHistoryInfoObject]]]
+RaceHistory: TypeAlias = list[dict[str, int]]
 WinsSaddleArrayPtr: TypeAlias = GenericArrayPtr[C_Ptr[MasterSingleModeWinsSaddleSingleModeWinsSaddleObject]]
 RaceConditionListPtr: TypeAlias = C_Ptr[GenericList[C_Ptr[WorkSingleModeDataRaceConditionObject]]]
 SuccessionFactorInfoPtr: TypeAlias = C_Ptr[WorkSingleModeCharaDataSuccessionFactorInfoObject]
@@ -761,6 +762,16 @@ def _decode_career_race_reward_data(entry: RaceRewardDataObject) -> dict[str, in
     }
 
 
+def _decode_career_trophy_reward(entry: RaceRewardDataObject) -> dict[str, int]:
+    """Trophy rewards use a different API key order from ordinary race rewards."""
+    fields = entry.fields
+    return {
+        "item_id": fields.item_id,
+        "item_num": fields.item_num,
+        "item_type": fields.item_type,
+    }
+
+
 def _decode_career_race_reward(reward_info: C_Ptr[CharaRaceRewardObject]) -> dict[str, Any] | None:
     if not reward_info:
         return None
@@ -808,33 +819,45 @@ def _decode_career_race_reward_set_array(value: RaceRewardSets) -> list[dict[str
     return rewards
 
 
-def _decode_runtime_race_reward(data: CareerDataExtractionData) -> dict[str, Any] | None:
+def _augment_career_race_history(horses: Iterable[dict[str, Any]], chara: WorkSingleModeCharaDataObject,
+                                 history: RaceHistory) -> None:
+    """Recover only the trainee's results with an exact retained history identity."""
+    fields = chara.fields
+    by_identity = {(item['turn'], item['program_id'], item['result_rank']): item for item in history}
+    for horse in horses:
+        if horse['card_id'] != fields.cardId.value or not horse['viewer_id']:
+            continue
+        for result in horse['race_result_array']:
+            key = result['turn'], result['program_id'], result['result_rank']
+            if matched := by_identity.get(key):
+                result.update(viewer_id=horse['viewer_id'], single_mode_chara_id=fields.id.value,
+                              frame_order=matched['frame_order'], weather=matched['weather'],
+                              ground_condition=matched['ground_condition'], running_style=matched['running_style'])
+
+
+def _decode_runtime_race_reward(source: CareerRaceSources, history: RaceHistory, turn: int) -> dict[str, Any] | None:
     """Decode a race-end reward from the current RaceInfo source.
 
     ``ApplyRaceEnd`` updates RaceInfo directly, unlike the load-hydrated
-    RaceStartResultInfo reward pointer.  Do not substitute the latter here: a
-    stale reward would become immutable evidence for the wrong race program.
+    RaceStartResultInfo reward pointer. Use this source only as a fallback:
+    the hydrated reward carries fields that RaceInfo does not retain.
     """
-    race_info = data.race_info
+    race_info = source.runtime
     if not race_info or not (reward_single := race_info.contents.fields.raceRewardSingle):
         return None
     reward_single_fields = reward_single.contents.fields
     if not reward_single_fields.reward:
         return None
     # RaceRewardInfoSingle has no rank. Only use history belonging to this turn and program.
-    career = data.career.fields
-    if not (history_ptr := career.raceHistoryInfoList):
+    if not history:
         return None
-    history = history_ptr.contents
-    if not (last_ptr := history.last()):
-        return None
-    last = last_ptr.contents.fields
-    current_race = (career.totalTurnNum.value, race_info.contents.fields.singleRaceProgramId)
-    if (last.turn.value, last.programId.value) != current_race:
+    last = history[-1]
+    current_race = turn, source.start.contents.fields.program_id
+    if (last['turn'], last['program_id']) != current_race:
         return None
     reward_fields = reward_single_fields.reward.contents.fields
     return {
-        "result_rank": last.resultRank.value,
+        "result_rank": last['result_rank'],
         "result_time": 0,
         "race_reward": _decode_career_race_reward_set_array(reward_fields.rewardSetArray),
         "race_reward_bonus": _decode_career_race_reward_set_array(reward_fields.bonusRewardSetArray),
@@ -1271,9 +1294,29 @@ def _decode_active_scenario_data_set(
     return {}
 
 
-def _decode_career_race_context(data: CareerDataExtractionData) -> dict[str, Any]:
+def _decode_career_race_start(entry: SingleRaceStartInfoObject, chara: WorkSingleModeCharaDataObject,
+                              history: RaceHistory, season: int) -> dict[str, Any]:
+    start = entry.fields
+    race_horse_entries = list(start.race_horse_data)
+    race_horses = [_decode_career_race_horse(horse.contents) for horse in race_horse_entries if horse]
+    _augment_career_race_history(race_horses, chara, history)
+    if len(race_horses) == len(race_horse_entries):
+        race_horses = restore_race_horse_order(race_horses, start.random_seed)
+    return {
+        "program_id": start.program_id,
+        "random_seed": start.random_seed,
+        "season": season,
+        "weather": start.weather,
+        "ground_condition": start.ground_condition,
+        "race_horse_data": race_horses,
+        "continue_num": start.continue_num,
+        "is_force_running_style": start.is_force_running_style,
+    }
+
+
+def _decode_career_race_context(data: CareerDataExtractionData, sources: CareerRaceSources | None,
+                                history: RaceHistory) -> dict[str, Any]:
     """Decode only sources associated by the extractor with this observation."""
-    sources = data.race_sources()
     context: dict[str, Any] = {
         "race_start_info": None,
         "race_scenario": None,
@@ -1285,30 +1328,32 @@ def _decode_career_race_context(data: CareerDataExtractionData) -> dict[str, Any
     }
     if sources is None:
         return context
-    start = sources.start.contents.fields
-    context["race_start_info"] = {
-        "program_id": start.program_id,
-        "random_seed": start.random_seed,
-        "season": sources.runtime.contents.fields.season if sources.runtime else 0,
-        "weather": start.weather,
-        "ground_condition": start.ground_condition,
-        "race_horse_data": [_decode_career_race_horse(horse.contents) for horse in start.race_horse_data if horse],
-        "continue_num": start.continue_num,
-        "is_force_running_style": start.is_force_running_style,
-    }
+    career = data.career.fields
+    if sources.runtime:
+        runtime = sources.runtime.contents.fields
+        context["race_start_info"] = _decode_career_race_start(sources.start.contents, career.character.contents,
+                                                               history, runtime.season)
+        if not sources.loaded:
+            context["race_scenario"] = runtime.simDataBase64.value_or(None)
+            if (reward := _decode_runtime_race_reward(sources, history, career.totalTurnNum.value)) is not None:
+                context["race_reward_info"] = reward
+                context["prev_chara_grade"] = runtime.prevGradeType
     if sources.loaded:
         loaded = sources.loaded.contents.fields
         context["race_scenario"] = loaded.raceScenario.value_or(None)
+        if loaded.addTrophyInfo:
+            trophy = loaded.addTrophyInfo.contents.fields
+            context["add_trophy_info"] = {
+                "trophy_id": trophy.trophy_id,
+                "chara_id_array": [chara_id.value for chara_id in trophy.chara_id_array],
+            } if trophy.trophy_id else []
+        if loaded.trophyRewardInfo:
+            context["trophy_reward_info"] = _decode_career_trophy_reward(loaded.trophyRewardInfo.contents)
         if loaded.rewardInfo:
             context["race_reward_info"] = _decode_career_race_reward(loaded.rewardInfo)
             context["prev_chara_grade"] = loaded.prevGradeType
-    if sources.runtime:
-        runtime = sources.runtime.contents.fields
-        if runtime.simDataBase64:
-            context["race_scenario"] = runtime.simDataBase64.value_or(None)
-        if (reward := _decode_runtime_race_reward(data)) is not None:
-            context["race_reward_info"] = reward
-            context["prev_chara_grade"] = runtime.prevGradeType
+    if context["race_reward_info"] is not None and context["add_trophy_info"] is None:
+        context["add_trophy_info"] = []
     return context
 
 
@@ -1381,6 +1426,8 @@ def decode_career_data(data: CareerDataExtractionData) -> dict[str, Any]:
     chara = fields.character.contents
     chara_fields = chara.fields
     training_levels = _decode_active_training_levels(chara)
+    history = _decode_active_race_history(fields.raceHistoryInfoList)
+    race_sources = data.race_sources()
     common: dict[str, Any] = {
         "chara_info": _decode_active_chara_info(
                 chara,
@@ -1396,10 +1443,10 @@ def decode_career_data(data: CareerDataExtractionData) -> dict[str, Any]:
         ),
         "home_info": _decode_active_home_info(fields.homeInfo, training_levels),
         "unchecked_event_array": _decode_pending_events(career),
-        "race_history": _decode_active_race_history(fields.raceHistoryInfoList),
+        "race_history": history,
         "win_saddle_id_array": _decode_active_win_saddle_ids(fields.winSaddleArray),
         "effected_factor_array": _decode_active_effected_factor_array(chara_fields.successionFactor),
-        **_decode_career_race_context(data),
+        **_decode_career_race_context(data, race_sources, history),
         "reserved_race_array": _decode_reserved_races(chara),
         "mission_list": [],
         "story_event_mission_list": [],

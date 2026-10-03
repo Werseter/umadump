@@ -247,7 +247,13 @@ def _career_pending_actions_fingerprint(career: WorkSingleModeDataObject) -> Ext
 
 @dataclass(frozen=True)
 class CareerRaceSources:
-    """Race members associated with the current career, rather than a second extractor."""
+    """Race sources associated with the current observation.
+
+    ``loaded`` is the retained RaceStartResultInfo whose saved character,
+    turn, playing state and program match this career. Its nullable members
+    describe that loaded context; runtime values must not replace its nulls.
+    ``runtime`` is RaceInfo validated against the start program and seed.
+    """
 
     start: C_Ptr[SingleRaceStartInfoObject]
     loaded: C_Ptr[WorkSingleModeDataRaceStartResultInfoObject] | None
@@ -258,6 +264,10 @@ def _career_race_sources(career: WorkSingleModeDataObject,
                          runtime: C_Ptr[RaceInfoObject] | None) -> CareerRaceSources | None:
     fields = career.fields
     phase = fields.playingState.value
+    chara = fields.character.contents.fields
+    program_id = chara.entryProgramId.value
+    if program_id <= 0:
+        return None
     holder = fields.raceStartResultInfoData
     if not holder:
         return None
@@ -265,7 +275,7 @@ def _career_race_sources(career: WorkSingleModeDataObject,
     if not (start := retained_fields.startInfo):
         return None
     start_fields = start.contents.fields
-    if start_fields.program_id <= 0 or not start_fields.race_horse_data:
+    if start_fields.program_id != program_id or not start_fields.race_horse_data:
         return None
     if len(start_fields.race_horse_data) == 0:
         return None
@@ -276,10 +286,9 @@ def _career_race_sources(career: WorkSingleModeDataObject,
             runtime = None
     loaded: C_Ptr[WorkSingleModeDataRaceStartResultInfoObject] | None = None
     if retained := retained_fields.charaInfo:
-        chara = fields.character.contents.fields
-        chara_state = (chara.id.value, fields.totalTurnNum.value, phase)
+        chara_state = (chara.id.value, fields.totalTurnNum.value, phase, program_id)
         saved = retained.contents.fields
-        saved_state = (saved.single_mode_chara_id, saved.turn, saved.playing_state)
+        saved_state = (saved.single_mode_chara_id, saved.turn, saved.playing_state, saved.race_program_id)
         if chara_state == saved_state:
             loaded = holder
     if loaded is None and runtime is None:
@@ -300,11 +309,15 @@ def _career_race_fingerprint(sources: CareerRaceSources | None) -> ExtractorFing
     if sources.loaded:
         loaded = sources.loaded.contents.fields
         result += (loaded.raceScenario.address, loaded.prevGradeType,
-                   object_pointer_fingerprint("reward", loaded.rewardInfo))
+                   object_pointer_fingerprint("reward", loaded.rewardInfo),
+                   object_pointer_fingerprint("add_trophy", loaded.addTrophyInfo),
+                   object_pointer_fingerprint("trophy_reward", loaded.trophyRewardInfo))
     if sources.runtime:
         race = sources.runtime.contents.fields
-        result += (sources.runtime.address, race.season, race.prevGradeType, race.simDataBase64.address,
-                   object_pointer_fingerprint("race_reward", race.raceRewardSingle))
+        result += (race.season,)
+        if not sources.loaded:
+            result += (race.prevGradeType, race.simDataBase64.address,
+                       object_pointer_fingerprint("race_reward", race.raceRewardSingle))
     return result
 
 
@@ -345,6 +358,7 @@ class CareerDataExtractionData:
             fields.totalTurnNum.value,
             fields.state.value,
             fields.playingState.value,
+            chara_fields.entryProgramId.value,
             chara_fields.scenarioProgress.value,
             _active_home_info_fingerprint(fields.homeInfo),
             _career_active_chara_collections_fingerprint(chara),

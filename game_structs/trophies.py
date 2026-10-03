@@ -3,10 +3,25 @@ from __future__ import annotations
 from ctypes import c_bool, c_int32
 
 from ctypes_utils import CStructureDataclass, C_Int, C_Ptr
-from game_structs.collections import GenericDictionary, GenericList
+from game_structs.collections import GenericArrayPtr, GenericDictionary, GenericList
 from game_structs.obscured import ObscuredInt
 from il2cpp_structs import RuntimeIl2CppObject
 from schema_validation import register_runtime_validatable
+
+
+# ---------------------------------------------------------------------------
+# Gallop.LoginUserTrophyInfo
+# ---------------------------------------------------------------------------
+
+class LoginUserTrophyInfoFields(CStructureDataclass):
+    trophy_id: C_Int[c_int32]
+    chara_id_array: GenericArrayPtr[c_int32]
+
+
+@register_runtime_validatable('Gallop::LoginUserTrophyInfo')
+class LoginUserTrophyInfoObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: LoginUserTrophyInfoFields
 
 
 # ---------------------------------------------------------------------------
