@@ -78,9 +78,9 @@ def career_archive_descriptor(data: CareerDataExtractionData) -> tuple[str, Care
 
 
 def _career_payload_hash(payload: Any) -> str:
-    """Hash semantic JSON content independently of pretty-print ordering."""
+    """Hash JSON values and key order independently of whitespace formatting."""
 
-    canonical_json = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    canonical_json = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     buffer: Buffer = canonical_json.encode("utf-8")
     return hashlib.sha256(buffer).hexdigest()
 
