@@ -44,8 +44,8 @@ def _decode_recommend_list_entry(entry: FriendDataObject) -> dict[str, Any]:
     return {
         "friend_viewer_id": f.viewerId.value,
         "state": f.friendState.value,
-        "follow_time": "",
-        "follower_time": ""
+        "follow_time": timestamp_to_str(0),
+        "follower_time": timestamp_to_str(0)
     }
 
 
@@ -117,11 +117,11 @@ def _decode_user_info_summary_list_entry(entry: FriendDataObject) -> dict[str, A
             "viewer_id": f.viewerId.value,
             "circle_id": f.circleId.value,
             "membership": 0,
-            "join_time": "",
-            "penalty_end_time": "",
-            "item_request_end_time": "",
+            "join_time": timestamp_to_str(0),
+            "penalty_end_time": timestamp_to_str(0),
+            "item_request_end_time": timestamp_to_str(0),
             "last_check_post_id": 0,
-            "ranking_result_check_time": ""
+            "ranking_result_check_time": timestamp_to_str(0)
         },
         "friend_state": f.friendState.value
     }

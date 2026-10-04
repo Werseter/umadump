@@ -18,14 +18,14 @@
     {
       "friend_viewer_id": 604918273560,
       "state": 0,
-      "follow_time": "",
-      "follower_time": ""
+      "follow_time": "0000-00-00 00:00:00",
+      "follower_time": "0000-00-00 00:00:00"
     },
     {
       "friend_viewer_id": 918273640572,
       "state": 0,
-      "follow_time": "",
-      "follower_time": ""
+      "follow_time": "0000-00-00 00:00:00",
+      "follower_time": "0000-00-00 00:00:00"
     }
   ],
   "user_info_summary_list": [
@@ -92,11 +92,11 @@
         "viewer_id": 481927364105,
         "circle_id": 908210590,
         "membership": 0,
-        "join_time": "",
-        "penalty_end_time": "",
-        "item_request_end_time": "",
+        "join_time": "0000-00-00 00:00:00",
+        "penalty_end_time": "0000-00-00 00:00:00",
+        "item_request_end_time": "0000-00-00 00:00:00",
         "last_check_post_id": 0,
-        "ranking_result_check_time": ""
+        "ranking_result_check_time": "0000-00-00 00:00:00"
       },
       "friend_state": 1
     },
@@ -160,11 +160,11 @@
         "viewer_id": 729384650118,
         "circle_id": 0,
         "membership": 0,
-        "join_time": "",
-        "penalty_end_time": "",
-        "item_request_end_time": "",
+        "join_time": "0000-00-00 00:00:00",
+        "penalty_end_time": "0000-00-00 00:00:00",
+        "item_request_end_time": "0000-00-00 00:00:00",
         "last_check_post_id": 0,
-        "ranking_result_check_time": ""
+        "ranking_result_check_time": "0000-00-00 00:00:00"
       },
       "friend_state": 1
     },
@@ -231,11 +231,11 @@
         "viewer_id": 604918273560,
         "circle_id": 441966471,
         "membership": 0,
-        "join_time": "",
-        "penalty_end_time": "",
-        "item_request_end_time": "",
+        "join_time": "0000-00-00 00:00:00",
+        "penalty_end_time": "0000-00-00 00:00:00",
+        "item_request_end_time": "0000-00-00 00:00:00",
         "last_check_post_id": 0,
-        "ranking_result_check_time": ""
+        "ranking_result_check_time": "0000-00-00 00:00:00"
       },
       "friend_state": 0
     },
@@ -302,11 +302,11 @@
         "viewer_id": 918273640572,
         "circle_id": 965571475,
         "membership": 0,
-        "join_time": "",
-        "penalty_end_time": "",
-        "item_request_end_time": "",
+        "join_time": "0000-00-00 00:00:00",
+        "penalty_end_time": "0000-00-00 00:00:00",
+        "item_request_end_time": "0000-00-00 00:00:00",
         "last_check_post_id": 0,
-        "ranking_result_check_time": ""
+        "ranking_result_check_time": "0000-00-00 00:00:00"
       },
       "friend_state": 0
     }
