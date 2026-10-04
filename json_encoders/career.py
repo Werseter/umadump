@@ -708,7 +708,7 @@ def _decode_career_race_horse(entry: RaceHorseDataObject) -> dict[str, Any]:
         "trained_chara_id": fields.trained_chara_id,
         "nickname_id": fields.nickname_id,
         "chara_id": fields.chara_id,
-        "card_id": fields.card_id,
+        "card_id": fields.card_id if fields.card_id or fields.mob_id else None,
         "mob_id": fields.mob_id,
         "rarity": fields.rarity,
         "talent_level": fields.talent_level,
@@ -1437,10 +1437,7 @@ def decode_career_data(data: CareerDataExtractionData) -> dict[str, Any]:
                 training_levels=training_levels,
         ),
         "race_condition_array": _decode_active_race_conditions(fields.raceConditions),
-        "race_random_program_array": (
-            _decode_active_race_random_program_array(chara)
-            if chara_fields.scenarioId.value != SingleModeScenarioId.TeamRace else None
-        ),
+        "race_random_program_array": _decode_active_race_random_program_array(chara),
         "home_info": _decode_active_home_info(fields.homeInfo, training_levels),
         "unchecked_event_array": _decode_pending_events(career),
         "race_history": history,
