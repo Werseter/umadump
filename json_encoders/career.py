@@ -1266,16 +1266,16 @@ def _decode_free_twinkle_race_npc(value: WorkSingleModeScenarioFreeTwinkleRaceNp
         "power": fields.power.value,
         "guts": fields.guts.value,
         "wiz": fields.wiz.value,
-        "proper_ground_turf": fields.properGroundTurf.value,
-        "proper_ground_dirt": fields.properGroundDirt.value,
-        "proper_running_style_nige": fields.properRunningStyleNige.value,
-        "proper_running_style_senko": fields.properRunningStyleSenko.value,
-        "proper_running_style_sashi": fields.properRunningStyleSashi.value,
-        "proper_running_style_oikomi": fields.properRunningStyleOikomi.value,
         "proper_distance_short": fields.properDistanceShort.value,
         "proper_distance_mile": fields.properDistanceMile.value,
         "proper_distance_middle": fields.properDistanceMiddle.value,
         "proper_distance_long": fields.properDistanceLong.value,
+        "proper_running_style_nige": fields.properRunningStyleNige.value,
+        "proper_running_style_senko": fields.properRunningStyleSenko.value,
+        "proper_running_style_sashi": fields.properRunningStyleSashi.value,
+        "proper_running_style_oikomi": fields.properRunningStyleOikomi.value,
+        "proper_ground_turf": fields.properGroundTurf.value,
+        "proper_ground_dirt": fields.properGroundDirt.value,
         "skill_array": [_decode_skill_data_entry(skill.contents) for skill in fields.skillArray if skill],
     }
 
@@ -1297,24 +1297,23 @@ def _decode_free_twinkle_race_result(value: WorkSingleModeScenarioFreeTwinkleRac
     }
 
 
-def _decode_active_free_command_info(
-        career: WorkSingleModeDataObject,
-        home_info: C_Ptr[WorkSingleModeHomeInfoObject],
-) -> list[dict[str, Any]]:
+def _decode_active_free_command_info(career: WorkSingleModeDataObject,
+                                     home_info: C_Ptr[WorkSingleModeHomeInfoObject]) -> list[dict[str, Any]]:
     change = career.fields.changeParameterInfo
-    if change and (scenario_free_commands := change.contents.fields.scenarioFreeCommandInfo):
-        return [
-            _decode_free_command_info(command.contents)
-            for command in scenario_free_commands.contents
-            if command
-        ]
+    if change and (commands := change.contents.fields.scenarioFreeCommandInfo):
+        current_commands: dict[tuple[int, int], SingleModeFreeCommandInfoObject] = {}
+        for command_ptr in commands.contents:
+            if command_ptr:
+                entry = command_ptr.contents
+                free_command_fields = entry.fields
+                current_commands[free_command_fields.command_type, free_command_fields.command_id] = entry
+        return [_decode_free_command_info(entry) for entry in current_commands.values()]
     command_info_array: list[dict[str, Any]] = []
     for command_type, command in _iter_active_home_commands(home_info):
         fields = command.fields
         command_info_array.append({
             "command_type": command_type,
             "command_id": fields.commandId.value,
-            # ApplyFreeCommandInfo uses the same scenario-bonus dictionary as Team and Live.
             "params_inc_dec_info_array": _decode_active_params_inc_dec_info_array(fields.bonusParamIncDecInfoDic),
         })
     return command_info_array
@@ -1344,12 +1343,12 @@ def _decode_active_free_data_set(
             _decode_free_user_item(item.contents)
             for item in free_fields.userItemInfoArray
             if item
-        ],
+        ] if free_fields.userItemInfoArray else None,
         "pick_up_item_info_array": [
             _decode_free_pick_up_item(item.contents)
             for item in free_fields.pickUpItemInfoArray
             if item
-        ],
+        ] if free_fields.pickUpItemInfoArray else None,
         "twinkle_race_npc_info_array": [
             _decode_free_twinkle_race_npc(npc.contents)
             for npc in free_fields.singleModeFreeTwinkleRaceNpcInfoList.contents
@@ -1455,8 +1454,15 @@ def _decode_career_race_context(data: CareerDataExtractionData, sources: CareerR
         if loaded.rewardInfo:
             context["race_reward_info"] = _decode_career_race_reward(loaded.rewardInfo)
             context["prev_chara_grade"] = loaded.prevGradeType
-    if context["race_reward_info"] is not None and context["add_trophy_info"] is None:
-        context["add_trophy_info"] = []
+    if (reward := context["race_reward_info"]) is not None:
+        chara = career.character.contents.fields
+        if chara.scenarioId.value == SingleModeScenarioId.Free and (free := chara.workScenarioFree):
+            free_fields = free.contents.fields
+            # TS Climax oddity - this key is added by server, but there is no gain in finals?
+            if (npcs := free_fields.singleModeFreeTwinkleRaceNpcInfoList) and len(npcs.contents):
+                reward["gained_coin_num"] = 0
+        if context["add_trophy_info"] is None:
+            context["add_trophy_info"] = []
     return context
 
 
