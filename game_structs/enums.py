@@ -10,6 +10,55 @@ from schema_validation import register_enum
 # Game enums
 # ---------------------------------------------------------------------------
 
+@register_enum('Gallop::GameDefine.ItemCategory')
+class ItemCategory(SafeIntEnum):
+    NONE = 0
+    TRAINING = 11
+    RECOVER_TP = 20
+    RECOVER_RP = 21
+    EXPERIENCE = 30
+    LOVE_POINT = 31
+    CONTINUE = 34
+    GACHA_TICKET = 40
+    SURPRISE_CARD_TICKET = 41
+    SURPRISE_SUPPORT_TICKET = 42
+    CARD = 50
+    SUPPORT_CARD = 51
+    SUPPORT_CARD_LIMIT_BREAK_4 = 52
+    HONOR = 55
+    DRESS = 70
+    SOUND = 80
+    FREE_CARROT = 90
+    MONEY = 91
+    CARROT = 92
+    MEDAL = 93
+    EVENT_RESOURCE = 94
+    EXCHANGE_UPGRADE = 95
+    COMMON_PIECE = 97
+    EXTENSION = 98
+    CLOVER = 99
+    EVENT = 100
+    CARD_PIECE = 102
+    FRIEND_POINT = 103
+    ANALYZE_TICKET = 110
+    TEAM_DAILY_LEGEND_ITEM = 150
+    TEAM_STADIUM_ITEM = 151
+    HORSE_SHOE = 160
+    CIRCLE_COIN = 161
+    CHAMPIONS_TICKET = 163
+    SUPPORT_CARD_LIMIT_BREAK_ITEM = 164
+    TRAINING_CHALLENGE_COIN = 165
+    CHALLENGE_MATCH_PT = 166
+    SINGLE_MODE_SCENARIO_FREE_SHOP_ITEM = 167
+    JUKEBOX_MUSIC = 168
+    TEAM_BUILDING_SCOUT_PT = 169
+    TEAM_BUILDING_TICKET = 170
+    COLLECT_RAID_TARGET_ITEM = 171
+    GALLERY_KEY = 172
+    HEROES_TICKET = 173
+    FACTOR_RESEARCH_FACTOR_UPGRADE_ITEM = 174
+
+
 @register_enum('Gallop::MasterSupportCardData.TrainingType')
 class TrainingType(SafeIntEnum):
     Turf = 0

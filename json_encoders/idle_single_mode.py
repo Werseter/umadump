@@ -1,8 +1,10 @@
 """JSON decoders for umadump output."""
 from __future__ import annotations
 
+from itertools import chain
 from typing import Any, TYPE_CHECKING
 
+from game_structs.enums import ItemCategory
 from game_structs.idle_single_mode import (IdleSingleModeRaceHistoryObject, ObscuredCharaEffectLogObject,
                                            ObscuredFactorInfoObject, ObscuredIdleSingleModeGainInfoObject,
                                            ObscuredIdleSingleModeProgressLogInfoObject,
@@ -276,26 +278,56 @@ def _decode_chara_race_reward(rr: CharaRaceRewardObject) -> dict[str, Any]:
     }
 
 
+def _decode_idle_reward_items(rewards: list[dict[str, int]]) -> list[dict[str, int]]:
+    counts: dict[int, int] = {}
+    for reward in rewards:
+        item_id = reward["item_id"]
+        counts[item_id] = counts.get(item_id, 0) + reward["item_num"]
+    return [{"item_id": item_id, "number": number} for item_id, number in counts.items()]
+
+
+def _decode_idle_reward_pieces(rewards: list[dict[str, int]]) -> list[dict[str, int]]:
+    return [{"piece_id": reward["item_id"], "piece_num": reward["item_num"]} for reward in rewards]
+
+
 def _decode_idle_single_mode_race_reward_summary(
         progress: ObscuredIdleSingleModeProgressLogInfoObject) -> dict[str, Any]:
-    reward_infos = [
-        reward_info.contents.fields
-        for history in progress.fields.raceHistoryArray
-        if (reward_info := history.contents.fields.race_reward_info)
-    ]
-    if not reward_infos:
-        return {}
+    """Separate pieces and free jewels; retain all other awards as item totals."""
+    reward_groups: dict[int, list[tuple[int, dict[str, int]]]] = {}
+    reward_count = 0
+    for history in progress.fields.raceHistoryArray:
+        if not (reward_info := history.contents.fields.race_reward_info):
+            continue
+        race_fields = reward_info.contents.fields
+        for reward_array in (race_fields.race_reward, race_fields.race_reward_bonus,
+                             race_fields.race_reward_plus_bonus, race_fields.race_reward_bonus_win):
+            for reward_ptr in reward_array:
+                reward: dict[str, int] = _decode_race_reward_data_entry(reward_ptr.contents)
+                # Retain encounter order when regrouping categories into API sections.
+                reward_groups.setdefault(reward["item_type"], []).append((reward_count, reward))
+                reward_count += 1
 
-    item_counts: dict[int, int] = {}
-    for race_reward_fields in reward_infos:
-        for reward_array in (race_reward_fields.race_reward, race_reward_fields.race_reward_bonus,
-                             race_reward_fields.race_reward_plus_bonus, race_reward_fields.race_reward_bonus_win):
-            for reward in reward_array:
-                reward_data_fields = reward.contents.fields
-                item_count = item_counts.get(reward_data_fields.item_id, 0) + reward_data_fields.item_num
-                item_counts[reward_data_fields.item_id] = item_count
-
-    return {"add_item_list": [{"item_id": item_id, "number": number} for item_id, number in item_counts.items()]}
+    piece_rewards = [reward for _, reward in reward_groups.pop(ItemCategory.CARD_PIECE, [])]
+    free_carrots = sum(reward["item_num"] for _, reward in reward_groups.pop(ItemCategory.FREE_CARROT, []))
+    item_rewards = [reward for _, reward in sorted(chain.from_iterable(reward_groups.values()))]
+    return {
+        "add_item_list": _decode_idle_reward_items(item_rewards),
+        "add_piece_list": _decode_idle_reward_pieces(piece_rewards),
+        "add_card_list": [],
+        "add_card_bonus_info": None,
+        "add_support_card_list": [],
+        "add_support_card_num_array": [],
+        "add_honor_list": [],
+        "add_chara_list": [],
+        "add_cloth_list": [],
+        "add_music_list": [],
+        "add_story_id_array": [],
+        "add_fcoin": free_carrots,
+        "add_present_num": 0,
+        "add_total_fan": 0,
+        "new_chara_profile_array": [],
+        "force_update_honor_id": 0,
+    }
 
 
 def _decode_idle_single_mode_race_history_entry(r: IdleSingleModeRaceHistoryObject) -> dict[str, Any]:
@@ -332,7 +364,28 @@ def decode_idle_single_mode(data: IdleSingleModeExtractionData) -> dict[str, Any
         "progress_log_info": _decode_obscured_idle_single_mode_progress_log_info(progress_log_info),
         "end_info": {
             "chara_info": _decode_single_mode_chara(data.finalized_chara_info.contents),
+            "race_condition_array": [],
+            "unchecked_event_array": [],
+            "home_info": None,
+            "win_saddle_id_array": [],
+            "effected_factor_array": [],
+            "race_start_info": None,
+            "race_scenario": None,
+            "add_trophy_info": None,
+            "trophy_reward_info": None,
+            "prev_chara_grade": None,
+            "race_add_reward_info": [],
+            "reserved_race_info": None,
+            "mission_list": [],
+            "story_event_mission_list": [],
+            "story_event_chara_bonus_list": [],
+            "start_dress_info": [],
+            "resume_factor_select": None,
+            "race_random_program_array": [],
+            "race_reward_limit_more_list": [],
+            "skill_filter_setting_array": [],
             "reward_summary_info": _decode_idle_single_mode_race_reward_summary(progress_log_info),
+            "is_umaplan": False
         },
         "extra_data": {
             "trained_chara": trained_chara,

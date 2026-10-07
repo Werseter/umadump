@@ -177,25 +177,34 @@ def career_load_api:
 # Independent Training (Idle Mode) exports
 # ---------------------------------------------------------------------------
 
+def idle_strip_event_data:
+    # Account event progress and static bonuses are intentionally not exported.
+    (.story_event_mission_list, .story_event_chara_bonus_list) = [];
+
 # API idle_single_mode/status -> idle_status_api
 # idle_single_mode/<identity>.json -> idle_status_export
 def idle_status_api:
-    .data.progress_info;
+    .data.progress_info | idle_strip_event_data;
 
 def idle_status_export:
     .progress_info;
 
 # API idle_single_mode/end -> idle_end_api
 # idle_single_mode/<identity>.json -> idle_end_export
-def idle_end_projection:
-    with_entries(select(.key == "progress_log_info" or .key == "end_info")) |
-    .end_info |= (
-        with_entries(select(.key == "chara_info" or .key == "reward_summary_info")) |
-        .reward_summary_info |= with_entries(select(.key == "add_item_list"))
-    );
-
 def idle_end_api:
-    .data | idle_end_projection;
+    .data |
+    .end_info |= idle_strip_event_data;
 
 def idle_end_export:
-    idle_end_projection;
+    del(.progress_info, .extra_data);
+
+# API idle_single_mode/result -> idle_result_api
+# idle_single_mode/<identity>.json -> idle_result_export
+def idle_result_export:
+    del(.progress_info, .extra_data) |
+    # result response does not include the summary - it's rebuilt from race history
+    .end_info.reward_summary_info = [];
+
+def idle_result_api:
+    .data |
+    .end_info |= idle_strip_event_data;
