@@ -261,6 +261,8 @@ def _decode_idle_single_mode_progress_info(data: IdleSingleModeExtractionData) -
         "start_time": timestamp_to_str(data.start_time),
         "end_time": timestamp_to_str(data.end_time),
         "dress_id": 0,
+        "story_event_mission_list": [],
+        "story_event_chara_bonus_list": [],
     }
 
 
