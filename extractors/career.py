@@ -5,18 +5,23 @@ from typing import Optional, TypeAlias
 
 from career_archive import CareerArchiveSnapshot, career_archive_descriptor
 from ctypes_utils import C_Ptr
+from game_structs.collections import GenericDictionary
 from game_structs.enums import SingleModePlayingState, SingleModeScenarioId, SingleModeState, TEAM_RACE_PLAYING_STATES
 from game_structs.race import RaceInfoObject, SingleRaceStartInfoObject
-from game_structs.single_mode import (WorkSingleModeChangeParameterInfoObject, WorkSingleModeCharaDataObject,
-                                      WorkSingleModeDataObject, WorkSingleModeDataRaceStartResultInfoObject,
-                                      WorkSingleModeHomeInfoObject, WorkSingleModeScenarioFreeObject,
-                                      WorkSingleModeScenarioLiveObject, WorkSingleModeScenarioLivePerformanceDataObject,
+from game_structs.single_mode import (SingleModeChangeViewManagerObject, SingleModeEventAccesorObject,
+                                      WorkSingleModeChangeParameterInfoObject, WorkSingleModeCharaDataObject,
+                                      WorkSingleModeDataEventInfoObject, WorkSingleModeDataObject,
+                                      WorkSingleModeDataRaceStartResultInfoObject,
+                                      WorkSingleModeEventChoiceRewardDictionaryEntry, WorkSingleModeHomeInfoObject,
+                                      WorkSingleModeScenarioFreeObject, WorkSingleModeScenarioLiveObject,
+                                      WorkSingleModeScenarioLivePerformanceDataObject,
                                       WorkSingleModeScenarioTeamRaceObject)
 from game_structs.trained_chara import TrainedCharaDataObject
 from game_structs.work_data_manager import WorkDataManagerObject
 from json_encoders.career import decode_career_data, decode_career_log
 from json_encoders.trained_chara import _decode_trained_chara_entry
 from logger import logger
+from schema_validation import RuntimeValidatableIl2CppClassManager
 from .common import (ExtractorContext, ExtractorFingerprint, array_fingerprint, dictionary_pointer_fingerprint,
                      list_pointer_fingerprint, object_array_fingerprint, object_list_fingerprint,
                      object_pointer_fingerprint, pointer_fingerprint)
@@ -24,6 +29,7 @@ from .trained_chara import resolve_finalized_veteran
 
 ChangeParameterInfoObjectPtr: TypeAlias = C_Ptr[WorkSingleModeChangeParameterInfoObject]
 LivePerformancePtr: TypeAlias = C_Ptr[WorkSingleModeScenarioLivePerformanceDataObject]
+ChoiceRewardDictPtr: TypeAlias = C_Ptr[GenericDictionary[WorkSingleModeEventChoiceRewardDictionaryEntry]]
 
 
 def _live_performance_fingerprint(name: str, value: LivePerformancePtr) -> ExtractorFingerprint:
@@ -228,6 +234,50 @@ def _career_log_fingerprint(career: WorkSingleModeDataObject) -> ExtractorFinger
     return result
 
 
+@dataclass(frozen=True)
+class CareerChoiceSources:
+    """Retained career event and its populated, event-matched reward cache."""
+
+    event: WorkSingleModeDataEventInfoObject
+    rewards: ChoiceRewardDictPtr
+
+
+def _career_choice_sources(data: CareerDataExtractionData) -> CareerChoiceSources | None:
+    change_view = data.single_mode_change_view
+    if not change_view or not (accessor := change_view.contents.fields.eventInfoAccesor):
+        return None
+    # The declared interface can also hold a gallery accessor. Do not interpret
+    # that object as a career event (or quarantine the extractor for its type).
+    expected = RuntimeValidatableIl2CppClassManager.get_expected_type_metadata_handle(SingleModeEventAccesorObject)
+    actual = accessor.contents._il2cpp_obj.klass
+    if expected is not None and (not actual or actual.contents.typeMetadataHandle.address != expected):
+        return None
+    if not (event_ptr := accessor.contents.fields.eventInfo):
+        return None
+    event = event_ptr.contents
+    fields = data.career.fields
+    # ApplyEventChoiceRewardData writes the event ID after populating the cache.
+    # Neither the retained event nor the cache proves a choice box is visible.
+    if not fields.cachedRewardEventId or fields.cachedRewardEventId != event.fields.eventId.value:
+        return None
+    cache = fields.eventChoiceRewardDict
+    if not cache or cache.contents.first() is None:
+        return None
+    return CareerChoiceSources(event, cache)
+
+
+def _career_choice_fingerprint(sources: CareerChoiceSources | None) -> ExtractorFingerprint:
+    if sources is None:
+        return "choice_rewards", None
+    first = sources.rewards.contents.first()
+    branch: ExtractorFingerprint = ("first", ("ptr", 0))
+    if first is not None and first.value:
+        branch = object_array_fingerprint("branches", first.value.contents.fields.branchRewardArray)
+    event = sources.event.fields
+    return ("choice_rewards", event.eventId.value, event.storyId.value,
+            dictionary_pointer_fingerprint(sources.rewards), branch)
+
+
 def _career_pending_actions_fingerprint(career: WorkSingleModeDataObject) -> ExtractorFingerprint:
     """Track pending events, factor choices and reserved race decks."""
     f = career.fields
@@ -335,6 +385,10 @@ class CareerDataExtractionData:
     career_ptr: C_Ptr[WorkSingleModeDataObject]
     race_info: C_Ptr[RaceInfoObject] | None = None
     finalized_veteran: C_Ptr[TrainedCharaDataObject] | None = None
+    single_mode_change_view: C_Ptr[SingleModeChangeViewManagerObject] | None = None
+
+    def choice_sources(self) -> CareerChoiceSources | None:
+        return _career_choice_sources(self)
 
     def race_sources(self) -> CareerRaceSources | None:
         return _career_race_sources(self.career, self.race_info)
@@ -377,6 +431,7 @@ class CareerDataExtractionData:
             _career_race_fingerprint(self.race_sources()),
             _career_pending_actions_fingerprint(career),
             _career_log_fingerprint(career),
+            _career_choice_fingerprint(self.choice_sources()),
             object_pointer_fingerprint("finalized_veteran", veteran) if veteran else ("ptr", 0),
         )
 
@@ -454,6 +509,7 @@ def resolve_career_snapshot_data(context: ExtractorContext) -> Optional[CareerDa
             career_ptr=data.career_ptr,
             race_info=race_static.raceInfo if race_static else None,
             finalized_veteran=finalized_veteran,
+            single_mode_change_view=context.single_mode_change_view,
     )
 
 

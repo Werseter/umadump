@@ -81,7 +81,8 @@ captures or perform the comparison.
 The career extractor records active state in the shape of a load API response
 after save-and-exit. Logs and event summaries are proprietary companion formats,
 not part of that API payload. The event summary is derived exclusively from the
-full log and retains headings and result effects without story dialogue.
+full log artifact and retains headings, selections, stored choice effects and result
+effects without story dialogue.
 
 ### Archive files
 
@@ -90,10 +91,20 @@ full log and retains headings and result effects without story dialogue.
 - `turns/turn_###_###.json`: API-shaped load data. The first observation is `_000`;
   a changed payload gets the next revision. Repeated identical observations do
   not create another file. Earlier evidence remains immutable.
-- `log.json`: reconciled dialogue, choices, result text, and heading-only groups.
-- `events.json`: a projection of the same records containing event headings and
-  result effects, without story dialogue.
+- `log.json`: reconciled dialogue, selected choices, result text, and heading-only
+  groups. Separate `choice_observations` retain the API-shaped event metadata and
+  `choice_reward_array` from its matching reward cache, without altering the raw
+  `entries`. Rewards describe possible choice effects, not the selected outcome.
+  Unchosen option text and button order are not captured.
+- `events.json`: a projection of those entries and observations, without story
+  dialogue. Replayed events remain separate occurrences; choice observations
+  attach only to the current log heading, not to older matching titles.
 - `veteran.json`: optional finalized character attachment.
+
+Choice effects are captured when the client has populated an event-matched cache.
+Each cache generation is retained once at the current observed log heading; this
+does not establish when a choice box was visible. Unavailable or replaced caches
+can be missed between polls.
 
 ## Trophy exports
 

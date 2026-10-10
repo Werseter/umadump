@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from game_structs.enums import SingleModeLogGroupType, SingleModePlayingState, TrainingCommandId
+from game_structs.enums import SingleModeLogGroupType, SingleModePlayingState, StoryLogInfoType, TrainingCommandId
 from logger import logger
 
 
@@ -25,12 +25,22 @@ class CareerLogEntry:
 
 
 @dataclass(frozen=True)
+class CareerChoiceObservation:
+    """Stored choice effects; source identifies a process-local cache generation."""
+
+    source: tuple[int, int, int]
+    event: dict[str, Any]
+    choice_reward_array: list[dict[str, Any]]
+
+
+@dataclass(frozen=True)
 class CareerLogObservation:
     pool_address: int
     turn: int
     playing_state: int
     cursor: dict[str, Any]
     entries: tuple[CareerLogEntry, ...]
+    choice: CareerChoiceObservation | None = None
 
 
 @dataclass
@@ -41,6 +51,8 @@ class CareerLogState:
     pool_address: int = 0
     restarting: bool = True
     cursor: dict[str, Any] = field(default_factory=dict)
+    choice_observations: list[dict[str, Any]] = field(default_factory=list)
+    choice_sources: set[tuple[int, int, int]] = field(default_factory=set)
 
 
 def _record_timing(record: dict[str, Any]) -> dict[str, Any]:
@@ -67,7 +79,16 @@ def _load_log(path: Path) -> CareerLogState:
             raise ValueError(f"Invalid career log sequence: {path}")
     if any(type(index) is not int or not 1 <= index <= len(records) for index in window):
         raise ValueError(f"Invalid career log window: {path}")
-    return CareerLogState(records=records, window=window, cursor=payload.get("cursor", {}))
+    choices = payload.get("choice_observations", [])
+    if not isinstance(choices, list):
+        raise ValueError(f"Invalid career choice observations: {path}")
+    for index, choice in enumerate(choices, 1):
+        if (not isinstance(choice, dict) or choice.get("sequence") != index
+                or type(choice.get("event_sequence")) is not int
+                or not 1 <= choice["event_sequence"] <= len(records)):
+            raise ValueError(f"Invalid career choice sequence: {path}")
+    return CareerLogState(records=records, window=window, cursor=payload.get("cursor", {}),
+                          choice_observations=choices)
 
 
 def _same_payload(record: dict[str, Any], entry: CareerLogEntry) -> bool:
@@ -85,6 +106,31 @@ def _restart_overlap(state: CareerLogState, entries: tuple[CareerLogEntry, ...])
     return []
 
 
+def _retain_choice(state: CareerLogState, previous: CareerLogState, observation: CareerLogObservation) -> None:
+    """Retain each cache generation once, at the current observed log heading."""
+    choice = observation.choice
+    event_sequence = state.cursor["current_event_sequence"]
+    if choice is None or event_sequence is None or choice.source in state.choice_sources:
+        return
+    after_sequence = max(index for index in state.window
+                         if state.records[index - 1]["event_sequence"] == event_sequence)
+    state.choice_sources.add(choice.source)
+    if previous.restarting and state.choice_observations:
+        latest = state.choice_observations[-1]
+        if (latest["event_sequence"] == event_sequence and latest["event"] == choice.event
+                and latest["choice_reward_array"] == choice.choice_reward_array):
+            return
+    state.choice_observations.append({
+        "sequence": len(state.choice_observations) + 1,
+        "event_sequence": event_sequence,
+        "after_sequence": after_sequence,
+        "turn": observation.turn,
+        "playing_state": SingleModePlayingState(observation.playing_state).name,
+        "event": choice.event,
+        "choice_reward_array": choice.choice_reward_array,
+    })
+
+
 def reconcile_career_log(previous: CareerLogState, observation: CareerLogObservation) -> CareerLogState:
     """Source identity wins during a run; repeated text at a new source stays repeated.
 
@@ -97,7 +143,9 @@ def reconcile_career_log(previous: CareerLogState, observation: CareerLogObserva
     sources = previous.sources if same_pool else {}
     overlap = _restart_overlap(previous, entries) if previous.restarting else []
     state = CareerLogState(records=list(previous.records), pool_address=observation.pool_address,
-                           restarting=False, cursor=dict(observation.cursor))
+                           restarting=False, cursor=dict(observation.cursor),
+                           choice_observations=list(previous.choice_observations),
+                           choice_sources=set(previous.choice_sources) if same_pool else set())
     group_sequence = 0
     tail = previous.window[-1] if previous.window else 0
     for position, entry in enumerate(entries):
@@ -132,6 +180,7 @@ def reconcile_career_log(previous: CareerLogState, observation: CareerLogObserva
     state.cursor["current_event_sequence"] = (
         state.window[current_index] if current_index is not None and 0 <= current_index < len(state.window) else None
     )
+    _retain_choice(state, previous, observation)
     return state
 
 
@@ -150,7 +199,7 @@ def _event_heading(group: dict[str, Any]) -> dict[str, Any]:
 
 
 def career_events_payload(state: CareerLogState) -> dict[str, Any]:
-    """A projection of reconciled headings and result effects, not another matcher."""
+    """Project canonical log entries and stored choice-effect observations."""
     events: dict[int, dict[str, Any]] = {}
     for record in state.records:
         event_sequence = record.get("event_sequence", record["sequence"])
@@ -165,9 +214,15 @@ def career_events_payload(state: CareerLogState) -> dict[str, Any]:
             text = re.sub(r"</?color(?:=[^>]+)?>", "", substance["text"])
             event["effects"].append({"sequence": record["sequence"], "text": text,
                                      **_record_timing(record)})
+        if substance is not None and substance["type"]["value"] == StoryLogInfoType.Choice:
+            event.setdefault("selections", []).append({
+                "sequence": record["sequence"], "text": substance["text"], **_record_timing(record),
+            })
+    for choice in state.choice_observations:
+        events[choice["event_sequence"]].setdefault("choice_observations", []).append(choice)
     return {
         "archive_type": "umadump-career-events",
-        "source": "UI log groups; sequence identifies an occurrence, not an API event ID",
+        "source": "log.json entries and choice_observations; sequence identifies a log occurrence",
         "cursor": state.cursor,
         "events": list(events.values()),
     }
@@ -192,7 +247,7 @@ class CareerLogManager:
             previous = _load_log(path)
         state = reconcile_career_log(previous, observation)
         changed = (state.records != previous.records or state.window != previous.window
-                   or state.cursor != previous.cursor)
+                   or state.cursor != previous.cursor or state.choice_observations != previous.choice_observations)
         if changed or not path.exists() or not (folder / "events.json").exists():
             payload = {
                 "format_version": 1,
@@ -202,6 +257,8 @@ class CareerLogManager:
                 "entries": state.records,
                 "active_window": state.window,
                 "cursor": state.cursor,
+                "choice_source": "retained career event and WorkSingleModeData.eventChoiceRewardDict",
+                "choice_observations": state.choice_observations,
             }
             # Commit the canonical log last. A failed companion write must not make
             # a retry reload the newly persisted short window as an unknown restart.

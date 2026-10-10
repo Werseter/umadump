@@ -1375,6 +1375,80 @@ class WorkSingleModeDataStoryInfoListDictionaryEntry(CStructureDataclass):
 
 
 # ---------------------------------------------------------------------------
+# Retained career event
+# ---------------------------------------------------------------------------
+
+class SingleModeEventAccesorFields(CStructureDataclass):
+    eventInfo: C_Ptr[WorkSingleModeDataEventInfoObject]
+
+
+@register_runtime_validatable('Gallop::SingleModeEventAccesor')
+class SingleModeEventAccesorObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeEventAccesorFields
+
+
+class SingleModeChangeViewManagerFields(CStructureDataclass):
+    _ignored_1: c_int32  # omitted: nowStateId
+    eventInfoAccesor: C_Ptr[SingleModeEventAccesorObject]
+    _ignored_2: ArrayType[C_UDeclPtr, L[4]]  # omitted: lastCheckRaceAlertDialog … messageCharaIDList
+
+
+@register_runtime_validatable('Gallop::SingleModeChangeViewManager')
+class SingleModeChangeViewManagerObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeChangeViewManagerFields
+
+
+class SingleModeChangeViewManagerSingletonStaticFields(CStructureDataclass):
+    _instance: C_Ptr[SingleModeChangeViewManagerObject]
+
+
+# ---------------------------------------------------------------------------
+# Gallop.WorkSingleModeData.EventChoiceReward
+# ---------------------------------------------------------------------------
+
+class WorkSingleModeEventChoiceRewardGainParamFields(CStructureDataclass):
+    displayId: ObscuredInt
+    effectValue0: ObscuredInt
+    effectValue1: ObscuredInt
+    effectValue2: ObscuredInt
+
+
+@register_runtime_validatable('Gallop::WorkSingleModeData.EventChoiceRewardGainParam')
+class WorkSingleModeEventChoiceRewardGainParamObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: WorkSingleModeEventChoiceRewardGainParamFields
+
+
+class WorkSingleModeEventChoiceBranchRewardFields(CStructureDataclass):
+    gainParamArray: GenericArrayPtr[C_Ptr[WorkSingleModeEventChoiceRewardGainParamObject]]
+
+
+@register_runtime_validatable('Gallop::WorkSingleModeData.EventChoiceBranchReward')
+class WorkSingleModeEventChoiceBranchRewardObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: WorkSingleModeEventChoiceBranchRewardFields
+
+
+class WorkSingleModeEventChoiceRewardFields(CStructureDataclass):
+    branchRewardArray: GenericArrayPtr[C_Ptr[WorkSingleModeEventChoiceBranchRewardObject]]
+
+
+@register_runtime_validatable('Gallop::WorkSingleModeData.EventChoiceReward')
+class WorkSingleModeEventChoiceRewardObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: WorkSingleModeEventChoiceRewardFields
+
+
+class WorkSingleModeEventChoiceRewardDictionaryEntry(CStructureDataclass):
+    hashCode: C_Int[c_int32]
+    _ignored_1: c_int32  # omitted: next
+    key: ObscuredInt
+    value: C_Ptr[WorkSingleModeEventChoiceRewardObject]
+
+
+# ---------------------------------------------------------------------------
 # Gallop.FactorSelectInfo
 # ---------------------------------------------------------------------------
 
@@ -1501,11 +1575,12 @@ class WorkSingleModeDataFields(CStructureDataclass):
     raceStartResultInfoData: C_Ptr[WorkSingleModeDataRaceStartResultInfoObject]
     _ignored_7: ArrayType[C_UDeclPtr, L[2]]  # omitted: racePieceCampaignInfoList, storyEventBonusDict
     resumeFactorSelect: C_Ptr[SingleModeFactorSelectCommonObject]
-    _ignored_8: ArrayType[C_UDeclPtr, L[2]]  # omitted: skillUpgradeFactorSelect, eventChoiceRewardDict
-    _ignored_9: c_int32  # omitted: cachedRewardEventId
-    _ignored_10: C_UDeclPtr  # omitted: defaultRunningStyleArray
-    _ignored_11: ObscuredBool  # omitted: isUmaplan
-    _ignored_12: C_UDeclPtr  # omitted: logAdditiveBuffer
+    _ignored_8: C_UDeclPtr  # omitted: skillUpgradeFactorSelect
+    eventChoiceRewardDict: C_Ptr[GenericDictionary[WorkSingleModeEventChoiceRewardDictionaryEntry]]
+    cachedRewardEventId: C_Int[c_int32]
+    _ignored_9: C_UDeclPtr  # omitted: defaultRunningStyleArray
+    _ignored_10: ObscuredBool  # omitted: isUmaplan
+    _ignored_11: C_UDeclPtr  # omitted: logAdditiveBuffer
 
 
 @register_runtime_validatable('Gallop::WorkSingleModeData')

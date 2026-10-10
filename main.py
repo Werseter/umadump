@@ -34,6 +34,7 @@ from extractors.team_stadium import extract_team_stadium_replay, resolve_team_st
 from extractors.trained_chara import extract_trained_chara_data, resolve_trained_chara_data
 from extractors.trophies import TrophyDataOutput, extract_trophy_data, resolve_trophy_data, trophy_data_output_key
 from game_structs.race import RaceManagerObject, RaceManagerSingletonStaticFields, RaceManagerStaticFields
+from game_structs.single_mode import SingleModeChangeViewManagerObject, SingleModeChangeViewManagerSingletonStaticFields
 from game_structs.work_data_manager import WorkDataManagerObject, WorkDataManagerSingletonStaticFields
 from il2cpp_runtime import build_resolver, setup_memory
 from il2cpp_structs import (RuntimeIl2CppClass, RuntimeIl2CppGenericClass, RuntimeIl2CppGenericInst,
@@ -116,10 +117,18 @@ RACEMANAGER_SINGLETON_SPEC = SingletonSpec(
         singleton_class="MonoSingleton`1",
 )
 
+SINGLEMODECHANGEVIEW_SINGLETON_SPEC = SingletonSpec(
+        name="singlemodechangeview",
+        target_type="SingleModeChangeViewManager",
+        static_fields_type=SingleModeChangeViewManagerSingletonStaticFields,
+        output_type=SingleModeChangeViewManagerObject,
+)
+
 SINGLETON_SPEC_REGISTRY: dict[str, SingletonSpec[Any]] = {
     spec.name: spec for spec in (
         WORKDATAMANAGER_SINGLETON_SPEC,
         RACEMANAGER_SINGLETON_SPEC,
+        SINGLEMODECHANGEVIEW_SINGLETON_SPEC,
     )
 }
 
@@ -290,6 +299,10 @@ class ExtractionContext:
     def race_manager_static(self) -> Optional[RaceManagerStaticFields]:
         root = self.roots.get(RACEMANAGER_STATIC_ROOT)
         return type_cast(Optional[RaceManagerStaticFields], root.contents if root else None)
+
+    @property
+    def single_mode_change_view(self) -> C_Ptr[SingleModeChangeViewManagerObject] | None:
+        return self.singleton(SINGLEMODECHANGEVIEW_SINGLETON_SPEC)
 
     def singleton[TSingletonObject: StructOrSimple](self, spec: SingletonSpec[TSingletonObject]) \
             -> Optional[C_Ptr[TSingletonObject]]:

@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from typing import Any, TYPE_CHECKING, TypeAlias
 
-from career_log import CareerLogEntry, CareerLogObservation
+from career_log import CareerChoiceObservation, CareerLogEntry, CareerLogObservation
 from ctypes_utils import C_Ptr
 from game_structs.collections import GenericArrayPtr, GenericDictionary, GenericList
 from game_structs.enums import (SingleModeCommandType, SingleModeLiveGainParameterType, SingleModeParameterType,
@@ -29,7 +29,8 @@ from game_structs.single_mode import (EquipSupportCardObject, SingleModeFreeComm
                                       WorkSingleModeDataObject, WorkSingleModeDataParamsIncDecInfoDictionaryEntry,
                                       WorkSingleModeDataRaceConditionObject,
                                       WorkSingleModeDataSuccessionEventInfoObject, WorkSingleModeDataTurnInfoObject,
-                                      WorkSingleModeHomeInfoObject, WorkSingleModeScenarioFreeNpcResultObject,
+                                      WorkSingleModeEventChoiceRewardObject, WorkSingleModeHomeInfoObject,
+                                      WorkSingleModeScenarioFreeNpcResultObject,
                                       WorkSingleModeScenarioFreeTwinkleRaceNpcInfoObject,
                                       WorkSingleModeScenarioFreeTwinkleRaceNpcResultObject,
                                       WorkSingleModeScenarioLivePerformanceDataObject,
@@ -45,7 +46,7 @@ from .race import _decode_skill_data_entry, restore_race_horse_order
 from .trained_chara import _decode_acquired_skill_entry, _decode_factor_info_entry
 
 if TYPE_CHECKING:
-    from extractors.career import CareerDataExtractionData, CareerRaceSources
+    from extractors.career import CareerChoiceSources, CareerDataExtractionData, CareerRaceSources
 
 ParamIncDecInfoDictPtr: TypeAlias = C_Ptr[GenericDictionary[WorkSingleModeDataParamsIncDecInfoDictionaryEntry]]
 HomeCommand: TypeAlias = tuple[int, WorkSingleModeDataTurnInfoObject]
@@ -1484,6 +1485,40 @@ def _decode_log_substance(entry: SingleModeLogSubstanceObject) -> dict[str, Any]
     }
 
 
+def _decode_choice_reward_branches(reward: WorkSingleModeEventChoiceRewardObject) -> list[dict[str, Any]]:
+    branches = []
+    for branch_ptr in reward.fields.branchRewardArray:
+        if not branch_ptr:
+            continue
+        gains = []
+        for gain_ptr in branch_ptr.contents.fields.gainParamArray:
+            if not gain_ptr:
+                continue
+            gain = gain_ptr.contents.fields
+            gains.append({
+                "display_id": gain.displayId.value,
+                "effect_value_0": gain.effectValue0.value,
+                "effect_value_1": gain.effectValue1.value,
+                "effect_value_2": gain.effectValue2.value,
+            })
+        branches.append({"gain_param_array": gains})
+    return branches
+
+
+def _decode_career_choices(sources: CareerChoiceSources | None, is_team: bool) -> CareerChoiceObservation | None:
+    if sources is None:
+        return None
+    cache = sources.rewards.contents
+    rewards = [
+        {"select_index": entry.key.value, **branch}
+        for entry in cache if entry.value
+        for branch in _decode_choice_reward_branches(entry.value.contents)
+    ]
+    # Cache generations, not dialogue tails, identify these observations.
+    source = sources.rewards.address, cache.fields.entries.address, cache.fields.version
+    return CareerChoiceObservation(source, _decode_pending_event(sources.event, is_team), rewards)
+
+
 def decode_career_log(data: CareerDataExtractionData) -> CareerLogObservation | None:
     fields = data.career.fields
     if not (pool_ptr := fields.groupLogPool):
@@ -1520,8 +1555,10 @@ def decode_career_log(data: CareerDataExtractionData) -> CareerLogObservation | 
         "event_contents_type": {"value": pool.currentEventInfoType, "name": pool.currentEventInfoType.name},
         "event_title": pool.eventTitleName.value_or(),
     }
+    is_team = fields.character.contents.fields.scenarioId.value == SingleModeScenarioId.TeamRace
+    choice = _decode_career_choices(data.choice_sources(), is_team)
     return CareerLogObservation(pool_ptr.address, fields.totalTurnNum.value, fields.playingState.value,
-                                cursor, tuple(entries))
+                                cursor, tuple(entries), choice)
 
 
 def decode_career_data(data: CareerDataExtractionData) -> dict[str, Any]:
