@@ -602,9 +602,9 @@ def _refresh_singleton_roots(
         resolver: Il2CppResolutionManager,
         singleton_index: dict[tuple[int, int], SingletonGenericClassMatch],
         roots: ResolvedSingletonRoots) -> None:
-    """Resolve roots that are not established yet, leaving non-null anchors unchanged."""
+    """Retry absent/null instances, leaving established non-null anchors unchanged."""
     for spec in SINGLETON_SPEC_REGISTRY.values():
-        if roots.get(spec.name) is None:
+        if not roots.get(spec.name):
             roots[spec.name] = resolve_singleton(resolver, spec, singleton_index)
 
     if roots.get(RACEMANAGER_STATIC_ROOT) is not None:
