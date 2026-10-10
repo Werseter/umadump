@@ -12,7 +12,8 @@ from game_structs.enums import (CharaGradeType, ProperGrade, RaceMotivation, Rou
                                 TeamParameterRank, TrainingCommandId)
 from game_structs.master_data import MasterSingleModeWinsSaddleSingleModeWinsSaddleObject
 from game_structs.obscured import ObscuredBool, ObscuredInt, ObscuredLong, ObscuredStringPtr
-from game_structs.race import CharaRaceRewardObject, RaceHorseDataObject, RaceRewardDataObject, SingleRaceStartInfoObject
+from game_structs.race import (CharaRaceRewardObject, RaceHorseDataObject, RaceRewardDataObject,
+                               SingleRaceStartInfoObject)
 from game_structs.skills import AcquiredSkillObject, SkillDataObject, SkillTipsObject
 from game_structs.strings import SystemStringObjectPtr
 from game_structs.trained_chara import FactorInfoObject, RaceHistoryInfoObject
