@@ -84,6 +84,15 @@ not part of that API payload. The event summary is derived exclusively from the
 full log artifact and retains headings, selections, stored choice effects and result
 effects without story dialogue.
 
+Start daemon mode before beginning a career and leave it running through
+finalization for the most complete record:
+
+Archives are written to `career_data/<career identity>/`, with
+`single_mode_load_common` and the applicable scenario dataset in each snapshot.
+No network capture or save-and-exit routine is required; events and race phases
+can produce observations as well as the training screen. Intentional placeholders
+are documented in the output contract.
+
 ### Archive files
 
 - `manifest.json`: persistent identity and archive description; existing
@@ -105,6 +114,17 @@ Choice effects are captured when the client has populated an event-matched cache
 Each cache generation is retained once at the current observed log heading; this
 does not establish when a choice box was visible. Unavailable or replaced caches
 can be missed between polls.
+
+Polling can miss short-lived states, and starting midway through a career cannot
+recover earlier turns or discarded dialogue. The game's log buffer is bounded
+and is not restored by reloading a career. Newly observed entries record the turn
+and playing-state enum name. Keep the dumper running through finalization for a
+chance to capture the matching `veteran.json` attachment.
+
+## Independent Training (Idle Mode)
+
+Independent Training uses separate files under `idle_single_mode/`, containing
+single career report and, if available, the finalized veteran data.
 
 ## Trophy exports
 
@@ -196,6 +216,13 @@ Override with `--metadata-path` when using a minidump from a different machine.
 ---
 
 ## Usage
+
+Grab latest release and just start it up - it'll run once and ask you if you want to rerun or enable a background
+monitoring daemon.
+
+Or you can use provided utility flags and minidump development modes. When running from source, no packages are
+required,
+albeit 3.14+ Python version is required. For Minidump driven development, install optional `minidump` package.
 
 ```powershell
 # Live mode (attaches to running game process)
