@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="A simple exporter that writes Uma data as JSON for community tools.">
+    <meta name="description" content="Export Uma collections, race replays, and career archives as JSON. Run once or leave umadump open while you play.">
     <meta name="theme-color" content="#11121b">
     <title>umadump — A small exporter for Uma data</title>
     <link rel="stylesheet" href="styles.css">
@@ -18,6 +18,7 @@
         </a>
         <nav aria-label="Primary navigation">
           <a href="#tools">Community tools</a>
+          <a href="#careers">Careers</a>
           <a href="#quick-start">Quick start</a>
           <a href="https://github.com/Werseter/umadump" target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a>
         </nav>
@@ -155,8 +156,37 @@
             </article>
           </div>
 
-          <p class="career-note"><strong>Career exports:</strong> Independent Training (Idle Mode) is available. Other career support is still in progress.</p>
           <p class="tool-note">Interface previews are included for orientation. Their names and interfaces belong to their respective projects.</p>
+        </div>
+      </section>
+
+      <section class="careers section" id="careers" aria-labelledby="careers-heading">
+        <div class="shell career-layout">
+          <div class="career-copy">
+            <p class="eyebrow">Careers · New in 2.8.0</p>
+            <h2 id="careers-heading">Record your career.</h2>
+            <p>Start daemon mode before a career and leave it open while you play. umadump saves turn snapshots and changes within each turn, with dialogue and a shorter event timeline alongside them. No save-and-exit routine is needed.</p>
+            <ul class="scenario-list" aria-label="Supported career scenarios">
+              <li>URA</li>
+              <li>Unity Cup</li>
+              <li>Grand Concert</li>
+              <li>Trackblazer</li>
+            </ul>
+            <p class="career-caveat">Captures depend on polling and available game data; earlier turns and discarded dialogue cannot be recovered.</p>
+            <a class="career-link" href="https://github.com/Werseter/umadump#career-observations" target="_blank" rel="noreferrer">Career archive guide <span aria-hidden="true">↗</span></a>
+          </div>
+          <div class="career-files">
+            <h3>Saved in <code>career_data/</code></h3>
+            <dl>
+              <dt>Turn snapshots</dt>
+              <dd>API-shaped JSON, grouped by career. Changed states get a new revision; earlier snapshots stay intact.</dd>
+              <dt>Dialogue &amp; events</dt>
+              <dd><code>log.json</code> keeps the observed log; <code>events.json</code> leaves out story dialogue.</dd>
+              <dt>Finalized veteran</dt>
+              <dd>A matching final character is saved as <code>veteran.json</code> when available.</dd>
+            </dl>
+            <p>Independent Training (Idle Mode) is also supported, with separate progress, result, and reward exports.</p>
+          </div>
         </div>
       </section>
 
@@ -169,7 +199,7 @@
           <ol class="quick-list">
             <li>
               <span>01</span>
-              <div><h3>Download</h3><p>Put the latest release in the folder where you want output files.</p></div>
+              <div><h3>Download</h3><p>No installation needed. Put the latest release in the folder where you want output files.</p></div>
             </li>
             <li>
               <span>02</span>
