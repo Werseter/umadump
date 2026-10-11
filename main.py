@@ -31,9 +31,8 @@ from il2cpp_utils import Il2CppResolutionManager
 from logger import configure_logging, logger
 from memory import MemoryReader, TransientMemoryReadError
 from schema_validation import RuntimeTypeMetadataHandleMismatchError, TransientRuntimeValidationError
-from singleton_roots import (ExtractionContext, ResolvedSingletonRoots, SingletonGenericClassMatch,
-                             build_singleton_generic_index, init_singleton_roots, refresh_live_singleton_roots,
-                             refresh_singleton_roots)
+from singleton_roots import (ExtractionContext, ResolvedSingletonRoots, SingletonGenericIndex,
+                             build_singleton_generic_index, refresh_live_singleton_roots, refresh_singleton_roots)
 from update_check import CURRENT_VERSION, notify_if_update_available
 
 
@@ -394,7 +393,7 @@ def _finish_memory_pass(mem: MemoryReader) -> None:
 def _run_extractor_pass(
         mem: MemoryReader,
         resolver: Il2CppResolutionManager,
-        singleton_index: dict[tuple[int, int], SingletonGenericClassMatch],
+        singleton_index: SingletonGenericIndex,
         roots: ResolvedSingletonRoots,
         state: ExtractionRunState) -> float:
     _prepare_memory_pass(mem)
@@ -444,7 +443,7 @@ def _parse_args() -> argparse.Namespace:
 def _run_live_reload_loop(
         mem: MemoryReader,
         resolver: Il2CppResolutionManager,
-        singleton_index: dict[tuple[int, int], SingletonGenericClassMatch],
+        singleton_index: SingletonGenericIndex,
         roots: ResolvedSingletonRoots,
         poll_interval: float) -> None:
     """Repeatedly rerun extractors using fixed singleton roots and fresh memory reads."""
@@ -476,7 +475,7 @@ def _run_live_reload_loop(
 def _run_live_daemon_loop(
         mem: MemoryReader,
         resolver: Il2CppResolutionManager,
-        singleton_index: dict[tuple[int, int], SingletonGenericClassMatch],
+        singleton_index: SingletonGenericIndex,
         roots: ResolvedSingletonRoots,
         poll_interval: float,
         maybe_state: Optional[ExtractionRunState] = None) -> None:
@@ -526,7 +525,7 @@ def main() -> None:
             try:
                 logger.info("Scanning %d generic class instantiations...", resolver.meta_reg.genericClassesCount)
                 singleton_index = build_singleton_generic_index(resolver.meta_reg)
-                roots = init_singleton_roots()
+                roots = ResolvedSingletonRoots()
                 refresh_singleton_roots(resolver, singleton_index, roots)
             finally:
                 _finish_memory_pass(setup.mem)

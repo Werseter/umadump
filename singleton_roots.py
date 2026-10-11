@@ -1,10 +1,10 @@
-"""Singleton resolution, cached roots, and the typed extractor context."""
+"""Typed singleton anchors, per-pass instance snapshots, and extractor context."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Optional, cast as type_cast
+from dataclasses import dataclass, field
+from typing import Optional, cast as type_cast, overload
 
-from ctypes_utils import C_Ptr, StructOrSimple
+from ctypes_utils import C_Ptr
 from game_structs.race import RaceManagerObject, RaceManagerSingletonStaticFields, RaceManagerStaticFields
 from game_structs.single_mode import SingleModeChangeViewManagerObject, SingleModeChangeViewManagerSingletonStaticFields
 from game_structs.work_data_manager import WorkDataManagerObject, WorkDataManagerSingletonStaticFields
@@ -39,25 +39,42 @@ class SingletonGenericClassMatch:
     class_ptr: C_Ptr[RuntimeIl2CppClass]
 
 
+type SingletonGenericIndex = dict[tuple[int, int], SingletonGenericClassMatch]
+type SingletonStaticFields = (WorkDataManagerSingletonStaticFields | RaceManagerSingletonStaticFields
+                              | SingleModeChangeViewManagerSingletonStaticFields)
+type SingletonObject = WorkDataManagerObject | RaceManagerObject | SingleModeChangeViewManagerObject
+type SingletonStaticPointer = (C_Ptr[WorkDataManagerSingletonStaticFields] | C_Ptr[RaceManagerSingletonStaticFields]
+                               | C_Ptr[SingleModeChangeViewManagerSingletonStaticFields])
+type SingletonInstancePointer = (C_Ptr[WorkDataManagerObject] | C_Ptr[RaceManagerObject]
+                                 | C_Ptr[SingleModeChangeViewManagerObject])
+
+
 @dataclass(frozen=True)
-class SingletonSpec[TSingletonObject: StructOrSimple]:
+class SingletonSpec[TStaticFields: SingletonStaticFields, TSingletonObject: SingletonObject]:
     name: str
     target_type: str
-    static_fields_type: type[Any]
+    static_fields_type: type[TStaticFields]
     output_type: type[TSingletonObject]
     namespace: str = "Gallop"
     singleton_class: str = "Singleton`1"
     singleton_namespace: str = "Gallop"
 
 
-WORKDATAMANAGER_SINGLETON_SPEC = SingletonSpec(
+type WorkDataManagerSingletonSpec = SingletonSpec[WorkDataManagerSingletonStaticFields, WorkDataManagerObject]
+type RaceManagerSingletonSpec = SingletonSpec[RaceManagerSingletonStaticFields, RaceManagerObject]
+type SingleModeChangeViewManagerSingletonSpec = \
+    SingletonSpec[SingleModeChangeViewManagerSingletonStaticFields, SingleModeChangeViewManagerObject]
+type RegisteredSingletonSpec = \
+    (WorkDataManagerSingletonSpec | RaceManagerSingletonSpec | SingleModeChangeViewManagerSingletonSpec)
+
+WORKDATAMANAGER_SINGLETON_SPEC: WorkDataManagerSingletonSpec = SingletonSpec(
         name="workdatamanager",
         target_type="WorkDataManager",
         static_fields_type=WorkDataManagerSingletonStaticFields,
         output_type=WorkDataManagerObject,
 )
 
-RACEMANAGER_SINGLETON_SPEC = SingletonSpec(
+RACEMANAGER_SINGLETON_SPEC: RaceManagerSingletonSpec = SingletonSpec(
         name="racemanager",
         target_type="RaceManager",
         static_fields_type=RaceManagerSingletonStaticFields,
@@ -65,14 +82,14 @@ RACEMANAGER_SINGLETON_SPEC = SingletonSpec(
         singleton_class="MonoSingleton`1",
 )
 
-SINGLEMODECHANGEVIEW_SINGLETON_SPEC = SingletonSpec(
+SINGLEMODECHANGEVIEW_SINGLETON_SPEC: SingleModeChangeViewManagerSingletonSpec = SingletonSpec(
         name="singlemodechangeview",
         target_type="SingleModeChangeViewManager",
         static_fields_type=SingleModeChangeViewManagerSingletonStaticFields,
         output_type=SingleModeChangeViewManagerObject,
 )
 
-SINGLETON_SPEC_REGISTRY: dict[str, SingletonSpec[Any]] = {
+SINGLETON_SPEC_REGISTRY: dict[str, RegisteredSingletonSpec] = {
     spec.name: spec for spec in (
         WORKDATAMANAGER_SINGLETON_SPEC,
         RACEMANAGER_SINGLETON_SPEC,
@@ -82,7 +99,7 @@ SINGLETON_SPEC_REGISTRY: dict[str, SingletonSpec[Any]] = {
 
 
 def build_singleton_generic_index(meta_reg: RuntimeIl2CppMetadataRegistration) \
-        -> dict[tuple[int, int], SingletonGenericClassMatch]:
+        -> SingletonGenericIndex:
     """Build ``(generic-definition-type-ptr, arg0-type-ptr) -> matched class`` index."""
     generic_classes = _collect_generic_classes(meta_reg)
 
@@ -114,7 +131,7 @@ def build_singleton_generic_index(meta_reg: RuntimeIl2CppMetadataRegistration) \
         for inst_addr, idx in argv0_index_by_inst_addr.items()
     }
 
-    by_key: dict[tuple[int, int], SingletonGenericClassMatch] = {}
+    by_key: SingletonGenericIndex = {}
     for seq, gc in gc_by_seq.items():
         arg0_type_ptr = argv0_type_ptr_by_inst_addr.get(gc.context.class_inst.address)
         if arg0_type_ptr is None or not gc.cached_class or not gc.type:
@@ -129,10 +146,33 @@ def build_singleton_generic_index(meta_reg: RuntimeIl2CppMetadataRegistration) \
     return by_key
 
 
-def resolve_singleton[TSingletonObject: StructOrSimple](
+# Concrete overloads preserve each static-pointer type when the registry supplies a union of specs.
+@overload
+def resolve_singleton_static_fields(
+        resolver: Il2CppResolutionManager, spec: WorkDataManagerSingletonSpec,
+        singleton_index: SingletonGenericIndex) -> Optional[C_Ptr[WorkDataManagerSingletonStaticFields]]:
+    ...
+
+
+@overload
+def resolve_singleton_static_fields(
+        resolver: Il2CppResolutionManager, spec: RaceManagerSingletonSpec,
+        singleton_index: SingletonGenericIndex) -> Optional[C_Ptr[RaceManagerSingletonStaticFields]]:
+    ...
+
+
+@overload
+def resolve_singleton_static_fields(
+        resolver: Il2CppResolutionManager, spec: SingleModeChangeViewManagerSingletonSpec,
+        singleton_index: SingletonGenericIndex) -> Optional[C_Ptr[SingleModeChangeViewManagerSingletonStaticFields]]:
+    ...
+
+
+def resolve_singleton_static_fields[TStaticFields: SingletonStaticFields, TSingletonObject: SingletonObject](
         resolver: Il2CppResolutionManager,
-        spec: SingletonSpec[TSingletonObject],
-        singleton_index: dict[tuple[int, int], SingletonGenericClassMatch]) -> Optional[C_Ptr[TSingletonObject]]:
+        spec: SingletonSpec[TStaticFields, TSingletonObject],
+        singleton_index: SingletonGenericIndex) -> Optional[C_Ptr[TStaticFields]]:
+    """Resolve the stable storage containing a singleton's mutable ``_instance`` slot."""
     meta_reg = resolver.meta_reg
     if not meta_reg.genericClasses:
         logger.warning("MetadataRegistration genericClasses pointer is missing")
@@ -150,18 +190,19 @@ def resolve_singleton[TSingletonObject: StructOrSimple](
         logger.warning("No %s instantiation found", type_string)
         return None
 
-    static_fields_type = spec.static_fields_type
-    # noinspection PyTypeHints
-    static_fields_ptr_type = C_Ptr[static_fields_type]  # type: ignore[valid-type]
-    static_fields_ptr = static_fields_ptr_type(int(matched.class_ptr.contents.static_fields))
+    static_fields_ptr = matched.class_ptr.contents.static_fields_as(spec.static_fields_type)
     if not static_fields_ptr:
         return None
-    # noinspection PyTypeChecker
-    return type_cast(C_Ptr[TSingletonObject], static_fields_ptr.contents._instance)  # type: ignore[attr-defined]
+    return static_fields_ptr
 
 
-ResolvedSingletonRoots = dict[str, Optional[C_Ptr[Any]]]
-RACEMANAGER_STATIC_ROOT = "racemanager_static"
+@dataclass
+class ResolvedSingletonRoots:
+    """Stable singleton storage and the current instance pointers for one memory pass."""
+
+    singleton_statics: dict[str, Optional[SingletonStaticPointer]] = field(default_factory=dict)
+    instances: dict[str, Optional[SingletonInstancePointer]] = field(default_factory=dict)
+    race_manager_static: Optional[C_Ptr[RaceManagerStaticFields]] = None
 
 
 @dataclass(frozen=True)
@@ -174,59 +215,52 @@ class ExtractionContext:
 
     @property
     def race_manager_static(self) -> Optional[RaceManagerStaticFields]:
-        root = self.roots.get(RACEMANAGER_STATIC_ROOT)
-        return type_cast(Optional[RaceManagerStaticFields], root.contents if root else None)
+        root = self.roots.race_manager_static
+        return root.contents if root else None
 
     @property
     def single_mode_change_view(self) -> C_Ptr[SingleModeChangeViewManagerObject] | None:
         return self.singleton(SINGLEMODECHANGEVIEW_SINGLETON_SPEC)
 
-    def singleton[TSingletonObject: StructOrSimple](self, spec: SingletonSpec[TSingletonObject]) \
-            -> Optional[C_Ptr[TSingletonObject]]:
+    def singleton[TStaticFields: SingletonStaticFields, TSingletonObject: SingletonObject](
+            self, spec: SingletonSpec[TStaticFields, TSingletonObject]) -> Optional[C_Ptr[TSingletonObject]]:
         # noinspection PyTypeChecker
-        return type_cast(Optional[C_Ptr[TSingletonObject]], self.roots.get(spec.name))
+        return type_cast(Optional[C_Ptr[TSingletonObject]], self.roots.instances.get(spec.name))
 
-    def require_singleton[TSingletonObject: StructOrSimple](self, spec: SingletonSpec[TSingletonObject]) \
-            -> TSingletonObject:
+    def require_singleton[TStaticFields: SingletonStaticFields, TSingletonObject: SingletonObject](
+            self, spec: SingletonSpec[TStaticFields, TSingletonObject]) -> TSingletonObject:
         instance = self.singleton(spec)
         if not instance:
             raise RuntimeError(f"{spec.target_type} not resolved")
         return instance.contents
 
 
-def init_singleton_roots() -> ResolvedSingletonRoots:
-    roots: ResolvedSingletonRoots = {spec.name: None for spec in SINGLETON_SPEC_REGISTRY.values()}
-    roots[RACEMANAGER_STATIC_ROOT] = None
-    return roots
-
-
 def _invalidate_singleton_roots(roots: ResolvedSingletonRoots) -> None:
-    for name in roots:
-        roots[name] = None
+    roots.singleton_statics.clear()
+    roots.instances.clear()
+    roots.race_manager_static = None
 
 
-def _root_type_metadata_handle(root: C_Ptr[Any]) -> Optional[int]:
-    if not root:
-        return None
-    klass = root.contents._il2cpp_obj.klass
-    if not klass:
-        return None
-    type_metadata_handle = klass.contents.typeMetadataHandle.address
-    return int(type_metadata_handle) if type_metadata_handle else None
-
-
-def _cached_singleton_roots_are_valid(roots: ResolvedSingletonRoots) -> bool:
+def _refresh_singleton_instances(roots: ResolvedSingletonRoots) -> bool:
+    """Read current instance slots once per pass, validating their runtime classes."""
     for spec in SINGLETON_SPEC_REGISTRY.values():
-        root = roots.get(spec.name)
-        if not root:
-            continue
-
-        expected_handle = RuntimeValidatableIl2CppClassManager.get_expected_type_metadata_handle(spec.output_type)
-        if expected_handle is None:
-            continue
-
         try:
-            actual_handle = _root_type_metadata_handle(root)
+            anchor = roots.singleton_statics.get(spec.name)
+            root = anchor.contents._instance if anchor else None
+            roots.instances[spec.name] = root
+            if not root:
+                continue
+
+            expected_handle = RuntimeValidatableIl2CppClassManager.get_expected_type_metadata_handle(spec.output_type)
+            if expected_handle is None:
+                continue
+
+            runtime_class = root.contents._il2cpp_obj.klass
+            actual_handle = runtime_class.contents.typeMetadataHandle.address if runtime_class else 0
+            if actual_handle and actual_handle != expected_handle:
+                if RuntimeValidatableIl2CppClassManager.runtime_class_is_or_inherits_from(
+                        runtime_class, expected_handle):
+                    continue
         except Exception as exc:
             logger.debug("%s singleton root validation failed: %s", spec.name, exc)
             return False
@@ -236,7 +270,7 @@ def _cached_singleton_roots_are_valid(roots: ResolvedSingletonRoots) -> bool:
                     "%s singleton root is stale; refreshing anchors (expected=0x%X, actual=%s)",
                     spec.name,
                     expected_handle,
-                    f"0x{actual_handle:X}" if actual_handle is not None else "null",
+                    f"0x{actual_handle:X}" if actual_handle else "null",
             )
             return False
 
@@ -245,18 +279,20 @@ def _cached_singleton_roots_are_valid(roots: ResolvedSingletonRoots) -> bool:
 
 def refresh_singleton_roots(
         resolver: Il2CppResolutionManager,
-        singleton_index: dict[tuple[int, int], SingletonGenericClassMatch],
+        singleton_index: SingletonGenericIndex,
         roots: ResolvedSingletonRoots) -> None:
-    """Retry absent/null instances, leaving established non-null anchors unchanged."""
+    """Resolve missing static anchors; an empty instance slot does not invalidate them."""
     for spec in SINGLETON_SPEC_REGISTRY.values():
-        if not roots.get(spec.name):
-            roots[spec.name] = resolve_singleton(resolver, spec, singleton_index)
+        if not roots.singleton_statics.get(spec.name):
+            anchor = resolve_singleton_static_fields(resolver, spec, singleton_index)
+            roots.singleton_statics[spec.name] = anchor
+            roots.instances[spec.name] = anchor.contents._instance if anchor else None
 
-    if roots.get(RACEMANAGER_STATIC_ROOT) is not None:
+    if roots.race_manager_static is not None:
         return
 
-    roots[RACEMANAGER_STATIC_ROOT] = resolver.static_fields_from_instance_or_typeinfo_method(
-            roots.get(RACEMANAGER_SINGLETON_SPEC.name),
+    roots.race_manager_static = resolver.static_fields_from_instance_or_typeinfo_method(
+            roots.instances.get(RACEMANAGER_SINGLETON_SPEC.name),
             "Gallop",
             "RaceManager",
             RaceManagerStaticFields,
@@ -266,8 +302,8 @@ def refresh_singleton_roots(
 
 def refresh_live_singleton_roots(
         resolver: Il2CppResolutionManager,
-        singleton_index: dict[tuple[int, int], SingletonGenericClassMatch],
+        singleton_index: SingletonGenericIndex,
         roots: ResolvedSingletonRoots) -> None:
-    if not _cached_singleton_roots_are_valid(roots):
+    if not _refresh_singleton_instances(roots):
         _invalidate_singleton_roots(roots)
     refresh_singleton_roots(resolver, singleton_index, roots)
