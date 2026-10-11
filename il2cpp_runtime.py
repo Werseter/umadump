@@ -7,9 +7,10 @@ from pathlib import Path
 from typing import Optional
 
 from ctypes_utils import C_Ptr
+from il2cpp_metadata import default_metadata_path_from_exe, parse_minimal_metadata
 from il2cpp_registration import Il2CppRegistrationResolver
 from il2cpp_structs import RuntimeIl2CppCodeRegistration, RuntimeIl2CppMetadataRegistration
-from il2cpp_utils import Il2CppResolutionManager, default_metadata_path_from_exe, parse_minimal_metadata
+from il2cpp_utils import Il2CppResolutionManager
 from logger import logger
 from memory import MemoryReader, MinidumpMemory, ProcessMemory, TARGET_MODULE
 from schema_validation import validate_registered_schema

@@ -64,8 +64,9 @@ from typing import Any, Callable, ClassVar, NamedTuple, Optional, Protocol, cast
 
 from ctypes_utils import (CStructureDataclass, C_Ptr, EnumFieldBinding, EnumStorageManager, EnumStorageType,
                           RemappablePointerValue, SafeIntEnum, StructOrSimple)
+from il2cpp_metadata import decode_integer_field_default
 from il2cpp_structs import Il2CppFieldDefinition, RuntimeIl2CppClass, RuntimeIl2CppObject, RuntimeIl2CppType
-from il2cpp_utils import Il2CppResolutionManager, Il2CppTypeEnum, decode_integer_field_default
+from il2cpp_utils import Il2CppResolutionManager, Il2CppTypeEnum
 from logger import logger
 
 
