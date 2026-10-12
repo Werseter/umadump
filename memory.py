@@ -16,8 +16,8 @@ import re
 import struct
 from bisect import bisect_right
 from contextlib import contextmanager
-from ctypes import (Array, POINTER as _POINTER, byref as _byref, c_char, c_int, c_long, c_size_t, c_ssize_t, c_ulong,
-                    c_void_p, cast, create_string_buffer, create_unicode_buffer, sizeof)
+from ctypes import (Array, POINTER as _POINTER, addressof, byref as _byref, c_char, c_int, c_long, c_size_t, c_ssize_t,
+                    c_ulong, c_void_p, create_string_buffer, create_unicode_buffer, sizeof)
 from ctypes.wintypes import BOOL, DWORD, HANDLE, HMODULE, INT, LPWSTR, WCHAR
 from dataclasses import dataclass
 from pathlib import Path
@@ -1013,7 +1013,7 @@ class LinuxProcessMemory(_RegionChunkScanMixin):
     def _read_remote(self, address: int, size: int) -> bytes:
         buf = create_string_buffer(size)
         local_iov = IOVec()
-        local_iov.iov_base = cast(buf, c_void_p)
+        local_iov.iov_base = c_void_p(addressof(buf))
         local_iov.iov_len = c_size_t(size)
         remote_iov = IOVec()
         remote_iov.iov_base = c_void_p(address)

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import gc
 import sys
 import time
 from dataclasses import dataclass
@@ -171,13 +170,8 @@ def _dump_from_singleton_roots(
     return time.perf_counter() - t_start
 
 
-def _prepare_memory_pass(mem: MemoryReader) -> None:
+def _clear_memory_cache(mem: MemoryReader) -> None:
     mem.clear_cache()
-
-
-def _finish_memory_pass(mem: MemoryReader) -> None:
-    mem.clear_cache()
-    gc.collect()
 
 
 def _run_extractor_pass(
@@ -186,12 +180,12 @@ def _run_extractor_pass(
         singleton_index: SingletonGenericIndex,
         roots: ResolvedSingletonRoots,
         state: ExtractionRunState) -> float:
-    _prepare_memory_pass(mem)
+    _clear_memory_cache(mem)
     try:
         refresh_live_singleton_roots(resolver, singleton_index, roots)
         return _dump_from_singleton_roots(roots, state)
     finally:
-        _finish_memory_pass(mem)
+        _clear_memory_cache(mem)
 
 
 # ---------------------------------------------------------------------------
@@ -306,19 +300,18 @@ def main() -> None:
                 resolver = build_resolver(setup.mem, setup.metadata_path)
             finally:
                 setup.mem.clear_cache()
-                gc.collect()
 
             if args.validate_only:
                 return
 
-            _prepare_memory_pass(setup.mem)
+            _clear_memory_cache(setup.mem)
             try:
                 logger.info("Scanning %d generic class instantiations...", resolver.meta_reg.genericClassesCount)
                 singleton_index = build_singleton_generic_index(resolver.meta_reg)
                 roots = ResolvedSingletonRoots()
                 refresh_singleton_roots(resolver, singleton_index, roots)
             finally:
-                _finish_memory_pass(setup.mem)
+                _clear_memory_cache(setup.mem)
 
             rerun_mode = args.rerun_mode or ("once" if args.minidump else "prompt")
             if rerun_mode == "daemon":
