@@ -3,7 +3,7 @@ from __future__ import annotations
 from ctypes import c_int32, c_uint16
 from typing import overload
 
-from ctypes_utils import CStructureDataclass, C_Int, C_Ptr, PointerWrapperMixin
+from ctypes_utils import CStructureDataclass, C_Int, C_Ptr, PointerWrapperMixin, Span
 from il2cpp_structs import RuntimeIl2CppObject
 
 
@@ -30,18 +30,20 @@ class SystemStringObjectPtr(PointerWrapperMixin, CStructureDataclass):
     def address(self) -> int:
         return self._inner_ptr.address
 
-    @property
-    def value(self) -> str:
-        """Decode managed ``System.String`` contents into a Python ``str``."""
+    def span(self) -> Span[c_uint16]:
+        """Return the managed UTF-16 code-unit view; reject a null string pointer."""
 
         if not self._inner_ptr:
             raise ValueError("Cannot get string from null SystemStringObject pointer")
         length = self._inner_ptr.contents.fields.stringLength
-        if length <= 0:
-            return ''
         chars_ptr = self.address + SystemStringObject.field_offset('fields', 'firstChar')
-        chars_array_ptr = C_Ptr[c_uint16](chars_ptr)
-        return ''.join(chr(x.value) for x in chars_array_ptr.as_span(length))
+        return C_Ptr[c_uint16](chars_ptr).as_span(length)
+
+    @property
+    def value(self) -> str:
+        """Decode managed ``System.String`` contents into a Python ``str``."""
+
+        return bytes(self.span()).decode('utf-16le')
 
     @overload
     def value_or(self, default: str = '') -> str:

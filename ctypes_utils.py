@@ -641,6 +641,16 @@ class Span[TSpan: StructOrSimple]:
             raise IndexError(f"Index {index} out of range [0, {self.count})")
         return self.pointer[index]
 
+    def __bytes__(self) -> bytes:
+        """Copy this view's contiguous storage with one reader request, without decoding its items."""
+        if not self.count:
+            return b''
+        if not self.pointer:
+            raise ValueError("Cannot dereference null pointer")
+        pointer_type = type(self.pointer)
+        item_size = sizeof(pointer_type._resolve_class_target_type())
+        return pointer_type._reader(self.pointer.address, self.count * item_size)
+
 
 # noinspection PyTypeChecker, PyPep8Naming
 class C_Ptr[CDT: Optional[StructOrSimple]](RemappablePointerValue[CDT]):  # type: ignore[type-var]
