@@ -39,8 +39,7 @@ class SystemStringObjectPtr(PointerWrapperMixin, CStructureDataclass):
         length = self._inner_ptr.contents.fields.stringLength
         if length <= 0:
             return ''
-        chars_ptr = (int(self._inner_ptr) + int(getattr(SystemStringObject, 'fields').offset)
-                     + int(getattr(SystemStringFields, 'firstChar').offset))
+        chars_ptr = self.address + SystemStringObject.field_offset('fields', 'firstChar')
         chars_array_ptr = C_Ptr[c_uint16](chars_ptr)
         return ''.join(chr(x.value) for x in chars_array_ptr.as_span(length))
 

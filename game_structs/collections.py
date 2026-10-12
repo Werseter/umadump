@@ -37,7 +37,7 @@ class GenericArrayPtr[CDT: StructOrSimple](PointerWrapperMixin, CStructureDatacl
         if not self._inner_ptr:
             return Span(C_VoidPtr(0), 0)  # type: ignore[arg-type]
         item_type = self._resolve_class_target_type()
-        m_items_ptr = int(self._inner_ptr) + int(getattr(GenericArray, 'm_items').offset)
+        m_items_ptr = self.address + GenericArray.field_offset('m_items')
         # noinspection PyTypeHints
         items_ptr = C_Ptr[item_type](m_items_ptr)  # type: ignore[valid-type]
         return items_ptr.as_span(len(self))
