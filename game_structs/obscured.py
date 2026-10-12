@@ -87,9 +87,13 @@ class ObscuredString(CStructureDataclass):
         if not key_bytes:
             return ''
         raw_bytes = bytes(self.hiddenValue.span())
-        enc_str = raw_bytes.decode('utf-16le', errors='surrogatepass')
-        dec_str = ''.join(chr(ord(c) ^ ord(key_str[i % key_len])) for i, c in enumerate(enc_str))
-        return dec_str.rstrip('\x00')  # strip null terminator if present
+        byte_count = len(raw_bytes)
+        key_mask = (key_bytes * (byte_count // len(key_bytes) + 1))[:byte_count]
+
+        cipher = int.from_bytes(raw_bytes, 'little')
+        mask = int.from_bytes(key_mask, 'little')
+        plain_bytes = (cipher ^ mask).to_bytes(byte_count, 'little')
+        return plain_bytes.decode('utf-16le', errors='surrogatepass').rstrip('\x00')
 
 
 class ObscuredStringPtr(PointerWrapperMixin, CStructureDataclass):
