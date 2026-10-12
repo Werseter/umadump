@@ -43,7 +43,7 @@ class SystemStringObjectPtr(PointerWrapperMixin, CStructureDataclass):
     def value(self) -> str:
         """Decode managed ``System.String`` contents into a Python ``str``."""
 
-        return bytes(self.span()).decode('utf-16le')
+        return bytes(self.span()).decode('utf-16le', errors='surrogatepass')
 
     @overload
     def value_or(self, default: str = '') -> str:

@@ -87,7 +87,7 @@ class ObscuredString(CStructureDataclass):
         if not key_bytes:
             return ''
         raw_bytes = bytes(self.hiddenValue.span())
-        enc_str = raw_bytes.decode('utf-16le')
+        enc_str = raw_bytes.decode('utf-16le', errors='surrogatepass')
         dec_str = ''.join(chr(ord(c) ^ ord(key_str[i % key_len])) for i, c in enumerate(enc_str))
         return dec_str.rstrip('\x00')  # strip null terminator if present
 
