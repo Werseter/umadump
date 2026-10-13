@@ -25,6 +25,7 @@ from typing import (Any, Callable, Iterable, Iterator, Literal as L, Optional, P
                     TypeVar, cast as type_cast)
 
 from ctypes_utils import CStructureDataclass, C_VoidPtr, StrArrayType, set_pointer_reader
+from minidump_zstd import open_compressed_dump
 
 if TYPE_CHECKING:
     from minidump.common_structs import MinidumpMemorySegment
@@ -268,8 +269,9 @@ class MinidumpMemory(_RegionChunkScanMixin):
         from minidump.common_structs import MinidumpMemorySegment
         from minidump.minidumpfile import MinidumpFile
 
+        is_compressed = dump_path.lower().endswith(".zst")
         with ExitStack() as cleanup:
-            self._fh = open(dump_path, "rb")
+            self._fh = open_compressed_dump(dump_path) if is_compressed else open(dump_path, "rb")
             cleanup.callback(self._fh.close)
             self._dump = MinidumpFile.parse_external(self._fh, filename=dump_path)
             self._reader = self._dump.get_reader()

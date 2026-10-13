@@ -221,8 +221,7 @@ Grab latest release and just start it up - it'll run once and ask you if you wan
 monitoring daemon.
 
 Or you can use provided utility flags and minidump development modes. When running from source, no packages are
-required,
-albeit 3.14+ Python version is required. For Minidump driven development, install optional `minidump` package.
+needed, albeit 3.14+ Python version is required. For Minidump driven development, install optional `minidump` package.
 
 ```powershell
 # Live mode (attaches to running game process)
@@ -236,6 +235,9 @@ python main.py --rerun-mode daemon --poll-interval 2
 
 # Dev mode from full-memory minidump
 python main.py --minidump "D:\path\to\dump.dmp" --metadata-path "D:\path\to\global-metadata.dat"
+
+# Losslessly compressed minidump (ZSTD Seekable Format)
+python main.py --minidump "D:\path\to\dump.dmp.zst" --metadata-path "D:\path\to\global-metadata.dat"
 
 # Run schema validation only, then exit
 python main.py --minidump "D:\path\to\dump.dmp" --validate-only

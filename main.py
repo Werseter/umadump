@@ -198,7 +198,7 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
             description="Resolve Gallop.WorkDataManager from a live process or an offline minidump")
     parser.add_argument("--version", action="version", version=f"%(prog)s {CURRENT_VERSION}")
-    parser.add_argument("--minidump", help="Path to full-memory minidump (offline mode)")
+    parser.add_argument("--minidump", help="Path to full-memory .dmp or .dmp.zst minidump (offline mode)")
     parser.add_argument("--metadata-path", help="global-metadata.dat path; required with --minidump")
     parser.add_argument("--no-update-check", action="store_true",
                         help="Skip the startup GitHub release check")
