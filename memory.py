@@ -15,7 +15,7 @@ import os
 import re
 import struct
 from bisect import bisect_right
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from ctypes import (Array, POINTER as _POINTER, addressof, byref as _byref, c_char, c_int, c_long, c_size_t, c_ssize_t,
                     c_ulong, c_void_p, create_string_buffer, create_unicode_buffer, sizeof)
 from ctypes.wintypes import BOOL, DWORD, HANDLE, HMODULE, INT, LPWSTR, WCHAR
@@ -268,14 +268,17 @@ class MinidumpMemory(_RegionChunkScanMixin):
         from minidump.common_structs import MinidumpMemorySegment
         from minidump.minidumpfile import MinidumpFile
 
-        self._dump = MinidumpFile.parse(dump_path)
-        self._reader = self._dump.get_reader()
-        self._fh = self._dump.file_handle
+        with ExitStack() as cleanup:
+            self._fh = open(dump_path, "rb")
+            cleanup.callback(self._fh.close)
+            self._dump = MinidumpFile.parse_external(self._fh, filename=dump_path)
+            self._reader = self._dump.get_reader()
 
-        _sorted = sorted(self._reader.memory_segments, key=lambda s: int(s.start_virtual_address))
-        self._span_starts: tuple[int, ...] = tuple(int(s.start_virtual_address) for s in _sorted)
-        self._spans: tuple[MinidumpMemorySegment, ...] = tuple(_sorted)
-        self._cache = _ReadCache()
+            _sorted = sorted(self._reader.memory_segments, key=lambda s: int(s.start_virtual_address))
+            self._span_starts: tuple[int, ...] = tuple(int(s.start_virtual_address) for s in _sorted)
+            self._spans: tuple[MinidumpMemorySegment, ...] = tuple(_sorted)
+            self._cache = _ReadCache()
+            cleanup.pop_all()
         self._register()
 
     def __enter__(self) -> Self:
