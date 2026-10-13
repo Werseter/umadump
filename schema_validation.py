@@ -337,7 +337,8 @@ def _build_type_index_to_typedef_index(resolver: Il2CppResolutionManager) -> lis
     return type_index_to_typedef
 
 
-def _iter_typedef_chain_base_to_leaf(resolver: Il2CppResolutionManager, leaf_typedef_index: int) -> list[int]:
+def _iter_typedef_chain_base_to_leaf(resolver: Il2CppResolutionManager, leaf_typedef_index: int,
+                                     type_index_to_typedef: list[int]) -> list[int]:
     """Return the typedef-index chain from the root base class down to *leaf_typedef_index*.
 
     Follows ``Il2CppTypeDefinition.parentIndex`` upward, then reverses the result
@@ -349,7 +350,6 @@ def _iter_typedef_chain_base_to_leaf(resolver: Il2CppResolutionManager, leaf_typ
     if leaf_typedef_index < 0 or leaf_typedef_index >= len(type_defs):
         return []
 
-    type_index_to_typedef = _build_type_index_to_typedef_index(resolver)
     chain_leaf_to_base: list[int] = []
     seen_typedef_indices: set[int] = set()
     current_typedef_index = leaf_typedef_index
@@ -502,8 +502,9 @@ def _ignored_field_specs_for_class(cls: type[object]) -> tuple[IgnoredFieldSpec,
     return tuple(specs)
 
 
-def _read_metadata_instance_fields_by_offset(resolver: Il2CppResolutionManager, typedef_index: int) \
-        -> Optional[dict[int, list[MetadataInstanceField]]]:
+def _read_metadata_instance_fields_by_offset(
+        resolver: Il2CppResolutionManager, typedef_index: int,
+        type_index_to_typedef: list[int]) -> Optional[dict[int, list[MetadataInstanceField]]]:
     """Collect all instance fields for *typedef_index* and its base classes.
 
     Walks the full inheritance chain (base → leaf) using
@@ -522,7 +523,7 @@ def _read_metadata_instance_fields_by_offset(resolver: Il2CppResolutionManager, 
     if not resolver.meta_reg.fieldOffsets:
         return None
 
-    typedef_chain = _iter_typedef_chain_base_to_leaf(resolver, typedef_index)
+    typedef_chain = _iter_typedef_chain_base_to_leaf(resolver, typedef_index, type_index_to_typedef)
     if not typedef_chain:
         return None
 
@@ -936,7 +937,8 @@ def _validate_unbound_metadata_enum_field(
 
 def _validate_registered_class(
         resolver: Il2CppResolutionManager, typedef_index: int, full_name: str, cls: type[object],
-        registered_enums_by_typedef: dict[int, tuple[str, type[SafeIntEnum]]]) -> None:
+        registered_enums_by_typedef: dict[int, tuple[str, type[SafeIntEnum]]],
+        type_index_to_typedef: list[int]) -> None:
     """Cross-check the Python ctypes wrapper *cls* against metadata field offsets.
 
     For each public field declared in the wrapper, verifies that a metadata
@@ -956,7 +958,7 @@ def _validate_registered_class(
         # fields, or canonical ignored-field documentation are intentionally skipped.
         return
 
-    metadata_fields_by_offset = _read_metadata_instance_fields_by_offset(resolver, typedef_index)
+    metadata_fields_by_offset = _read_metadata_instance_fields_by_offset(resolver, typedef_index, type_index_to_typedef)
     if metadata_fields_by_offset is None:
         logger.warning("Could not read field-offset table for %s", full_name)
         return
@@ -1060,13 +1062,15 @@ def _validate_registered_classes(resolver: Il2CppResolutionManager,
     Should be called once after ``Il2CppResolutionManager`` is constructed and
     before any live object access.
     """
+    type_index_to_typedef = _build_type_index_to_typedef_index(resolver)
     for full_name, cls in RuntimeValidatableIl2CppClassManager._registered_schema_classes.items():
         typedef_index = _registered_typedef_index(resolver, full_name)
         if typedef_index is None:
             continue
         if RuntimeValidatableIl2CppClassManager.is_runtime_validatable_name(full_name):
             _update_expected_runtime_type_metadata_handle(resolver, typedef_index, full_name, cls)
-        _validate_registered_class(resolver, typedef_index, full_name, cls, registered_enums_by_typedef)
+        _validate_registered_class(resolver, typedef_index, full_name, cls, registered_enums_by_typedef,
+                                   type_index_to_typedef)
 
 
 def _normalize_enum_member_name(name: str) -> str:
