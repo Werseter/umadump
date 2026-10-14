@@ -1,15 +1,16 @@
-"""Static IL2CPP metadata parsing and integral default-value decoding."""
+"""Minimal IL2CPP metadata parsing from file or memory, plus integral default-value decoding."""
 from __future__ import annotations
 
 from ctypes import c_int16, c_int32, c_int64, c_int8, c_uint16, c_uint32, c_uint64, c_uint8, sizeof
 from dataclasses import dataclass
 from pathlib import Path
-from struct import unpack_from
+from struct import iter_unpack, unpack_from
 
 from ctypes_utils import EnumStorageType
 from il2cpp_structs import (Il2CppFieldDefaultValue, Il2CppFieldDefinition, Il2CppGlobalMetadataHeader,
                             Il2CppImageDefinition, Il2CppMetadataRange, Il2CppMethodDefinition, Il2CppTypeDefinition)
 from logger import logger
+from memory import MemoryReader
 
 
 @dataclass(frozen=True)
@@ -154,9 +155,8 @@ def decode_integer_field_default(raw_data: bytes, storage_type: EnumStorageType)
     raise TypeError(f"unsupported integer default storage: {storage_type!r}")
 
 
-def parse_minimal_metadata(metadata_path: Path) -> MinimalMetadata:
-    """Load and parse the minimal set of sections required by this project."""
-
+def parse_minimal_metadata_from_file(metadata_path: Path) -> MinimalMetadata:
+    """Parse the required metadata subset from a file, validating its header."""
     data = metadata_path.read_bytes()
     header = Il2CppGlobalMetadataHeader.from_buffer_copy(data)
 
@@ -164,7 +164,11 @@ def parse_minimal_metadata(metadata_path: Path) -> MinimalMetadata:
         raise ValueError("Invalid metadata header sanity value (expected 0xFAB11BAF)")
     if header.version != 31:
         logger.warning("Unexpected metadata version %d (expected 31)", header.version)
+    return _parse_minimal_metadata(data, header)
 
+
+def _parse_minimal_metadata(data: bytes, header: Il2CppGlobalMetadataHeader) -> MinimalMetadata:
+    """Retain only the sections required by the dumper and schema validator."""
     strings = _parse_cstrings(data, header.stringOffset, header.stringSize)
     type_defs = _parse_type_defs(data, header.typeDefinitionsOffset, header.typeDefinitionsSize)
     image_defs = _parse_image_defs(data, header.imagesOffset, header.imagesSize)
@@ -184,6 +188,51 @@ def parse_minimal_metadata(metadata_path: Path) -> MinimalMetadata:
             type_def_namespaces=type_def_namespaces,
             field_def_names=field_def_names,
     )
+
+
+def _memory_metadata_extent(raw_header: bytes) -> int:
+    """Validate offset/size pairs and return their complete payload extent."""
+    header_size = sizeof(Il2CppGlobalMetadataHeader)
+    extent: int = header_size
+    ranges: list[tuple[int, int]] = []
+    # Skip sanity and version. Every remaining header entry is an offset/size pair.
+    for offset, size in iter_unpack("<ii", raw_header[8:]):
+        if offset < 0 or size < 0 or (size and offset < header_size):
+            raise ValueError("Invalid in-memory metadata section bounds")
+        section_end: int = offset + size
+        extent = max(extent, section_end)
+        if size:
+            ranges.append((offset, section_end))
+    previous_end = header_size
+    for start, end in sorted(ranges):
+        if start < previous_end:
+            raise ValueError("Overlapping in-memory metadata sections")
+        previous_end = end
+    return extent
+
+
+def _validate_memory_metadata_layout(header: Il2CppGlobalMetadataHeader) -> None:
+    """Check the required sections and fixed-width records consumed by the parser."""
+    tables = ((header.typeDefinitionsSize, sizeof(Il2CppTypeDefinition)),
+              (header.imagesSize, sizeof(Il2CppImageDefinition)),
+              (header.methodsSize, sizeof(Il2CppMethodDefinition)),
+              (header.fieldsSize, sizeof(Il2CppFieldDefinition)),
+              (header.fieldDefaultValuesSize, sizeof(Il2CppFieldDefaultValue)),
+              (header.unresolvedIndirectCallParameterRangesSize, sizeof(Il2CppMetadataRange)))
+    if not header.stringSize or not header.typeDefinitionsSize or not header.imagesSize:
+        raise ValueError("In-memory metadata is missing required sections")
+    if any(size % stride for size, stride in tables):
+        raise ValueError("In-memory metadata does not match the supported v31 layout")
+
+
+def parse_minimal_metadata_from_memory(mem: MemoryReader, data_address: int, header_address: int) -> MinimalMetadata:
+    """Parse the required metadata subset from memory and validate layout."""
+    raw_header = mem.read(header_address, sizeof(Il2CppGlobalMetadataHeader))
+    header = Il2CppGlobalMetadataHeader.from_buffer_copy(raw_header)
+    extent = _memory_metadata_extent(raw_header)
+    _validate_memory_metadata_layout(header)
+    mem.read(data_address + extent - 1, 1)  # probe the final byte before attempting the full metadata read
+    return _parse_minimal_metadata(mem.read(data_address, extent), header)
 
 
 def default_metadata_path_from_exe(exe_path: str) -> Path:

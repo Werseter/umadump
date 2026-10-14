@@ -139,9 +139,9 @@ file.
 
 1. Opens a memory backend (live process or minidump file).
 2. Locates `GameAssembly.dll` base address and size.
-3. Scans for `MetadataRegistration` via pattern scan + pointer-array validation.
-4. Parses required sections from `global-metadata.dat`:
+3. Parses required metadata sections from the disk file or its loaded memory copy:
     - strings, type definitions, field definitions, unresolved-call range count.
+4. Locates registration structures using metadata counts and pointer-array validation.
 5. Builds a runtime type-pointer resolution context from `MetadataRegistration`.
 6. **Schema validation** — for every registered wrapper class, cross-checks declared
    ctypes field names and byte offsets against the full *base-to-leaf* inheritance
@@ -203,15 +203,24 @@ Call `validate_registered_schema(resolver)` once after the resolver is ready.
 
 ---
 
-## Metadata path
+## Metadata sources
 
-Auto-derived from the game executable:
+All sources are parsed into the same minimal dataset required by the dumper and
+schema validator, not the entire IL2CPP metadata format. Source selection is:
 
-```
-<exe_dir>/<ExeName>_Data/il2cpp_data/Metadata/global-metadata.dat
-```
+- **In-memory discovery:** locates the metadata already loaded by IL2CPP
+- **Default file location:** reads the installed file at the path derived from the game executable
 
-Override with `--metadata-path` when using a minidump from a different machine.
+  ```
+  <exe_dir>/<ExeName>_Data/il2cpp_data/Metadata/global-metadata.dat
+  ```
+
+- **Explicit file override:** `--metadata-path` selects the supplied file,
+  bypassing discovery and the default path.
+
+Automatic discovery scans `GameAssembly.dll` for the supported x64 IL2CPP
+metadata-access instruction sequence, then validates the referenced metadata
+layout. Supply a matching file with `--metadata-path` if discovery fails.
 
 ---
 
@@ -234,13 +243,16 @@ python main.py --rerun-mode once
 python main.py --rerun-mode daemon --poll-interval 2
 
 # Dev mode from full-memory minidump
-python main.py --minidump "D:\path\to\dump.dmp" --metadata-path "D:\path\to\global-metadata.dat"
+python main.py --minidump "D:\path\to\dump.dmp"
 
 # Losslessly compressed minidump (ZSTD Seekable Format)
-python main.py --minidump "D:\path\to\dump.dmp.zst" --metadata-path "D:\path\to\global-metadata.dat"
+python main.py --minidump "D:\path\to\dump.dmp.zst"
+
+# Override metadata discovery with an explicit disk file
+python main.py --metadata-path "D:\path\to\global-metadata.dat"
 
 # Run schema validation only, then exit
-python main.py --minidump "D:\path\to\dump.dmp" --validate-only
+python main.py --validate-only
 
 # Skip the startup GitHub release lookup
 python main.py --no-update-check

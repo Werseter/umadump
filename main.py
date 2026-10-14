@@ -199,7 +199,7 @@ def _parse_args() -> argparse.Namespace:
             description="Resolve Gallop.WorkDataManager from a live process or an offline minidump")
     parser.add_argument("--version", action="version", version=f"%(prog)s {CURRENT_VERSION}")
     parser.add_argument("--minidump", help="Path to full-memory .dmp or .dmp.zst minidump (offline mode)")
-    parser.add_argument("--metadata-path", help="global-metadata.dat path; required with --minidump")
+    parser.add_argument("--metadata-path", help="global-metadata.dat path override")
     parser.add_argument("--no-update-check", action="store_true",
                         help="Skip the startup GitHub release check")
     parser.add_argument("--rerun-mode", choices=("once", "prompt", "daemon"),
@@ -211,8 +211,6 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Enable debug logging")
     args = parser.parse_args()
-    if args.minidump and not args.metadata_path:
-        parser.error("--metadata-path is required when using --minidump")
     if args.minidump and args.rerun_mode in {"prompt", "daemon"}:
         parser.error("--rerun-mode prompt/daemon requires live process mode")
     if args.poll_interval <= 0:
@@ -292,8 +290,6 @@ def main() -> None:
         notify_if_update_available(CURRENT_VERSION)
 
     setup = setup_memory(args.minidump, args.metadata_path)
-    logger.info("Metadata path: %s", setup.metadata_path)
-
     with setup.mem:
         try:
             try:
