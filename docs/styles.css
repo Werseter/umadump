@@ -706,6 +706,29 @@ h2 {
   font-size: 0.73rem;
 }
 
+.gacha-history {
+  border-top: 1px solid var(--line);
+  background: rgba(180, 162, 255, 0.035);
+}
+
+.gacha-note {
+  max-width: 52rem;
+  color: var(--paper-muted);
+  font-size: 0.93rem;
+  line-height: 1.6;
+}
+
+.gacha-note a,
+.gacha-link {
+  color: var(--lilac);
+  text-underline-offset: 0.2rem;
+}
+
+.gacha-link {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
 .quick-start {
   border-top: 1px solid var(--line);
   background: rgba(0, 0, 0, 0.12);

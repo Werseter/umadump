@@ -1,0 +1,84 @@
+{
+  "gacha_exec_history_array": [
+    {
+      "exec_history_id": 121,
+      "gacha_id": 30134,
+      "gacha_card_type": 1,
+      "draw_type": 1,
+      "draw_num": 2,
+      "cost_id": 41,
+      "cost_count": 2,
+      "create_time": "2026-10-14 20:21:00"
+    },
+    {
+      "exec_history_id": 120,
+      "gacha_id": 30134,
+      "gacha_card_type": 1,
+      "draw_type": 1,
+      "draw_num": 1,
+      "cost_id": 41,
+      "cost_count": 1,
+      "create_time": "2026-10-14 20:20:00"
+    },
+    {
+      "exec_history_id": 0,
+      "gacha_id": 30135,
+      "gacha_card_type": 2,
+      "draw_type": 2,
+      "draw_num": 1,
+      "cost_id": 0,
+      "cost_count": 50,
+      "create_time": "2026-10-14 20:20:22"
+    }
+  ],
+  "gacha_reward_history_array": [
+    {
+      "exec_history_id": 120,
+      "disp_order": 1,
+      "card_type": 1,
+      "card_id": 106001,
+      "piece_id": 106001,
+      "common_item_category": 97,
+      "common_item_id": 115,
+      "convert_piece_num": 0,
+      "convert_common_item_num": 1,
+      "additional_piece_num": 5
+    },
+    {
+      "exec_history_id": 0,
+      "disp_order": 1,
+      "card_type": 2,
+      "card_id": 10048,
+      "piece_id": 0,
+      "common_item_category": 0,
+      "common_item_id": 0,
+      "convert_piece_num": 0,
+      "convert_common_item_num": 0,
+      "additional_piece_num": 0
+    },
+    {
+      "exec_history_id": 121,
+      "disp_order": 1,
+      "card_type": 1,
+      "card_id": 100101,
+      "piece_id": 100101,
+      "common_item_category": 97,
+      "common_item_id": 115,
+      "convert_piece_num": 0,
+      "convert_common_item_num": 1,
+      "additional_piece_num": 0
+    },
+    {
+      "exec_history_id": 121,
+      "disp_order": 2,
+      "card_type": 1,
+      "card_id": 102701,
+      "piece_id": 102701,
+      "common_item_category": 97,
+      "common_item_id": 115,
+      "convert_piece_num": 0,
+      "convert_common_item_num": 1,
+      "additional_piece_num": 0
+    }
+  ]
+}

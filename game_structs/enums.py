@@ -629,3 +629,35 @@ class IdleSingleModePlayingState(SafeIntEnum):
 class MainStoryRaceGimmickType(SafeIntEnum):
     NONE = 0
     Special_00 = 1
+
+
+@register_enum('Gallop::GachaExecutionResult.Execution')
+class GachaExecutionType(SafeIntEnum):
+    Normal = 0
+    Exchange = 1
+    Note = 2
+    TutorialSelect = 3
+
+
+@register_enum('Gallop::GameDefine.CardType')
+class GachaCardType(SafeIntEnum):
+    None_ = 0
+    Card = 1
+    SupportCard = 2
+
+
+@register_enum('Gallop::GachaDefine.GachaDrawType')
+class GachaDrawType(SafeIntEnum):
+    Normal = 1
+    Daily = 2
+
+
+@register_enum('Gallop::GachaDefine.GachaConsumableItemType')
+class GachaConsumptionType(SafeIntEnum):
+    Stone = 0
+    FreeStone = 1
+    ChargeStone = 2
+    SingleTicket = 3
+    MultiTicket = 4
+    Free = 5
+    FreeStock = 6

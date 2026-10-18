@@ -7,6 +7,9 @@ from typing import Optional, cast as type_cast, overload
 from ctypes_utils import C_Ptr
 from game_structs.race import RaceManagerObject, RaceManagerSingletonStaticFields, RaceManagerStaticFields
 from game_structs.single_mode import SingleModeChangeViewManagerObject, SingleModeChangeViewManagerSingletonStaticFields
+from game_structs.temp_data import TempDataObject, TempDataSingletonStaticFields
+from game_structs.ui import (DialogManagerObject, DialogManagerSingletonStaticFields, SceneManagerObject,
+                             SceneManagerSingletonStaticFields)
 from game_structs.work_data_manager import WorkDataManagerObject, WorkDataManagerSingletonStaticFields
 from il2cpp_structs import (RuntimeIl2CppClass, RuntimeIl2CppGenericClass, RuntimeIl2CppGenericInst,
                             RuntimeIl2CppMetadataRegistration, RuntimeIl2CppType)
@@ -41,12 +44,17 @@ class SingletonGenericClassMatch:
 
 type SingletonGenericIndex = dict[tuple[int, int], SingletonGenericClassMatch]
 type SingletonStaticFields = (WorkDataManagerSingletonStaticFields | RaceManagerSingletonStaticFields
-                              | SingleModeChangeViewManagerSingletonStaticFields)
-type SingletonObject = WorkDataManagerObject | RaceManagerObject | SingleModeChangeViewManagerObject
+                              | SingleModeChangeViewManagerSingletonStaticFields | TempDataSingletonStaticFields
+                              | DialogManagerSingletonStaticFields | SceneManagerSingletonStaticFields)
+type SingletonObject = (WorkDataManagerObject | RaceManagerObject | SingleModeChangeViewManagerObject | TempDataObject |
+                        DialogManagerObject | SceneManagerObject)
 type SingletonStaticPointer = (C_Ptr[WorkDataManagerSingletonStaticFields] | C_Ptr[RaceManagerSingletonStaticFields]
-                               | C_Ptr[SingleModeChangeViewManagerSingletonStaticFields])
+                               | C_Ptr[SingleModeChangeViewManagerSingletonStaticFields]
+                               | C_Ptr[TempDataSingletonStaticFields] | C_Ptr[DialogManagerSingletonStaticFields]
+                               | C_Ptr[SceneManagerSingletonStaticFields])
 type SingletonInstancePointer = (C_Ptr[WorkDataManagerObject] | C_Ptr[RaceManagerObject]
-                                 | C_Ptr[SingleModeChangeViewManagerObject])
+                                 | C_Ptr[SingleModeChangeViewManagerObject] | C_Ptr[TempDataObject]
+                                 | C_Ptr[DialogManagerObject] | C_Ptr[SceneManagerObject])
 
 
 @dataclass(frozen=True)
@@ -64,8 +72,12 @@ type WorkDataManagerSingletonSpec = SingletonSpec[WorkDataManagerSingletonStatic
 type RaceManagerSingletonSpec = SingletonSpec[RaceManagerSingletonStaticFields, RaceManagerObject]
 type SingleModeChangeViewManagerSingletonSpec = \
     SingletonSpec[SingleModeChangeViewManagerSingletonStaticFields, SingleModeChangeViewManagerObject]
-type RegisteredSingletonSpec = \
-    (WorkDataManagerSingletonSpec | RaceManagerSingletonSpec | SingleModeChangeViewManagerSingletonSpec)
+type TempDataSingletonSpec = SingletonSpec[TempDataSingletonStaticFields, TempDataObject]
+type DialogManagerSingletonSpec = SingletonSpec[DialogManagerSingletonStaticFields, DialogManagerObject]
+type SceneManagerSingletonSpec = SingletonSpec[SceneManagerSingletonStaticFields, SceneManagerObject]
+type RegisteredSingletonSpec = (WorkDataManagerSingletonSpec | RaceManagerSingletonSpec
+                                | SingleModeChangeViewManagerSingletonSpec | TempDataSingletonSpec
+                                | DialogManagerSingletonSpec | SceneManagerSingletonSpec)
 
 WORKDATAMANAGER_SINGLETON_SPEC: WorkDataManagerSingletonSpec = SingletonSpec(
         name="workdatamanager",
@@ -89,11 +101,36 @@ SINGLEMODECHANGEVIEW_SINGLETON_SPEC: SingleModeChangeViewManagerSingletonSpec = 
         output_type=SingleModeChangeViewManagerObject,
 )
 
+TEMPDATA_SINGLETON_SPEC: TempDataSingletonSpec = SingletonSpec(
+        name="tempdata",
+        target_type="TempData",
+        static_fields_type=TempDataSingletonStaticFields,
+        output_type=TempDataObject,
+)
+
+DIALOGMANAGER_SINGLETON_SPEC: DialogManagerSingletonSpec = SingletonSpec(
+        name="dialogmanager",
+        target_type="DialogManager",
+        static_fields_type=DialogManagerSingletonStaticFields,
+        output_type=DialogManagerObject,
+)
+
+SCENEMANAGER_SINGLETON_SPEC: SceneManagerSingletonSpec = SingletonSpec(
+        name="scenemanager",
+        target_type="SceneManager",
+        static_fields_type=SceneManagerSingletonStaticFields,
+        output_type=SceneManagerObject,
+        singleton_class="MonoSingleton`1",
+)
+
 SINGLETON_SPEC_REGISTRY: dict[str, RegisteredSingletonSpec] = {
     spec.name: spec for spec in (
         WORKDATAMANAGER_SINGLETON_SPEC,
         RACEMANAGER_SINGLETON_SPEC,
         SINGLEMODECHANGEVIEW_SINGLETON_SPEC,
+        TEMPDATA_SINGLETON_SPEC,
+        DIALOGMANAGER_SINGLETON_SPEC,
+        SCENEMANAGER_SINGLETON_SPEC,
     )
 }
 
@@ -168,6 +205,27 @@ def resolve_singleton_static_fields(
     ...
 
 
+@overload
+def resolve_singleton_static_fields(
+        resolver: Il2CppResolutionManager, spec: TempDataSingletonSpec,
+        singleton_index: SingletonGenericIndex) -> Optional[C_Ptr[TempDataSingletonStaticFields]]:
+    ...
+
+
+@overload
+def resolve_singleton_static_fields(
+        resolver: Il2CppResolutionManager, spec: DialogManagerSingletonSpec,
+        singleton_index: SingletonGenericIndex) -> Optional[C_Ptr[DialogManagerSingletonStaticFields]]:
+    ...
+
+
+@overload
+def resolve_singleton_static_fields(
+        resolver: Il2CppResolutionManager, spec: SceneManagerSingletonSpec,
+        singleton_index: SingletonGenericIndex) -> Optional[C_Ptr[SceneManagerSingletonStaticFields]]:
+    ...
+
+
 def resolve_singleton_static_fields[TStaticFields: SingletonStaticFields, TSingletonObject: SingletonObject](
         resolver: Il2CppResolutionManager,
         spec: SingletonSpec[TStaticFields, TSingletonObject],
@@ -221,6 +279,18 @@ class ExtractionContext:
     @property
     def single_mode_change_view(self) -> C_Ptr[SingleModeChangeViewManagerObject] | None:
         return self.singleton(SINGLEMODECHANGEVIEW_SINGLETON_SPEC)
+
+    @property
+    def temp_data(self) -> C_Ptr[TempDataObject] | None:
+        return self.singleton(TEMPDATA_SINGLETON_SPEC)
+
+    @property
+    def dialog_manager(self) -> C_Ptr[DialogManagerObject] | None:
+        return self.singleton(DIALOGMANAGER_SINGLETON_SPEC)
+
+    @property
+    def scene_manager(self) -> C_Ptr[SceneManagerObject] | None:
+        return self.singleton(SCENEMANAGER_SINGLETON_SPEC)
 
     def singleton[TStaticFields: SingletonStaticFields, TSingletonObject: SingletonObject](
             self, spec: SingletonSpec[TStaticFields, TSingletonObject]) -> Optional[C_Ptr[TSingletonObject]]:

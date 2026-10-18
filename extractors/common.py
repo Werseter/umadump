@@ -9,6 +9,8 @@ from game_structs.collections import GenericArrayPtr, GenericDictionary, Generic
 if TYPE_CHECKING:
     from game_structs.race import RaceManagerStaticFields
     from game_structs.single_mode import SingleModeChangeViewManagerObject
+    from game_structs.temp_data import TempDataObject
+    from game_structs.ui import DialogManagerObject, SceneManagerObject
     from game_structs.work_data_manager import WorkDataManagerObject
 
 ExtractorFingerprint = tuple[object, ...]
@@ -32,6 +34,18 @@ class ExtractorContext(Protocol):
 
     @property
     def single_mode_change_view(self) -> C_Ptr[SingleModeChangeViewManagerObject] | None:
+        ...
+
+    @property
+    def temp_data(self) -> C_Ptr[TempDataObject] | None:
+        ...
+
+    @property
+    def dialog_manager(self) -> C_Ptr[DialogManagerObject] | None:
+        ...
+
+    @property
+    def scene_manager(self) -> C_Ptr[SceneManagerObject] | None:
         ...
 
 

@@ -14,6 +14,7 @@ from extractors.cards import extract_card_data, extract_support_cards, resolve_c
 from extractors.career import career_snapshot_output_key, extract_career_snapshot, resolve_career_snapshot_data
 from extractors.common import FingerprintableExtractionData
 from extractors.friends import extract_friend_data, resolve_friend_data
+from extractors.gacha import extract_gacha_data, resolve_gacha_data
 from extractors.gallery import extract_event_gallery, resolve_event_gallery
 from extractors.honors import extract_honor_list, resolve_honor_list
 from extractors.idle_single_mode import (IdleSingleModeOutput, extract_idle_single_mode, idle_single_mode_output_key,
@@ -26,6 +27,7 @@ from extractors.talk_gallery import extract_talk_gallery, resolve_talk_gallery
 from extractors.team_stadium import extract_team_stadium_replay, resolve_team_stadium_replay
 from extractors.trained_chara import extract_trained_chara_data, resolve_trained_chara_data
 from extractors.trophies import TrophyDataOutput, extract_trophy_data, resolve_trophy_data, trophy_data_output_key
+from gacha_archive import gacha_output_key, write_gacha_archive
 from il2cpp_runtime import build_resolver, setup_memory
 from il2cpp_utils import Il2CppResolutionManager
 from logger import configure_logging, logger
@@ -153,6 +155,14 @@ EXTRACTORS: tuple[Extractor[Any, Any, Any], ...] = (
             extract=extract_idle_single_mode,
             key_fn=idle_single_mode_output_key,
             writer=_write_idle_single_mode_json,
+    ),
+    Extractor(
+            name="gacha_data",
+            output_folder=Path("gacha_history"),
+            resolve=resolve_gacha_data,
+            extract=extract_gacha_data,
+            key_fn=gacha_output_key,
+            writer=write_gacha_archive,
     ),
 )
 

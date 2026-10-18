@@ -208,3 +208,34 @@ def idle_result_export:
 def idle_result_api:
     .data |
     .end_info |= idle_strip_event_data;
+
+# ---------------------------------------------------------------------------
+# Gacha observations
+# ---------------------------------------------------------------------------
+
+# API gacha/get_history -> gacha_history_api(<banner_id>)
+# gacha_history/<viewer_id>/<banner_id>/history_*.json -> pass_through
+# The viewer folder corresponds to .data_headers.viewer_id, outside .data.
+# Select the banner only; fields and array ordering otherwise match as-is.
+def gacha_history_api($banner_id):
+    .data |
+    .gacha_exec_history_array |= map(select(.gacha_id == $banner_id)) |
+    (.gacha_exec_history_array | map(.exec_history_id)) as $ids |
+    .gacha_reward_history_array |= map(select(.exec_history_id | IN($ids[])));
+
+# With no banner argument, compare the newest server history entry's banner.
+def gacha_history_api:
+    gacha_history_api(.data.gacha_exec_history_array | max_by(.create_time, .exec_history_id) | .gacha_id);
+
+# API gacha/exec -> gacha_pull_api
+# gacha_history/<viewer_id>/<banner_id>/exec_*.json -> gacha_pull_export
+# The processed result does not retain bonus items, the complete summary,
+# legacy piece conversions or expired-banner conversion counts.
+def gacha_pull_api:
+    .data |
+    .bonus_item_array = [] | .reward_summary_info = {} |
+    (.limit_item_info.converted_item_num, .gacha_result_list[].convert_piece_num) = 0;
+
+# Request/client details are extensions, absent from the exec response.
+def gacha_pull_export:
+    del(.extra_data);

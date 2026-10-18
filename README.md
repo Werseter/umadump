@@ -133,6 +133,21 @@ screen to populate race IDs and win counts for `trophy_data.json`. Both use the
 same JSON shape; a limited or incomplete capture does not overwrite the detailed
 file.
 
+## Gacha history
+
+Leave daemon mode running while pulling to save the final results. Open the
+Gacha History dialog to also save earlier pulls that are still available in-game.
+
+Reports are kept by account and banner, with a combined file for each account:
+
+- `gacha_history/<viewer_id>/<banner_id>/history_###.json`: history shown by the game.
+- `gacha_history/<viewer_id>/<banner_id>/exec_###.json`: newly observed pulls.
+- `gacha_history/<viewer_id>/gacha_history.json`: combined history, rebuilt automatically from saved reports.
+
+Earlier reports are never overwritten, and an unchanged report is not saved again.
+Opening the history dialog helps match live pulls to their server records.
+The viewer ID identifies your account, so histories from different accounts stay separate.
+
 ---
 
 ## What it does

@@ -53,6 +53,7 @@ class Il2CppTypeEnum(IntEnum):
     CLASS = 0x12
     ARRAY = 0x14
     GENERICINST = 0x15
+    I = 0x18
     OBJECT = 0x1C
     SZARRAY = 0x1D
 
@@ -82,6 +83,7 @@ IL2CPP_POINTER_LIKE_TYPE_BITS: frozenset[Il2CppTypeEnum] = frozenset({
     Il2CppTypeEnum.BYREF,
     Il2CppTypeEnum.CLASS,
     Il2CppTypeEnum.ARRAY,
+    Il2CppTypeEnum.I,
     Il2CppTypeEnum.OBJECT,
     Il2CppTypeEnum.SZARRAY,
 })
