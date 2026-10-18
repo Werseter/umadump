@@ -113,6 +113,10 @@ def _decode_succession_chara_entry(entry: SuccessionCharaDataObject) -> dict[str
 
 def _decode_trained_chara_entry(entry: TrainedCharaDataObject) -> dict[str, Any]:
     f = entry.fields
+    race_results = [_decode_race_history_entry(x.contents) for x in f.singleModeRaceResultArray]
+    wins = f.singleWinNum.value
+    if wins == -1 and f.singleModeRaceResultArray:
+        wins = sum(race['result_rank'] == 1 for race in race_results)
     return {
         "viewer_id": f.viewerId.value,
         "trained_chara_id": f.id.value,
@@ -154,15 +158,14 @@ def _decode_trained_chara_entry(entry: TrainedCharaDataObject) -> dict[str, Any]
         "chara_grade": f.charaGrade.value,
         "running_style": f.runningStyle.value,
         "nickname_id": f.nickNameId.value,
-        "wins": f.singleWinNum.value,
+        "wins": wins,
         "register_time": f.createTime.value,
         "create_time": f.createTime.value,
         "skill_array": [
             _decode_acquired_skill_entry(x.contents) for x in f.acquiredSkillArray],
         "support_card_list": [
             _decode_trained_chara_support_card_data_entry(x.contents) for x in f.supportCardArray],
-        "race_result_list": [
-            _decode_race_history_entry(x.contents) for x in f.singleModeRaceResultArray],
+        "race_result_list": race_results,
         "win_saddle_id_array": [x.value for x in f.winSaddleIdArray],
         "nickname_id_array": [x.value for x in f.nickNameIdArray],
         "factor_info_array": [_decode_factor_data_entry(x.contents) for x in f.factorDataArray],
