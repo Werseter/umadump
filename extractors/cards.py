@@ -14,10 +14,12 @@ from .common import ExtractorContext, ExtractorFingerprint, dictionary_fingerpri
 @dataclass(frozen=True)
 class SupportCardExtractionData:
     entries: GenericDictionary[SupportCardDataDictionaryEntry]
+    viewer_id: int
 
     def fingerprint(self) -> ExtractorFingerprint:
         return (
             "support_cards",
+            self.viewer_id,
             dictionary_fingerprint(self.entries),
             first_object_fingerprint("first_entry", (entry.value for entry in self.entries)),
         )
@@ -36,7 +38,11 @@ def resolve_support_card_extraction_data(wdm: WorkDataManagerObject) -> Optional
         logger.warning("WorkSupportCardData.dataDic is null")
         return None
 
-    return SupportCardExtractionData(entries=dictionary_ptr.contents)
+    user = wdm.fields.userData
+    if not user or not (viewer_id := user.contents.fields.viewerId.value):
+        return None
+
+    return SupportCardExtractionData(entries=dictionary_ptr.contents, viewer_id=viewer_id)
 
 
 def resolve_support_cards(context: ExtractorContext) -> Optional[SupportCardExtractionData]:

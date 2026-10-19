@@ -1,6 +1,6 @@
 [
   {
-    "viewer_id": 0,
+    "viewer_id": 123456789,
     "support_card_id": 10001,
     "exp": 3175,
     "limit_break_count": 4,
@@ -15,7 +15,7 @@
     }
   },
   {
-    "viewer_id": 0,
+    "viewer_id": 123456789,
     "support_card_id": 10002,
     "exp": 2910,
     "limit_break_count": 4,

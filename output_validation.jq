@@ -22,8 +22,7 @@ def support_card_data_api:
     .data.support_card_list |
     map(
         # The client retains one timestamp; the export emits it under both API keys.
-        .create_time = .possess_time |
-        .viewer_id = 0
+        .create_time = .possess_time
     );
 
 def support_card_data_export:

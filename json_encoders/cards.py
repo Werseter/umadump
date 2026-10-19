@@ -15,12 +15,12 @@ if TYPE_CHECKING:
 # Support card extraction
 # ---------------------------------------------------------------------------
 
-def _decode_support_card_entry(entry: SupportCardDataDictionaryEntry) -> Optional[dict[str, Any]]:
+def _decode_support_card_entry(entry: SupportCardDataDictionaryEntry, viewer_id: int) -> Optional[dict[str, Any]]:
     if entry.hashCode < 0 or not entry.value:
         return None
     f = entry.value.contents.fields
     return {
-        "viewer_id": 0,
+        "viewer_id": viewer_id,
         "support_card_id": f.supportCardId.value,
         "exp": f.exp.value,
         "limit_break_count": f.limitBreakCount.value,
@@ -44,7 +44,7 @@ def decode_support_card_dictionary(data: SupportCardExtractionData) -> list[dict
     logger.debug("SupportCard dictionary: count=%d", len(support_card_data_dict))
 
     for entry in support_card_data_dict:
-        decoded = _decode_support_card_entry(entry)
+        decoded = _decode_support_card_entry(entry, data.viewer_id)
         if decoded is None:
             continue
         result.append(decoded)
