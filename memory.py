@@ -838,7 +838,7 @@ class WindowsProcessMemory(_RegionChunkScanMixin):
                                         _kernel32.Process32FirstW, _kernel32.Process32NextW):
                 if entry.szExeFile.lower() == process_name.lower():
                     return int(entry.th32ProcessID)
-        raise RuntimeError(f"Target process not found: {process_name}")
+        raise ProcessLookupError(f"Target process not found: {process_name}")
 
     @staticmethod
     def _open_process(pid: int) -> HANDLE:
@@ -1126,7 +1126,7 @@ class LinuxProcessMemory(_RegionChunkScanMixin):
             except OSError:
                 continue
 
-        raise RuntimeError(f"Target process not found: {process_name}")
+        raise ProcessLookupError(f"Target process not found: {process_name}")
 
 
 ProcessMemory = WindowsProcessMemory if os.name == "nt" else LinuxProcessMemory

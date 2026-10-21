@@ -7,7 +7,23 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Generic, Optional, TypeVar
+
+
+def _wait_for_exit() -> None:
+    try:
+        input("Press Enter to exit...")
+    except (EOFError, KeyboardInterrupt):
+        pass
+
+
+# Keep this entry module parseable on older Python so the version check can run
+# before importing application modules that require Python 3.14.
+if sys.version_info < (3, 14):
+    print(f"ERROR: umadump requires Python 3.14 or newer (running {sys.version.split()[0]}).")
+    if __name__ == "__main__":
+        _wait_for_exit()
+    raise SystemExit(1)
 
 from career_archive import CAREER_ARCHIVE_OUTPUT_FOLDER, write_career_archive_snapshot
 from extractors.cards import extract_card_data, extract_support_cards, resolve_card_data, resolve_support_cards
@@ -36,13 +52,17 @@ from singleton_roots import (ExtractionContext, ResolvedSingletonRoots, Singleto
                              build_singleton_generic_index, refresh_live_singleton_roots, refresh_singleton_roots)
 from update_check import CURRENT_VERSION, notify_if_update_available
 
-
 # ---------------------------------------------------------------------------
 # Extractor definitions
 # ---------------------------------------------------------------------------
 
+TExtractorInput = TypeVar("TExtractorInput")
+TExtractionData = TypeVar("TExtractionData", bound=FingerprintableExtractionData)
+TMultiOutputPayload = TypeVar("TMultiOutputPayload")
+
+
 @dataclass(frozen=True)
-class Extractor[TExtractorInput, TExtractionData: FingerprintableExtractionData, TMultiOutputPayload]:
+class Extractor(Generic[TExtractorInput, TExtractionData, TMultiOutputPayload]):
     """
     Unified extractor definition.
 
@@ -330,11 +350,13 @@ def main() -> None:
         finally:
             logger.info("Total time: %.2fs", time.perf_counter() - t_start)
     if args.minidump and sys.stdin.isatty():
-        try:
-            input("Press Enter to exit...")
-        except EOFError:
-            pass
+        _wait_for_exit()
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except ProcessLookupError as error:
+        logger.error("%s. Start the game and try again.", error)
+        _wait_for_exit()
+        raise SystemExit(1)
