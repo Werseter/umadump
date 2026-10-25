@@ -134,22 +134,73 @@ def _execution_request(row: GachaExecutionRecord) -> tuple[int, ...]:
             row['cost_count'])
 
 
-def _matching_history_ids(payload: GachaExecPayload, history: list[_GachaBatch]) -> list[int]:
-    """Match ordered rewards and draw cost at the exact response-header second, never nearest."""
-    # Captures support create_time == servertime, not a tolerance window.
-    # A mismatch leaves the pull unanchored; source evidence is never discarded.
+def _matching_history_ids(payload: GachaExecPayload, history: list[_GachaBatch],
+                          *, match_time: bool = True) -> list[int]:
+    """Match ordered rewards and draw cost, normally at the exact response-header second."""
     expected = _pull_execution(payload)
     request = _execution_request(expected)
     rewards = [_comparable_reward(row) for row in payload['gacha_result_list']]
     candidates: list[int] = []
     for batch in history:
         execution = batch.execution
-        if _execution_request(execution) != request or execution['create_time'] != expected['create_time']:
+        if _execution_request(execution) != request:
             continue
+
+        if match_time and execution['create_time'] != expected['create_time']:
+            continue
+
         actual = [_comparable_reward(row) for row in batch.rewards]
         if rewards == actual:
             candidates.append(execution['exec_history_id'])
     return candidates
+
+
+def _clock_recovery_bounds(history: list[_GachaBatch], anchors: set[int]) -> dict[int, tuple[str, str]]:
+    """Bracket a history session only with its immediately adjacent, exact-matched banner sessions."""
+    banners: dict[int, list[GachaExecutionRecord]] = {}
+    for batch in history:
+        row = batch.execution
+        banners.setdefault(row['gacha_id'], []).append(row)
+
+    bounds: dict[int, tuple[str, str]] = {}
+    for sessions in banners.values():
+        sessions.sort(key=lambda row: (row['create_time'], row['exec_history_id']))
+        for before, current, after in zip(sessions, sessions[1:], sessions[2:]):
+            if before['exec_history_id'] not in anchors or after['exec_history_id'] not in anchors:
+                continue
+
+            if before['create_time'] < current['create_time'] < after['create_time']:
+                bounds[current['exec_history_id']] = before['create_time'], after['create_time']
+    return bounds
+
+
+def _reconciled_pull_ids(pulls: list[GachaExecPayload], history: list[_GachaBatch]) -> list[int | None]:
+    """Prefer exact-second matches; conservatively recover old captures with mixed account/response state."""
+    candidates = [_matching_history_ids(pull, history) for pull in pulls]
+    contenders = Counter(key for ids in candidates for key in ids)
+    matches = [ids[0] if len(ids) == 1 and contenders[ids[0]] == 1 else None for ids in candidates]
+    # Only pulls without exact candidates are eligible for clock recovery.
+    if all(candidates):
+        return matches
+
+    if not (bounds := _clock_recovery_bounds(history, {key for key in matches if key is not None})):
+        return matches
+
+    # Never relax an ambiguous exact match or use a recovered match as another anchor.
+    # The complete shared reward sequence and request must be unique in both directions,
+    # including across saved history windows.
+    # This repairs isolated clock gaps, not arbitrary missing or repeated pulls.
+    contents = [_matching_history_ids(pull, history, match_time=False) for pull in pulls]
+    claims = Counter(key for ids in contents for key in ids)
+    for index, ids in enumerate(contents):
+        if candidates[index] or len(ids) != 1 or claims[ids[0]] != 1 or ids[0] not in bounds:
+            continue
+
+        lower, upper = bounds[ids[0]]
+        observed = _pull_execution(pulls[index])['create_time']
+        if lower <= observed <= upper:
+            matches[index] = ids[0]
+    return matches
 
 
 def _collated_history(batches: list[_GachaBatch]) -> GachaHistoryPayload:
@@ -181,15 +232,15 @@ def _publish_history(payload: GachaHistoryPayload, output_path: Path) -> None:
 def collate_gacha_history(capture_folder: Path, output_path: Path) -> GachaHistoryPayload:
     """Collate one viewer's banner folders; unmatched execs use response time with ID 0.
 
+    Matched pulls always use the authoritative history record, including its timestamp.
     Both arrays retain complete batches in their respective chronological order; known IDs break same-second ties.
     """
     history, pulls = _load_captures(capture_folder)
-    candidates = [_matching_history_ids(pull, history) for pull in pulls]
-    contenders = Counter(key for ids in candidates for key in ids)
+    matches = _reconciled_pull_ids(pulls, history)
     batches = list(history)
     matched = 0
-    for pull, ids in zip(pulls, candidates):
-        if len(ids) == 1 and contenders[ids[0]] == 1:
+    for pull, key in zip(pulls, matches):
+        if key is not None:
             matched += 1
             continue
         batches.append(_GachaBatch(_pull_execution(pull), _pull_rewards(pull)))
