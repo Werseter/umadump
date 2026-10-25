@@ -22,7 +22,11 @@ class FingerprintableExtractionData(Protocol):
 
 
 class ExtractorContext(Protocol):
-    """Singleton roots exposed to domain extractor resolvers."""
+    """Singleton roots exposed to domain extractor resolvers.
+
+    Core UI/data roots are required object snapshots, reread on each property
+    access. Race storage and the career-specific view pointer may be unavailable.
+    """
 
     @property
     def work_data_manager(self) -> WorkDataManagerObject:
@@ -37,15 +41,15 @@ class ExtractorContext(Protocol):
         ...
 
     @property
-    def temp_data(self) -> C_Ptr[TempDataObject] | None:
+    def temp_data(self) -> TempDataObject:
         ...
 
     @property
-    def dialog_manager(self) -> C_Ptr[DialogManagerObject] | None:
+    def dialog_manager(self) -> DialogManagerObject:
         ...
 
     @property
-    def scene_manager(self) -> C_Ptr[SceneManagerObject] | None:
+    def scene_manager(self) -> SceneManagerObject:
         ...
 
 

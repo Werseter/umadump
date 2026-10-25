@@ -9,7 +9,6 @@ from game_structs.enums import GachaExecutionType
 from game_structs.gacha import (DialogGachaHistoryObject, GachaExecutionResultObject, GachaHistoryExecObject,
                                 GachaResultSetObject, GachaResultTempDataObject)
 from game_structs.ui import DialogCommonBaseObject, DialogManagerObject, SceneManagerObject
-from game_structs.work_data_manager import WorkDataManagerObject
 from json_encoders.gacha import decode_gacha_balances, decode_gacha_history, decode_gacha_pull
 from logger import logger
 from schema_validation import (RuntimeValidatableIl2CppClassManager, TransientContainerStateError,
@@ -25,9 +24,9 @@ class GachaLiveSources:
     last_response_server_time: int
 
     @staticmethod
-    def _is_execution_view(manager: C_Ptr[SceneManagerObject] | None) -> bool:
+    def _is_execution_view(manager: SceneManagerObject) -> bool:
         """Exclude cached pulls after their animation/result views have been left."""
-        if manager is None or not manager or not (controller := manager.contents.fields.currentViewController):
+        if not (controller := manager.fields.currentViewController):
             return False
         if not (klass := controller.contents.klass):
             return False
@@ -74,10 +73,7 @@ class GachaLiveSources:
     def from_context(cls, context: ExtractorContext) -> GachaLiveSources | None:
         if not cls._is_execution_view(context.scene_manager):
             return None
-        temp = context.temp_data
-        if temp is None or not temp:
-            return None
-        source = temp.contents
+        source = context.temp_data
         if not (buffer := source.fields.gachaResult):
             return None
         pair = cls._resolve_ready_pair(buffer.contents)
@@ -149,16 +145,15 @@ class GachaHistorySources:
         return None
 
     @classmethod
-    def from_manager(cls, manager: C_Ptr[DialogManagerObject] | None) -> GachaHistorySources | None:
+    def from_manager(cls, manager: DialogManagerObject) -> GachaHistorySources | None:
         """Follow DialogManager -> contents GameObject -> its managed history component."""
-        if manager is None or not manager or not (dialogs := manager.contents.fields.dialogList):
+        if not (dialogs := manager.fields.dialogList):
             return None
         expected = RuntimeValidatableIl2CppClassManager.get_expected_type_metadata_handle(DialogGachaHistoryObject)
         if expected is None:
             return None
         for dialog in dialogs.contents:
-            history = cls._resolve_dialog(dialog.contents, expected)
-            if history is not None:
+            if dialog and (history := cls._resolve_dialog(dialog.contents, expected)) is not None:
                 return cls(history)
         return None
 
@@ -180,7 +175,7 @@ class GachaHistorySources:
 @dataclass(frozen=True)
 class GachaExtractionData:
     viewer_id: int
-    wdm: WorkDataManagerObject
+    context: ExtractorContext
     live: GachaLiveSources | None
     history: GachaHistorySources | None
 
@@ -200,7 +195,7 @@ def resolve_gacha_data(context: ExtractorContext) -> GachaExtractionData | None:
     history = GachaHistorySources.from_manager(context.dialog_manager)
     if not (live or history):
         return None
-    return GachaExtractionData(viewer_id, wdm, live, history)
+    return GachaExtractionData(viewer_id, context, live, history)
 
 
 def extract_gacha_data(data: GachaExtractionData) -> list[GachaCapture]:
@@ -219,7 +214,8 @@ def extract_gacha_data(data: GachaExtractionData) -> list[GachaCapture]:
         execution, result = data.live.read_pair()
         executable = execution.fields.executable.contents
         consumption = executable.fields.consumption.contents
-        balances = decode_gacha_balances(consumption, data.wdm.fields.userData, data.wdm.fields.itemData)
+        wdm = data.context.work_data_manager.fields
+        balances = decode_gacha_balances(consumption, wdm.userData, wdm.itemData)
         payload = decode_gacha_pull(result, balances, consumption, data.live.last_response_server_time)
         captures.append(GachaCapture(data.viewer_id, payload['limit_item_info']['gacha_id'], 'exec', payload))
     logger.info('Decoded %d gacha banner observations', len(captures))

@@ -281,16 +281,16 @@ class ExtractionContext:
         return self.singleton(SINGLEMODECHANGEVIEW_SINGLETON_SPEC)
 
     @property
-    def temp_data(self) -> C_Ptr[TempDataObject] | None:
-        return self.singleton(TEMPDATA_SINGLETON_SPEC)
+    def temp_data(self) -> TempDataObject:
+        return self.require_singleton(TEMPDATA_SINGLETON_SPEC)
 
     @property
-    def dialog_manager(self) -> C_Ptr[DialogManagerObject] | None:
-        return self.singleton(DIALOGMANAGER_SINGLETON_SPEC)
+    def dialog_manager(self) -> DialogManagerObject:
+        return self.require_singleton(DIALOGMANAGER_SINGLETON_SPEC)
 
     @property
-    def scene_manager(self) -> C_Ptr[SceneManagerObject] | None:
-        return self.singleton(SCENEMANAGER_SINGLETON_SPEC)
+    def scene_manager(self) -> SceneManagerObject:
+        return self.require_singleton(SCENEMANAGER_SINGLETON_SPEC)
 
     def singleton[TStaticFields: SingletonStaticFields, TSingletonObject: SingletonObject](
             self, spec: SingletonSpec[TStaticFields, TSingletonObject]) -> Optional[C_Ptr[TSingletonObject]]:
@@ -299,6 +299,7 @@ class ExtractionContext:
 
     def require_singleton[TStaticFields: SingletonStaticFields, TSingletonObject: SingletonObject](
             self, spec: SingletonSpec[TStaticFields, TSingletonObject]) -> TSingletonObject:
+        """Read a required singleton without caching its object snapshot."""
         instance = self.singleton(spec)
         if not instance:
             raise RuntimeError(f"{spec.target_type} not resolved")
