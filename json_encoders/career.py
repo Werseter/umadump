@@ -13,7 +13,8 @@ from game_structs.master_data import MasterSingleModeWinsSaddleSingleModeWinsSad
 from game_structs.obscured import ObscuredInt
 from game_structs.race import (CharaRaceRewardObject, RaceHorseDataObject, RaceHorseDataRaceResultObject,
                                RaceRewardDataObject, RaceRewardSetDataObject, SingleRaceStartInfoObject)
-from game_structs.single_mode import (EquipSupportCardObject, SingleModeFreeCommandInfoObject,
+from game_structs.single_mode import (EquipSupportCardObject, FactorSelectInfoObject,
+                                      SingleModeFactorSelectCommonObject, SingleModeFreeCommandInfoObject,
                                       SingleModeFreeItemEffectObject, SingleModeFreePickUpItemObject,
                                       SingleModeFreeUserItemObject, SingleModeLogSubstanceObject,
                                       SingleModeNpcTeamDataObject, SingleModeRivalRaceInfoObject,
@@ -42,11 +43,12 @@ from game_structs.single_mode import (EquipSupportCardObject, SingleModeFreeComm
                                       WorkSingleModeScenarioTeamRaceTeamMemberObject)
 from game_structs.skills import SkillTipsObject
 from game_structs.trained_chara import RaceHistoryInfoObject
+from schema_validation import TransientRuntimeValidationError
 from .race import _decode_skill_data_entry, restore_race_horse_order
 from .trained_chara import _decode_acquired_skill_entry, _decode_factor_info_entry
 
 if TYPE_CHECKING:
-    from extractors.career import CareerChoiceSources, CareerDataExtractionData, CareerRaceSources
+    from extractors.career import CareerChoiceSources, CareerDataExtractionData, CareerFactorSources, CareerRaceSources
 
 ParamIncDecInfoDictPtr: TypeAlias = C_Ptr[GenericDictionary[WorkSingleModeDataParamsIncDecInfoDictionaryEntry]]
 HomeCommand: TypeAlias = tuple[int, WorkSingleModeDataTurnInfoObject]
@@ -330,21 +332,60 @@ def _decode_reserved_races(chara: WorkSingleModeCharaDataObject) -> list[dict[st
     return result
 
 
-def _decode_resume_factor_select(career: WorkSingleModeDataObject) -> dict[str, Any] | None:
-    if not (value := career.fields.resumeFactorSelect):
+def _decode_factor_offers(offers: CareerFactorSources) -> list[dict[str, Any]]:
+    choices: list[dict[str, Any]] = []
+    for pointer in offers.choices.contents:
+        if not pointer:
+            raise TransientRuntimeValidationError('Spark choice is not initialized')
+
+        fields = pointer.contents.fields
+        factors: list[dict[str, Any]] = []
+        if not len(fields.factor_info_array):
+            raise TransientRuntimeValidationError('Spark factors are not initialized')
+
+        for factor in fields.factor_info_array:
+            if not factor:
+                raise TransientRuntimeValidationError('Spark factor is not initialized')
+            factors.append(_decode_factor_info_entry(factor.contents))
+
+        choices.append({"lottery_id": fields.lottery_id, "factor_info_array": factors})
+    if not choices:
+        raise TransientRuntimeValidationError('Spark choices are not initialized')
+
+    choices.sort(key=lambda choice: choice["lottery_id"])
+    return choices
+
+
+def _decode_retained_factor_choice(entry: FactorSelectInfoObject) -> dict[str, Any]:
+    fields = entry.fields
+    factors = [_decode_factor_info_entry(factor.contents) for factor in fields.factor_info_array if factor]
+    return {"lottery_id": fields.lottery_id, "factor_info_array": factors}
+
+
+def decode_resume_factor_select(value: C_Ptr[SingleModeFactorSelectCommonObject] | None,
+                                offers: CareerFactorSources | None = None) -> dict[str, Any] | None:
+    if value and offers is None:
+        retained = value.contents.fields
+        rank_score, rank = retained.rank_score, retained.rank
+        lottery_remain_num, lottery_count = retained.lottery_remain_num, retained.lottery_count
+        choices = [_decode_retained_factor_choice(item.contents) for item in retained.factor_select_info_array if item]
+    elif offers is not None:
+        rank_model = offers.rank_model.contents.fields
+        rank_score, rank = rank_model.rankScore, rank_model.trainingRank
+        choices = _decode_factor_offers(offers)
+        # The UI does not retain the remaining count; 0 is the unavailable placeholder.
+        lottery_count, lottery_remain_num = max(choice["lottery_id"] for choice in choices), 0
+        # A loaded response may predate the reroll shown by the current UI.
+        if value and (retained := value.contents.fields).lottery_count == lottery_count:
+            lottery_remain_num = retained.lottery_remain_num
+    else:
         return None
-    f = value.contents.fields
     return {
-        "rank_score": f.rank_score,
-        "rank": f.rank,
-        "lottery_remain_num": f.lottery_remain_num,
-        "lottery_count": f.lottery_count,
-        "factor_select_info_array": [
-            {"lottery_id": item.contents.fields.lottery_id,
-             "factor_info_array": [_decode_factor_info_entry(factor.contents)
-                                   for factor in item.contents.fields.factor_info_array if factor]}
-            for item in f.factor_select_info_array if item
-        ],
+        "rank_score": rank_score,
+        "rank": rank,
+        "lottery_remain_num": lottery_remain_num,
+        "lottery_count": lottery_count,
+        "factor_select_info_array": choices,
         "factor_relottery_info_array": [],
     }
 
@@ -1595,7 +1636,7 @@ def decode_career_data(data: CareerDataExtractionData) -> dict[str, Any]:
         "story_event_mission_list": [],
         "story_event_chara_bonus_list": [],
         "start_dress_info": [],
-        "resume_factor_select": _decode_resume_factor_select(career),
+        "resume_factor_select": decode_resume_factor_select(fields.resumeFactorSelect, data.factor_sources()),
     }
 
     payload = {"single_mode_load_common": common}

@@ -16,6 +16,7 @@ from game_structs.single_mode import (EvaluationInfoObject, GroupOutingInfoObjec
                                       SingleModeCharaObject, SingleModeSkillUpgradeObject, SingleModeSupportCardObject,
                                       TrainingLevelInfoObject)
 from game_structs.skills import SkillTipsObject
+from .career import decode_resume_factor_select
 from .common import timestamp_to_str
 from .race import _decode_skill_data_entry
 from .trained_chara import _decode_trained_chara_entry
@@ -382,7 +383,7 @@ def decode_idle_single_mode(data: IdleSingleModeExtractionData) -> dict[str, Any
             "story_event_mission_list": [],
             "story_event_chara_bonus_list": [],
             "start_dress_info": [],
-            "resume_factor_select": None,
+            "resume_factor_select": decode_resume_factor_select(data.resume_factor_select, data.factor_sources()),
             "race_random_program_array": [],
             "race_reward_limit_more_list": [],
             "skill_filter_setting_array": [],

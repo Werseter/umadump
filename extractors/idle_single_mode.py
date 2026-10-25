@@ -6,12 +6,14 @@ from typing import Any, Optional
 from ctypes_utils import C_Ptr
 from game_structs.enums import IdleSingleModePlayingState, SingleModeState
 from game_structs.idle_single_mode import ObscuredIdleSingleModeProgressLogInfoObject, WorkIdleSingleModeDataObject
-from game_structs.single_mode import SingleModeCharaObject, WorkSingleModeDataObject
+from game_structs.single_mode import (SingleModeCharaObject, SingleModeFactorSelectCommonObject,
+                                      WorkSingleModeDataObject)
 from game_structs.trained_chara import TrainedCharaDataObject
 from game_structs.work_data_manager import WorkDataManagerObject
 from json_encoders.common import timestamp_to_str
 from json_encoders.idle_single_mode import decode_idle_single_mode
 from logger import logger
+from .career import CareerFactorSources, resume_factor_select_fingerprint
 from .common import (ExtractorContext, ExtractorFingerprint, safe_filename_component,
                      validated_object_pointer_fingerprint)
 from .trained_chara import resolve_finalized_veteran
@@ -31,9 +33,16 @@ class IdleSingleModeExtractionData:
     end_time: int
     progress_log_info: C_Ptr[ObscuredIdleSingleModeProgressLogInfoObject]
     finalized_chara_info: C_Ptr[SingleModeCharaObject]
+    resume_factor_select: C_Ptr[SingleModeFactorSelectCommonObject]
+    context: ExtractorContext
     finalized_veteran: C_Ptr[TrainedCharaDataObject] | None = None
 
+    def factor_sources(self) -> CareerFactorSources | None:
+        character_id = self.finalized_chara_info.contents.fields.card_id // 100
+        return CareerFactorSources.from_scene(self.context.scene_manager, character_id)
+
     def fingerprint(self) -> ExtractorFingerprint:
+        factors = self.factor_sources()
         return (
             "idle_single_mode",
             self.state,
@@ -43,6 +52,8 @@ class IdleSingleModeExtractionData:
             validated_object_pointer_fingerprint(self.progress_log_info),
             validated_object_pointer_fingerprint(self.finalized_chara_info),
             validated_object_pointer_fingerprint(self.finalized_veteran) if self.finalized_veteran else ("ptr", 0),
+            resume_factor_select_fingerprint(self.resume_factor_select),
+            factors.fingerprint() if factors is not None else ("factor_offers", None),
         )
 
 
@@ -75,7 +86,8 @@ def _resolve_idle_career_data_ptr(wdm: WorkDataManagerObject) -> Optional[C_Ptr[
     return idle_career_data_ptr
 
 
-def resolve_idle_single_mode(wdm: WorkDataManagerObject) -> Optional[IdleSingleModeExtractionData]:
+def resolve_idle_single_mode(context: ExtractorContext) -> Optional[IdleSingleModeExtractionData]:
+    wdm = context.work_data_manager
     if not (idle_career_data_ptr := _resolve_idle_career_data_ptr(wdm)):
         return None
     idle_career_data = idle_career_data_ptr.contents.fields
@@ -103,12 +115,14 @@ def resolve_idle_single_mode(wdm: WorkDataManagerObject) -> Optional[IdleSingleM
             end_time=idle_career_data.endTime,
             progress_log_info=idle_career_data.progressLogInfo,
             finalized_chara_info=finalized_chara_info_ptr,
+            resume_factor_select=career_data.fields.resumeFactorSelect,
             finalized_veteran=finalized_veteran,
+            context=context,
     )
 
 
 def resolve_idle_single_mode_data(context: ExtractorContext) -> Optional[IdleSingleModeExtractionData]:
-    return resolve_idle_single_mode(context.work_data_manager)
+    return resolve_idle_single_mode(context)
 
 
 def extract_idle_single_mode(data: IdleSingleModeExtractionData) -> IdleSingleModeOutput:

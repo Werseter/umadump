@@ -5,10 +5,13 @@ from typing import Optional, TypeAlias
 
 from career_archive import CareerArchiveSnapshot, career_archive_descriptor
 from ctypes_utils import C_Ptr
-from game_structs.collections import GenericDictionary
+from game_structs.collections import GenericDictionary, GenericList
 from game_structs.enums import SingleModePlayingState, SingleModeScenarioId, SingleModeState, TEAM_RACE_PLAYING_STATES
 from game_structs.race import RaceInfoObject, SingleRaceStartInfoObject
-from game_structs.single_mode import (SingleModeChangeViewManagerObject, SingleModeEventAccesorObject,
+from game_structs.single_mode import (FactorSelectInfoObject, PartsSingleModeResultRankScoreModelObject,
+                                      SingleModeChangeViewManagerObject, SingleModeEventAccesorObject,
+                                      SingleModeFactorSelectCommonObject, SingleModeResultSequenceObject,
+                                      SingleModeResultSequencePartsObject, SingleModeResultViewControllerObject,
                                       WorkSingleModeChangeParameterInfoObject, WorkSingleModeCharaDataObject,
                                       WorkSingleModeDataEventInfoObject, WorkSingleModeDataObject,
                                       WorkSingleModeDataRaceStartResultInfoObject,
@@ -17,11 +20,11 @@ from game_structs.single_mode import (SingleModeChangeViewManagerObject, SingleM
                                       WorkSingleModeScenarioLivePerformanceDataObject,
                                       WorkSingleModeScenarioTeamRaceObject)
 from game_structs.trained_chara import TrainedCharaDataObject
-from game_structs.work_data_manager import WorkDataManagerObject
+from game_structs.ui import SceneManagerObject
 from json_encoders.career import decode_career_data, decode_career_log
 from json_encoders.trained_chara import _decode_trained_chara_entry
 from logger import logger
-from schema_validation import RuntimeValidatableIl2CppClassManager
+from schema_validation import RuntimeValidatableIl2CppClassManager, TransientRuntimeValidationError
 from .common import (ExtractorContext, ExtractorFingerprint, array_fingerprint, dictionary_pointer_fingerprint,
                      list_pointer_fingerprint, object_array_fingerprint, object_list_fingerprint,
                      object_pointer_fingerprint, pointer_fingerprint)
@@ -30,6 +33,7 @@ from .trained_chara import resolve_finalized_veteran
 ChangeParameterInfoObjectPtr: TypeAlias = C_Ptr[WorkSingleModeChangeParameterInfoObject]
 LivePerformancePtr: TypeAlias = C_Ptr[WorkSingleModeScenarioLivePerformanceDataObject]
 ChoiceRewardDictPtr: TypeAlias = C_Ptr[GenericDictionary[WorkSingleModeEventChoiceRewardDictionaryEntry]]
+FactorChoicesPtr: TypeAlias = C_Ptr[GenericList[C_Ptr[FactorSelectInfoObject]]]
 
 
 def _live_performance_fingerprint(name: str, value: LivePerformancePtr) -> ExtractorFingerprint:
@@ -278,6 +282,16 @@ def _career_choice_fingerprint(sources: CareerChoiceSources | None) -> Extractor
             dictionary_pointer_fingerprint(sources.rewards), branch)
 
 
+def resume_factor_select_fingerprint(value: C_Ptr[SingleModeFactorSelectCommonObject]) -> ExtractorFingerprint:
+    """Track retained selection identity, counters and the shallow choice array."""
+    result: ExtractorFingerprint = (object_pointer_fingerprint("factor_select", value),)
+    if value:
+        fields = value.contents.fields
+        result += (fields.lottery_count, fields.lottery_remain_num, fields.select_lottery_id,
+                   object_array_fingerprint("factor_choices", fields.factor_select_info_array))
+    return result
+
+
 def _career_pending_actions_fingerprint(career: WorkSingleModeDataObject) -> ExtractorFingerprint:
     """Track pending events, factor choices and reserved race decks."""
     f = career.fields
@@ -286,13 +300,7 @@ def _career_pending_actions_fingerprint(career: WorkSingleModeDataObject) -> Ext
             (entry.key, object_list_fingerprint("events", entry.value)) for entry in queues.contents
     ) if queues else ()
     result: ExtractorFingerprint = (
-        dictionary_pointer_fingerprint(queues), queue_versions,
-        object_pointer_fingerprint("factor_select", f.resumeFactorSelect),
-    )
-    if f.resumeFactorSelect:
-        selection = f.resumeFactorSelect.contents.fields
-        result += (selection.lottery_count, selection.select_lottery_id,
-                   object_array_fingerprint("factor_choices", selection.factor_select_info_array))
+        dictionary_pointer_fingerprint(queues), queue_versions, resume_factor_select_fingerprint(f.resumeFactorSelect))
     context = f.character.contents.fields.raceReserveContext
     if context and (repository := context.contents.fields.reserveRepository):
         entities = repository.contents.fields.entities
@@ -379,10 +387,88 @@ def _career_race_fingerprint(sources: CareerRaceSources | None) -> ExtractorFing
 
 
 @dataclass(frozen=True)
+class CareerFactorSources:
+    """Current result-screen offers, independent of the retained load response."""
+
+    path: tuple[int, ...]
+    choices: FactorChoicesPtr
+    rank_model: C_Ptr[PartsSingleModeResultRankScoreModelObject]
+
+    @staticmethod
+    def _comparison_choices(parts: C_Ptr[SingleModeResultSequencePartsObject]) \
+            -> tuple[FactorChoicesPtr, tuple[int, ...]] | None:
+        if not parts or not (selector := parts.contents.fields.factorSelect):
+            return None
+
+        if not (model := selector.contents.fields.model):
+            return None
+
+        if not (choices := model.contents.fields.factorSelectInfoList):
+            raise TransientRuntimeValidationError('Spark comparison choices are not initialized')
+
+        return choices, (parts.address, selector.address, model.address)
+
+    @staticmethod
+    def result_sequence(scene: SceneManagerObject, character_id: int) \
+            -> tuple[tuple[int, ...], SingleModeResultSequenceObject] | None:
+        """Resolve a matching result flow even after its spark-selection step ends."""
+        if not (controller := scene.fields.currentViewController):
+            return None
+
+        if not (klass := controller.contents.klass):
+            return None
+        view = klass.contents
+
+        if view.namespaze.as_string != 'Gallop' or view.name.as_string != 'SingleModeResultViewController':
+            return None
+
+        typed = C_Ptr[SingleModeResultViewControllerObject](controller.address)
+        if not (sequence := typed.contents.fields.sequence):
+            return None
+        result = sequence.contents
+
+        if not (rank := result.fields.rankScoreModel) or rank.contents.fields.characterId != character_id:
+            return None
+
+        return (controller.address, sequence.address, rank.address), result
+
+    @classmethod
+    def from_scene(cls, scene: SceneManagerObject, character_id: int) -> CareerFactorSources | None:
+        if (result := cls.result_sequence(scene, character_id)) is None:
+            return None
+
+        path, sequence = result
+        fields = sequence.fields
+        rank = fields.rankScoreModel
+        # Comparison offers supersede the original model and remain after selection.
+        if (comparison := cls._comparison_choices(fields.sequenceParts)) is not None:
+            choices, route = comparison
+            return cls(path + route, choices, rank)
+
+        if not (initial := fields.factorModel):
+            return None
+
+        if not (choices := initial.contents.fields.factorSelectInfoList):
+            return None
+
+        return cls(path + (initial.address,), choices, rank)
+
+    def fingerprint(self) -> ExtractorFingerprint:
+        if not (first := self.choices.contents.first()):
+            raise TransientRuntimeValidationError('Spark choices are not initialized')
+
+        rank = self.rank_model.contents.fields
+        return ("factor_offers", self.path, rank.characterId, rank.rankScore, rank.trainingRank,
+                list_pointer_fingerprint(self.choices), first.address,
+                object_array_fingerprint("factors", first.contents.fields.factor_info_array))
+
+
+@dataclass(frozen=True)
 class CareerDataExtractionData:
     """Stable active-career input rooted at ``WorkDataManager.singleMode``."""
 
     career_ptr: C_Ptr[WorkSingleModeDataObject]
+    context: ExtractorContext
     race_info: C_Ptr[RaceInfoObject] | None = None
     finalized_veteran: C_Ptr[TrainedCharaDataObject] | None = None
     single_mode_change_view: C_Ptr[SingleModeChangeViewManagerObject] | None = None
@@ -392,6 +478,10 @@ class CareerDataExtractionData:
 
     def race_sources(self) -> CareerRaceSources | None:
         return _career_race_sources(self.career, self.race_info)
+
+    def factor_sources(self) -> CareerFactorSources | None:
+        character_id = self.career.fields.character.contents.fields.cardId.value // 100
+        return CareerFactorSources.from_scene(self.context.scene_manager, character_id)
 
     @property
     def career(self) -> WorkSingleModeDataObject:
@@ -409,6 +499,7 @@ class CareerDataExtractionData:
         chara = fields.character.contents
         chara_fields = chara.fields
         veteran = self.finalized_veteran
+        factors = self.factor_sources()
         active_view = (
             pointer_fingerprint(self.career_ptr),
             chara_fields.id.value,
@@ -432,20 +523,29 @@ class CareerDataExtractionData:
             _career_pending_actions_fingerprint(career),
             _career_log_fingerprint(career),
             _career_choice_fingerprint(self.choice_sources()),
+            factors.fingerprint() if factors is not None else ("factor_offers", None),
             object_pointer_fingerprint("finalized_veteran", veteran) if veteran else ("ptr", 0),
         )
 
 
-def resolve_active_career_data_ptr(wdm: WorkDataManagerObject) -> Optional[C_Ptr[WorkSingleModeDataObject]]:
-    career_data_ptr = wdm.fields.singleMode
+def resolve_active_career_data_ptr(context: ExtractorContext) -> Optional[C_Ptr[WorkSingleModeDataObject]]:
+    career_data_ptr = context.work_data_manager.fields.singleMode
     if not career_data_ptr:
         return None
+
     fields = career_data_ptr.contents.fields
     if not fields.isPlaying:
-        return None
+        if not fields.character:
+            return None
+
+        character_id = fields.character.contents.fields.cardId.value // 100
+        if CareerFactorSources.result_sequence(context.scene_manager, character_id) is None:
+            return None
+
     if not fields.character:
         logger.debug("WorkSingleModeData.character is null")
         return None
+
     return career_data_ptr
 
 
@@ -474,26 +574,20 @@ def is_career_data_ready(data: CareerDataExtractionData) -> bool:
     return (first_command_list := command_lists_dict.contents.first()) is not None and bool(first_command_list.value)
 
 
-def resolve_career_data_inputs(wdm: WorkDataManagerObject) -> Optional[CareerDataExtractionData]:
-    """Resolve the retained career root; readiness is checked separately."""
+def resolve_career_snapshot(context: ExtractorContext) -> Optional[CareerDataExtractionData]:
+    """Resolve a career observation after checking its activity and archive readiness."""
 
-    career_ptr = resolve_active_career_data_ptr(wdm)
+    career_ptr = resolve_active_career_data_ptr(context)
     if career_ptr is None:
         return None
-    return CareerDataExtractionData(career_ptr=career_ptr)
-
-
-def resolve_career_snapshot(wdm: WorkDataManagerObject) -> Optional[CareerDataExtractionData]:
-    """Resolve active career observations, including non-command and terminal phases."""
-
-    data = resolve_career_data_inputs(wdm)
-    if data is None or not is_career_data_ready(data):
+    data = CareerDataExtractionData(career_ptr=career_ptr, context=context)
+    if not is_career_data_ready(data):
         return None
     return data
 
 
 def resolve_career_snapshot_data(context: ExtractorContext) -> Optional[CareerDataExtractionData]:
-    data = resolve_career_snapshot(context.work_data_manager)
+    data = resolve_career_snapshot(context)
     if data is None:
         return None
     race_static = context.race_manager_static
@@ -507,6 +601,7 @@ def resolve_career_snapshot_data(context: ExtractorContext) -> Optional[CareerDa
 
     return CareerDataExtractionData(
             career_ptr=data.career_ptr,
+            context=data.context,
             race_info=race_static.raceInfo if race_static else None,
             finalized_veteran=finalized_veteran,
             single_mode_change_view=context.single_mode_change_view,

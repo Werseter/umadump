@@ -6,11 +6,11 @@ from typing import Literal as L
 from ctypes_utils import ArrayType, CStructureDataclass, C_Bool, C_Enum, C_EnumIn, C_Int, C_Ptr, C_UDeclPtr
 from game_structs.collections import (GenericArrayPtr, GenericDictionary, GenericDictionaryEntry,
                                       GenericIntDictionaryEntry, GenericList)
-from game_structs.enums import (CharaGradeType, ProperGrade, RaceMotivation, RoundResultType, RunningStyle,
-                                SingleModeCommandType, SingleModeEventContentsInfoType, SingleModeEventPlayTiming,
-                                SingleModeLogGroupType, SingleModeParameterType, SingleModePlayingState,
-                                SingleModeState, StoryLogInfoSoundType, StoryLogInfoType, TeamEditFlag,
-                                TeamParameterRank, TrainingCommandId)
+from game_structs.enums import (CharaGradeType, FinalTrainingRank, ProperGrade, RaceMotivation, RoundResultType,
+                                RunningStyle, SingleModeCommandType, SingleModeEventContentsInfoType,
+                                SingleModeEventPlayTiming, SingleModeLogGroupType, SingleModeParameterType,
+                                SingleModePlayingState, SingleModeState, StoryLogInfoSoundType, StoryLogInfoType,
+                                TeamEditFlag, TeamParameterRank, TrainingCommandId)
 from game_structs.master_data import MasterSingleModeWinsSaddleSingleModeWinsSaddleObject
 from game_structs.obscured import ObscuredBool, ObscuredInt, ObscuredLong, ObscuredStringPtr
 from game_structs.race import (CharaRaceRewardObject, RaceHorseDataObject, RaceRewardDataObject,
@@ -1569,3 +1569,127 @@ class WorkSingleModeDataFields(CStructureDataclass):
 class WorkSingleModeDataObject(CStructureDataclass):
     _il2cpp_obj: RuntimeIl2CppObject
     fields: WorkSingleModeDataFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.PartsSingleModeResultFactorModel
+# ---------------------------------------------------------------------------
+
+class PartsSingleModeResultFactorModelFields(CStructureDataclass):
+    _ignored_1: c_int32  # omitted: lotteryRemainNum
+    factorSelectInfoList: C_Ptr[GenericList[C_Ptr[FactorSelectInfoObject]]]
+    _ignored_2: C_UDeclPtr  # omitted: singleModeResultDataContainer
+
+
+@register_runtime_validatable('Gallop::PartsSingleModeResultFactorModel')
+class PartsSingleModeResultFactorModelObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: PartsSingleModeResultFactorModelFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.PartsSingleModeResultFactorSelectModel
+# ---------------------------------------------------------------------------
+
+class PartsSingleModeResultFactorSelectModelFields(CStructureDataclass):
+    factorSelectInfoList: C_Ptr[GenericList[C_Ptr[FactorSelectInfoObject]]]
+    _ignored_1: c_int32  # omitted: currentScrollIndex
+
+
+@register_runtime_validatable('Gallop::PartsSingleModeResultFactorSelectModel')
+class PartsSingleModeResultFactorSelectModelObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: PartsSingleModeResultFactorSelectModelFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.PartsSingleModeResultFactorSelect
+# ---------------------------------------------------------------------------
+
+class PartsSingleModeResultFactorSelectFields(CStructureDataclass):
+    _ignored_1: ArrayType[C_UDeclPtr, L[5]]  # omitted: m_CachedPtr … skipButton
+    _ignored_2: c_bool  # omitted: completeSequence
+    _ignored_3: ArrayType[C_UDeclPtr, L[14]]  # omitted: fadeInSequenceList … fadeInSequence
+    model: C_Ptr[PartsSingleModeResultFactorSelectModelObject]
+    _ignored_4: ArrayType[C_UDeclPtr, L[9]]  # omitted: onHide … verticalNormalizedPositionDictionary
+
+
+@register_runtime_validatable('Gallop::PartsSingleModeResultFactorSelect')
+class PartsSingleModeResultFactorSelectObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: PartsSingleModeResultFactorSelectFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleModeResultSequence.SingleModeResultSequenceParts
+# ---------------------------------------------------------------------------
+
+class SingleModeResultSequencePartsFields(CStructureDataclass):
+    _ignored_1: ArrayType[C_UDeclPtr, L[4]]  # omitted: trainedCharacterDetail … factorLottery
+    factorSelect: C_Ptr[PartsSingleModeResultFactorSelectObject]
+    _ignored_2: ArrayType[C_UDeclPtr, L[10]]  # omitted: trainerStatus … collectRaid
+
+
+@register_runtime_validatable('Gallop::SingleModeResultSequence.SingleModeResultSequenceParts')
+class SingleModeResultSequencePartsObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeResultSequencePartsFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.PartsSingleModeResultRankScoreModel
+# ---------------------------------------------------------------------------
+
+class PartsSingleModeResultRankScoreModelFields(CStructureDataclass):
+    characterId: C_Int[c_int32]
+    trainingRank: C_Enum[FinalTrainingRank]
+    rankScore: C_Int[c_int32]
+
+
+@register_runtime_validatable('Gallop::PartsSingleModeResultRankScoreModel')
+class PartsSingleModeResultRankScoreModelObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: PartsSingleModeResultRankScoreModelFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleModeResultSequence
+# ---------------------------------------------------------------------------
+
+class SingleModeResultSequenceFields(CStructureDataclass):
+    _ignored_1: c_int32  # omitted: step
+    _ignored_2: C_UDeclPtr  # omitted: coroutine
+    _ignored_3: c_bool  # omitted: canChangeStep
+    _ignored_4: ArrayType[C_UDeclPtr, L[6]]  # omitted: stepActionDic … charaViewer
+    sequenceParts: C_Ptr[SingleModeResultSequencePartsObject]
+    _ignored_5: ArrayType[C_UDeclPtr, L[3]]  # omitted: commonUIParts … singleModeFinishRequest
+    rankScoreModel: C_Ptr[PartsSingleModeResultRankScoreModelObject]
+    factorModel: C_Ptr[PartsSingleModeResultFactorModelObject]
+
+
+@register_runtime_validatable('Gallop::SingleModeResultSequence')
+class SingleModeResultSequenceObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: SingleModeResultSequenceFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.SingleModeResultViewController
+# ---------------------------------------------------------------------------
+
+class ViewControllerBaseStorage(CStructureDataclass):
+    _ignored_1: c_int32  # omitted: viewId
+    _ignored_2: ArrayType[C_UDeclPtr, L[3]]  # omitted: view, viewInfo, parentSceneController
+
+
+class SingleModeResultViewControllerFields(CStructureDataclass):
+    _ignored_1: c_bool  # omitted: isSendFinishAPI
+    _ignored_2: C_UDeclPtr  # omitted: charaViewer
+    sequence: C_Ptr[SingleModeResultSequenceObject]
+
+
+@register_runtime_validatable('Gallop::SingleModeResultViewController')
+class SingleModeResultViewControllerObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    _view_controller_base: ViewControllerBaseStorage
+    fields: SingleModeResultViewControllerFields
