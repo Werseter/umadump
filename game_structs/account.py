@@ -1,11 +1,11 @@
-"""Account currency and item storage exposed by WorkDataManager."""
+"""Account currency, item and character-piece storage exposed by WorkDataManager."""
 from __future__ import annotations
 
 from ctypes import c_int32
 from typing import Literal as L
 
 from ctypes_utils import ArrayType, CStructureDataclass, C_Ptr, C_UDeclPtr
-from game_structs.collections import GenericDictionary, GenericIntDictionaryEntry
+from game_structs.collections import GenericDictionary, GenericDictionaryEntry, GenericIntDictionaryEntry
 from game_structs.obscured import ObscuredInt, ObscuredLong, ObscuredULong
 from il2cpp_structs import RuntimeIl2CppObject
 from schema_validation import register_runtime_validatable
@@ -88,3 +88,22 @@ class WorkItemDataFields(CStructureDataclass):
 class WorkItemDataObject(CStructureDataclass):
     _il2cpp_obj: RuntimeIl2CppObject
     fields: WorkItemDataFields
+
+
+# ---------------------------------------------------------------------------
+# Gallop.WorkPieceData
+# ---------------------------------------------------------------------------
+
+class WorkPieceDataDictionaryEntry(GenericDictionaryEntry):
+    _ignored_1: ObscuredInt  # omitted: key
+    _ignored_2: C_UDeclPtr  # omitted: value
+
+
+class WorkPieceDataFields(CStructureDataclass):
+    pieceDic: C_Ptr[GenericDictionary[WorkPieceDataDictionaryEntry]]
+
+
+@register_runtime_validatable('Gallop::WorkPieceData')
+class WorkPieceDataObject(CStructureDataclass):
+    _il2cpp_obj: RuntimeIl2CppObject
+    fields: WorkPieceDataFields

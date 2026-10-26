@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+from ctypes_utils import C_Ptr
+from game_structs.account import WorkItemDataObject, WorkPieceDataObject
 from game_structs.cards import CardDataDictionaryEntry, SupportCardDataDictionaryEntry
 from game_structs.collections import GenericDictionary
 from game_structs.work_data_manager import WorkDataManagerObject
@@ -11,10 +13,27 @@ from logger import logger
 from .common import ExtractorContext, ExtractorFingerprint, dictionary_fingerprint, first_object_fingerprint
 
 
+def _item_cost_fingerprint(items: C_Ptr[WorkItemDataObject]) -> ExtractorFingerprint:
+    """Track inventory membership and Money, not every item quantity or card's contents."""
+
+    if not items:
+        return "items", 0
+
+    if not (dictionary_ptr := items.contents.fields.dataDic):
+        return "items", 0
+    dictionary = dictionary_ptr.contents
+
+    MONEY_ITEM_ID = 59  # there is no enum, it's a const in GameDefine object
+    money = dictionary.get(MONEY_ITEM_ID)
+    balance = money.value.contents.fields.itemNum.value if money is not None and money.value else 0
+    return "items", dictionary_fingerprint(dictionary), balance
+
+
 @dataclass(frozen=True)
 class SupportCardExtractionData:
     entries: GenericDictionary[SupportCardDataDictionaryEntry]
     viewer_id: int
+    item_data: C_Ptr[WorkItemDataObject]
 
     def fingerprint(self) -> ExtractorFingerprint:
         return (
@@ -22,6 +41,7 @@ class SupportCardExtractionData:
             self.viewer_id,
             dictionary_fingerprint(self.entries),
             first_object_fingerprint("first_entry", (entry.value for entry in self.entries)),
+            _item_cost_fingerprint(self.item_data),
         )
 
 
@@ -42,7 +62,8 @@ def resolve_support_card_extraction_data(wdm: WorkDataManagerObject) -> Optional
     if not user or not (viewer_id := user.contents.fields.viewerId.value):
         return None
 
-    return SupportCardExtractionData(entries=dictionary_ptr.contents, viewer_id=viewer_id)
+    return SupportCardExtractionData(entries=dictionary_ptr.contents, viewer_id=viewer_id,
+                                     item_data=wdm.fields.itemData)
 
 
 def resolve_support_cards(context: ExtractorContext) -> Optional[SupportCardExtractionData]:
@@ -58,12 +79,17 @@ def extract_support_cards(data: SupportCardExtractionData) -> list[dict[str, obj
 @dataclass(frozen=True)
 class CardDataExtractionData:
     entries: GenericDictionary[CardDataDictionaryEntry]
+    item_data: C_Ptr[WorkItemDataObject]
+    piece_data: C_Ptr[WorkPieceDataObject]
 
     def fingerprint(self) -> ExtractorFingerprint:
+        pieces = self.piece_data.contents.fields.pieceDic.contents
         return (
             "card_data",
             dictionary_fingerprint(self.entries),
             first_object_fingerprint("first_entry", (entry.value for entry in self.entries)),
+            _item_cost_fingerprint(self.item_data),
+            dictionary_fingerprint(pieces),
         )
 
 
@@ -80,7 +106,8 @@ def resolve_card_data_extraction_data(wdm: WorkDataManagerObject) -> Optional[Ca
         logger.warning("WorkCardData.dataDic is null")
         return None
 
-    return CardDataExtractionData(entries=dictionary_ptr.contents)
+    return CardDataExtractionData(entries=dictionary_ptr.contents, item_data=wdm.fields.itemData,
+                                  piece_data=wdm.fields.pieceData)
 
 
 def resolve_card_data(context: ExtractorContext) -> Optional[CardDataExtractionData]:

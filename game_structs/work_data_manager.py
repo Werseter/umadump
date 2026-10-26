@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Literal as L
 
 from ctypes_utils import ArrayType, CStructureDataclass, C_Ptr, C_UDeclPtr
-from game_structs.account import WorkItemDataObject, WorkUserDataObject
+from game_structs.account import WorkItemDataObject, WorkPieceDataObject, WorkUserDataObject
 from game_structs.cards import WorkCardDataObject, WorkSupportCardDataObject
 from game_structs.friends import WorkFriendDataObject
 from game_structs.gallery import WorkAlreadyReadDataObject, WorkGalleryDataObject, WorkTalkGalleryDataObject
@@ -30,18 +30,20 @@ class WorkDataManagerFields(CStructureDataclass):
     itemData: C_Ptr[WorkItemDataObject]
     trainedCharaData: C_Ptr[WorkTrainedCharaDataObject]
     singleMode: C_Ptr[WorkSingleModeDataObject]
-    _ignored_2: ArrayType[C_UDeclPtr, L[8]]  # omitted: paymentItemData … circleData
+    _ignored_2: ArrayType[C_UDeclPtr, L[4]]  # omitted: paymentItemData … extraStoryData
+    pieceData: C_Ptr[WorkPieceDataObject]
+    _ignored_3: ArrayType[C_UDeclPtr, L[3]]  # omitted: missionData … circleData
     trophy: C_Ptr[WorkTrophyDataObject]
-    _ignored_3: ArrayType[C_UDeclPtr, L[4]]  # omitted: exchange, homeFavorite, loginBonusData, announceData
+    _ignored_4: ArrayType[C_UDeclPtr, L[4]]  # omitted: exchange, homeFavorite, loginBonusData, announceData
     teamStadiumData: C_Ptr[WorkTeamStadiumDataObject]
-    _ignored_4: ArrayType[C_UDeclPtr, L[5]]  # omitted: directoryData … dailyLegendRaceData
+    _ignored_5: ArrayType[C_UDeclPtr, L[5]]  # omitted: directoryData … dailyLegendRaceData
     honorData: C_Ptr[WorkHonorDataObject]
-    _ignored_5: C_UDeclPtr  # omitted: limitedSalesData
+    _ignored_6: C_UDeclPtr  # omitted: limitedSalesData
     alreadyReadData: C_Ptr[WorkAlreadyReadDataObject]
-    _ignored_6: ArrayType[C_UDeclPtr, L[6]]  # omitted: lastCheckTime … challengeMatchData
+    _ignored_7: ArrayType[C_UDeclPtr, L[6]]  # omitted: lastCheckTime … challengeMatchData
     galleryData: C_Ptr[WorkGalleryDataObject]
     talkGalleryData: C_Ptr[WorkTalkGalleryDataObject]
-    _ignored_7: ArrayType[C_UDeclPtr, L[15]]  # omitted: roomMatchData … optionData
+    _ignored_8: ArrayType[C_UDeclPtr, L[15]]  # omitted: roomMatchData … optionData
     idleSingleModeData: C_Ptr[WorkIdleSingleModeDataObject]
 
 
