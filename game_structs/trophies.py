@@ -3,7 +3,7 @@ from __future__ import annotations
 from ctypes import c_bool, c_int32
 
 from ctypes_utils import CStructureDataclass, C_Int, C_Ptr
-from game_structs.collections import GenericArrayPtr, GenericDictionary, GenericList
+from game_structs.collections import GenericArrayPtr, GenericDictionary, GenericIntDictionaryEntry, GenericList
 from game_structs.obscured import ObscuredInt
 from il2cpp_structs import RuntimeIl2CppObject
 from schema_validation import register_runtime_validatable
@@ -39,17 +39,11 @@ class TrophyDataCharaIdListObject(CStructureDataclass):
     fields: TrophyDataCharaIdListFields
 
 
-class TrophyDataCharaIdListDictionaryInnerEntry(CStructureDataclass):
-    hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # omitted: next
-    key: C_Int[c_int32]
+class TrophyDataCharaIdListDictionaryInnerEntry(GenericIntDictionaryEntry):
     value: C_Ptr[TrophyDataCharaIdListObject]
 
 
-class TrophyDataCharaIdListDictionaryEntry(CStructureDataclass):
-    hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # omitted: next
-    key: C_Int[c_int32]
+class TrophyDataCharaIdListDictionaryEntry(GenericIntDictionaryEntry):
     value: C_Ptr[GenericDictionary[TrophyDataCharaIdListDictionaryInnerEntry]]
 
 
@@ -70,10 +64,7 @@ class TrophyDataObject(CStructureDataclass):
     fields: TrophyDataFields
 
 
-class TrophyDataDictionaryEntry(CStructureDataclass):
-    hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # omitted: next
-    key: C_Int[c_int32]
+class TrophyDataDictionaryEntry(GenericIntDictionaryEntry):
     value: C_Ptr[TrophyDataObject]
 
 

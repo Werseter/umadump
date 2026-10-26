@@ -303,15 +303,25 @@ class CStructureDataclass(ExplicitStructure, metaclass=CStructureDataclassMeta):
     # does not contribute to ctypes layout.
     __ctypes_enum_field_bindings__: ClassVar[dict[str, EnumFieldBinding]] = {}
 
+    @staticmethod
+    def field_descriptor(owner: type[object], name: str) -> CField[_CData, object, object] | None:
+        """Return a ctypes field descriptor, or None for a missing/non-field attribute."""
+
+        descriptor = getattr(owner, name, None)
+        return descriptor if isinstance(descriptor, CField) else None
+
     @classmethod
     def field_offset(cls, name: str, *nested: str) -> int:
         """Return the byte offset of a field, optionally through nested inline fields."""
 
-        field: CField[_CData, object, object] = getattr(cls, name)
-        offset = field.offset
-        for component in nested:
-            field = getattr(field.type, component)
+        owner: type[object] = cls
+        offset = 0
+        for component in (name, *nested):
+            field = cls.field_descriptor(owner, component)
+            if field is None:
+                raise AttributeError(f"{owner.__name__} has no ctypes field {component!r}")
             offset += field.offset
+            owner = field.type
         return offset
 
 

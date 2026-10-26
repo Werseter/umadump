@@ -172,13 +172,11 @@ def decode_gacha_balances(consumption: GachaConsumptionObject, user: C_Ptr[WorkU
         if not items or not (dictionary := items.contents.fields.dataDic):
             raise TransientRuntimeValidationError('Gacha ticket balance is unavailable')
         remaining = 0
-        for entry in dictionary.contents:
-            if entry.key == fields.itemId:
-                item = entry.value.contents.fields
-                if item.itemId.value != entry.key:
-                    raise TransientRuntimeValidationError('Gacha ticket identity changed')
-                remaining = item.itemNum.value
-                break
+        if (entry := dictionary.contents.get(fields.itemId)) is not None:
+            item = entry.value.contents.fields
+            if item.itemId.value != entry.key:
+                raise TransientRuntimeValidationError('Gacha ticket identity changed')
+            remaining = item.itemNum.value
         state['item_list'].append(GachaItemInfo(item_type=ItemCategory.GACHA_TICKET, item_id=fields.itemId,
                                                 item_num=remaining))
     else:

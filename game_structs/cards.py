@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from ctypes import c_int32
 from typing import Literal as L
 
-from ctypes_utils import ArrayType, CStructureDataclass, C_Enum, C_Int, C_Ptr, C_UDeclPtr
-from game_structs.collections import GenericArrayPtr, GenericDictionary
+from ctypes_utils import ArrayType, CStructureDataclass, C_Enum, C_Ptr, C_UDeclPtr
+from game_structs.collections import (GenericArrayPtr, GenericDictionary, GenericDictionaryEntry,
+                                      GenericIntDictionaryEntry)
 from game_structs.enums import TrainingType
 from game_structs.obscured import ObscuredBool, ObscuredInt, ObscuredLong
 from game_structs.skills import AcquirableSkillObject, AcquiredSkillObject
@@ -16,9 +16,7 @@ from schema_validation import register_runtime_validatable
 # Gallop.WorkCardData.CardData
 # ---------------------------------------------------------------------------
 
-class HintLevelDictionaryEntry(CStructureDataclass):
-    hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # omitted: next
+class HintLevelDictionaryEntry(GenericDictionaryEntry):
     key: ObscuredInt
     value: ObscuredInt
 
@@ -42,10 +40,7 @@ class CardDataObject(CStructureDataclass):
     fields: CardDataFields
 
 
-class CardDataDictionaryEntry(CStructureDataclass):
-    hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # omitted: next
-    key: C_Int[c_int32]
+class CardDataDictionaryEntry(GenericIntDictionaryEntry):
     value: C_Ptr[CardDataObject]
 
 
@@ -88,10 +83,7 @@ class SupportCardDataObject(CStructureDataclass):
     fields: SupportCardDataFields
 
 
-class SupportCardDataDictionaryEntry(CStructureDataclass):
-    hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # omitted: next
-    key: C_Int[c_int32]
+class SupportCardDataDictionaryEntry(GenericIntDictionaryEntry):
     value: C_Ptr[SupportCardDataObject]
 
 

@@ -4,7 +4,7 @@ from ctypes import c_bool, c_int32
 from typing import Literal as L
 
 from ctypes_utils import ArrayType, CStructureDataclass, C_Bool, C_Enum, C_EnumIn, C_Int, C_Ptr, C_UDeclPtr
-from game_structs.collections import GenericArrayPtr, GenericDictionary, GenericList
+from game_structs.collections import GenericArrayPtr, GenericDictionary, GenericIntDictionaryEntry, GenericList
 from game_structs.enums import (FavoriteType, FinalTrainingRank, RaceGroundCondition, RaceWeather, RunningStyle,
                                 SuccessionCharaPosition, TrainedCharaUseType)
 from game_structs.obscured import ObscuredBool, ObscuredInt, ObscuredLong, ObscuredStringPtr
@@ -63,10 +63,7 @@ class FavoriteDataObject(CStructureDataclass):
     fields: FavoriteDataFields
 
 
-class FavoriteDataDictionaryEntry(CStructureDataclass):
-    hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # omitted: next
-    key: C_Int[c_int32]
+class FavoriteDataDictionaryEntry(GenericIntDictionaryEntry):
     value: C_Ptr[FavoriteDataObject]
 
 
@@ -199,10 +196,7 @@ class TrainedCharaDataObject(CStructureDataclass):
     fields: TrainedCharaDataFields
 
 
-class TrainedCharaDataDictionaryEntry(CStructureDataclass):
-    hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # omitted: next
-    key: C_Int[c_int32]
+class TrainedCharaDataDictionaryEntry(GenericIntDictionaryEntry):
     value: C_Ptr[TrainedCharaDataObject]
 
 

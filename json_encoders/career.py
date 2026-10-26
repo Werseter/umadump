@@ -189,10 +189,10 @@ def _decode_common_command_deltas(entry: WorkSingleModeDataTurnInfoObject) -> li
     base = fields.paramIncDecInfoDic
     scenario = fields.bonusParamIncDecInfoDic
     if base and scenario:  # HP-specific deduplication
-        for delta in scenario.contents:
-            if delta.key == SingleModeParameterType.Hp and (value := delta.value):
-                if _scenario_hp := value.contents.fields.value.value:
-                    return _decode_active_params_inc_dec_info_array(base, strip_scenario_hp=True)
+        delta = scenario.contents.get(SingleModeParameterType.Hp)
+        if delta is not None and (value := delta.value):
+            if value.contents.fields.value.value:
+                return _decode_active_params_inc_dec_info_array(base, strip_scenario_hp=True)
     return _decode_active_params_inc_dec_info_array(base)
 
 

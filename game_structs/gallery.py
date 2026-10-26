@@ -4,7 +4,7 @@ from ctypes import c_bool, c_int32
 from typing import Literal as L
 
 from ctypes_utils import ArrayType, CStructureDataclass, C_Int, C_Ptr, C_UDeclPtr
-from game_structs.collections import GenericDictionary, GenericList
+from game_structs.collections import GenericDictionary, GenericIntDictionaryEntry, GenericList
 from game_structs.obscured import ObscuredInt
 from il2cpp_structs import RuntimeIl2CppObject
 from schema_validation import register_runtime_validatable
@@ -14,10 +14,7 @@ from schema_validation import register_runtime_validatable
 # Gallop.WorkGalleryData
 # ---------------------------------------------------------------------------
 
-class GalleryEventDataDictionaryEntry(CStructureDataclass):
-    hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # omitted: next
-    key: C_Int[c_int32]
+class GalleryEventDataDictionaryEntry(GenericIntDictionaryEntry):
     value: C_Ptr[GenericList[ObscuredInt]]
 
 

@@ -4,8 +4,8 @@ from __future__ import annotations
 from ctypes import c_int32
 from typing import Literal as L
 
-from ctypes_utils import ArrayType, CStructureDataclass, C_Int, C_Ptr, C_UDeclPtr
-from game_structs.collections import GenericDictionary
+from ctypes_utils import ArrayType, CStructureDataclass, C_Ptr, C_UDeclPtr
+from game_structs.collections import GenericDictionary, GenericIntDictionaryEntry
 from game_structs.obscured import ObscuredInt, ObscuredLong, ObscuredULong
 from il2cpp_structs import RuntimeIl2CppObject
 from schema_validation import register_runtime_validatable
@@ -71,10 +71,7 @@ class WorkItemDataItemObject(CStructureDataclass):
     fields: WorkItemDataItemFields
 
 
-class WorkItemDataDictionaryEntry(CStructureDataclass):
-    hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # omitted: next
-    key: C_Int[c_int32]
+class WorkItemDataDictionaryEntry(GenericIntDictionaryEntry):
     value: C_Ptr[WorkItemDataItemObject]
 
 

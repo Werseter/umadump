@@ -4,7 +4,8 @@ from ctypes import c_bool, c_int32, c_int64
 from typing import Literal as L
 
 from ctypes_utils import ArrayType, CStructureDataclass, C_Bool, C_Enum, C_EnumIn, C_Int, C_Ptr, C_UDeclPtr
-from game_structs.collections import GenericArrayPtr, GenericDictionary, GenericList
+from game_structs.collections import (GenericArrayPtr, GenericDictionary, GenericDictionaryEntry,
+                                      GenericIntDictionaryEntry, GenericList)
 from game_structs.enums import (CharaGradeType, ProperGrade, RaceMotivation, RoundResultType, RunningStyle,
                                 SingleModeCommandType, SingleModeEventContentsInfoType, SingleModeEventPlayTiming,
                                 SingleModeLogGroupType, SingleModeParameterType, SingleModePlayingState,
@@ -302,9 +303,7 @@ class WorkSingleModeCharaDataSuccessionFactorInfoObject(CStructureDataclass):
 # Gallop.WorkSingleModeCharaData.TrainingLevelDictionaryEntry
 # ---------------------------------------------------------------------------
 
-class WorkSingleModeCharaDataTrainingLevelDictionaryEntry(CStructureDataclass):
-    hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # omitted: next
+class WorkSingleModeCharaDataTrainingLevelDictionaryEntry(GenericDictionaryEntry):
     key: C_Enum[TrainingCommandId]
     value: C_Int[c_int32]
 
@@ -343,10 +342,7 @@ class WorkSingleModeRaceDataLotteryProgramDataObject(CStructureDataclass):
 # Gallop.WorkSingleModeRaceData.LotteryProgramDataDictionaryEntry
 # ---------------------------------------------------------------------------
 
-class WorkSingleModeRaceDataLotteryProgramDataDictionaryEntry(CStructureDataclass):
-    hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # omitted: next
-    key: C_Int[c_int32]
+class WorkSingleModeRaceDataLotteryProgramDataDictionaryEntry(GenericIntDictionaryEntry):
     value: C_Ptr[GenericList[C_Ptr[WorkSingleModeRaceDataLotteryProgramDataObject]]]
 
 
@@ -692,10 +688,7 @@ class WorkSingleModeScenarioTeamRaceSoulSkillInfoObject(CStructureDataclass):
     fields: WorkSingleModeScenarioTeamRaceSoulSkillInfoFields
 
 
-class TeamSoulSkillDictionaryEntry(CStructureDataclass):
-    hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # omitted: next
-    key: C_Int[c_int32]
+class TeamSoulSkillDictionaryEntry(GenericIntDictionaryEntry):
     value: C_Ptr[WorkSingleModeScenarioTeamRaceSoulSkillInfoObject]
 
 
@@ -1197,9 +1190,7 @@ class WorkSingleModeDataParamsIncDecInfoObject(CStructureDataclass):
 # Gallop.WorkSingleModeData.ParamsIncDecInfoDictionaryEntry
 # ---------------------------------------------------------------------------
 
-class WorkSingleModeDataParamsIncDecInfoDictionaryEntry(CStructureDataclass):
-    hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # omitted: next
+class WorkSingleModeDataParamsIncDecInfoDictionaryEntry(GenericDictionaryEntry):
     key: C_Enum[SingleModeParameterType]
     value: C_Ptr[WorkSingleModeDataParamsIncDecInfoObject]
 
@@ -1227,10 +1218,7 @@ class WorkSingleModeDataTrainingHorseObject(CStructureDataclass):
 # Gallop.WorkSingleModeData.LivePerformanceIncDecInfoDictionaryEntry
 # ---------------------------------------------------------------------------
 
-class WorkSingleModeDataLivePerformanceIncDecInfoDictionaryEntry(CStructureDataclass):
-    hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # omitted: next
-    key: C_Int[c_int32]
+class WorkSingleModeDataLivePerformanceIncDecInfoDictionaryEntry(GenericIntDictionaryEntry):
     value: C_Int[c_int32]
 
 
@@ -1261,9 +1249,7 @@ class WorkSingleModeDataTurnInfoObject(CStructureDataclass):
 # Gallop.WorkSingleModeHomeInfo.TurnInfoListDictionaryEntry
 # ---------------------------------------------------------------------------
 
-class WorkSingleModeHomeInfoTurnInfoListDictionaryEntry(CStructureDataclass):
-    hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # omitted: next
+class WorkSingleModeHomeInfoTurnInfoListDictionaryEntry(GenericDictionaryEntry):
     key: C_Enum[SingleModeCommandType]
     value: C_Ptr[GenericList[C_Ptr[WorkSingleModeDataTurnInfoObject]]]
 
@@ -1367,9 +1353,7 @@ class WorkSingleModeDataEventInfoObject(CStructureDataclass):
     fields: WorkSingleModeDataEventInfoFields
 
 
-class WorkSingleModeDataStoryInfoListDictionaryEntry(CStructureDataclass):
-    hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # omitted: next
+class WorkSingleModeDataStoryInfoListDictionaryEntry(GenericDictionaryEntry):
     key: C_Enum[SingleModeEventPlayTiming]
     value: C_Ptr[GenericList[C_Ptr[WorkSingleModeDataEventInfoObject]]]
 
@@ -1441,9 +1425,7 @@ class WorkSingleModeEventChoiceRewardObject(CStructureDataclass):
     fields: WorkSingleModeEventChoiceRewardFields
 
 
-class WorkSingleModeEventChoiceRewardDictionaryEntry(CStructureDataclass):
-    hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # omitted: next
+class WorkSingleModeEventChoiceRewardDictionaryEntry(GenericDictionaryEntry):
     key: ObscuredInt
     value: C_Ptr[WorkSingleModeEventChoiceRewardObject]
 

@@ -119,32 +119,31 @@ class GenericList[CDT: StructOrSimple](CStructureDataclass, RuntimeGenericMixin[
 
 
 class GenericDictionaryEntry(CStructureDataclass):
-    """
-    Single entry in Dictionary<TKey, TVal>.m_items
+    """Common managed entry header; concrete entries define key/value storage and stride."""
 
-    Depending on the generic sharing strategy used by Il2Cpp, the actual layout of the entry may vary.
-    Data may be inlined directly in the entry on runtime.
-    Use dedicated subclasses for specific TKey/TValue if layout uses specialized types instead of Il2CppObject pointers.
-    """
     hashCode: C_Int[c_int32]
-    _ignored_1: c_int32  # omitted: next
-    key: C_VoidPtr
-    value: C_VoidPtr
+    next: C_Int[c_int32]
 
 
-class GenericDictionaryFields[CDT: StructOrSimple = GenericDictionaryEntry](CStructureDataclass,
-                                                                            RuntimeGenericMixin[CDT]):
-    _ignored_1: C_UDeclPtr  # omitted: buckets
+class GenericIntDictionaryEntry(GenericDictionaryEntry):
+    """Default Int32 key storage"""
+
+    key: C_Int[c_int32]
+
+
+class GenericDictionaryFields[CDT: StructOrSimple](CStructureDataclass, RuntimeGenericMixin[CDT]):
+    buckets: GenericArrayPtr[c_int32]
     entries: GenericArrayPtr[CDT]
     count: C_Int[c_int32]
-    _ignored_2: c_int32  # omitted: freeList
+    _ignored_1: c_int32  # omitted: freeList
     freeCount: C_Int[c_int32]
     version: C_Int[c_int32]
-    _ignored_3: ArrayType[C_UDeclPtr, L[4]]  # omitted: comparer, keys, values, syncRoot
+    comparer: C_UDeclPtr
+    _ignored_2: ArrayType[C_UDeclPtr, L[3]]  # omitted: keys, values, syncRoot
 
 
 class GenericDictionary[CDT: StructOrSimple](CStructureDataclass, RuntimeGenericMixin[CDT]):
-    """Managed ``Dictionary<TKey, TValue>`` wrapper over entry array storage."""
+    """Iterate managed entries; Int32/enum keys also support keyed access."""
 
     _il2cpp_obj: RuntimeIl2CppObject
     fields: GenericDictionaryFields[CDT]
@@ -169,6 +168,77 @@ class GenericDictionary[CDT: StructOrSimple](CStructureDataclass, RuntimeGeneric
             if typed_entry.hashCode >= 0:
                 yield entry
 
+    def __reversed__(self) -> Iterator[CDT]:
+        """Yield active entries in reverse storage order, without materializing them."""
+
+        for entry in reversed(self.span()):
+            if type_cast(GenericDictionaryEntry, entry).hashCode >= 0:
+                yield entry
+
+    def _validate_lookup_key(self, key: int) -> None:
+        key_field = CStructureDataclass.field_descriptor(self._resolve_class_target_type(), 'key')
+        if key_field is None or not issubclass(key_field.type, c_int32):
+            raise TypeError("Keyed access requires an Int32 or Int32 enum key")
+
+        if not -(2 ** 31) <= key < 2 ** 31:
+            raise OverflowError("Dictionary key is outside Int32")
+
+    def _lookup_buckets(self, entry_count: int) -> Span[c_int32]:
+        if self.fields.comparer:
+            raise NotImplementedError("Keyed access does not support custom dictionary comparers")
+
+        if not (buckets := self.fields.buckets.span()):
+            raise TransientContainerStateError("GenericDictionary buckets", entry_count,
+                                               self.fields.buckets.address, 0)
+        return buckets
+
+    def _find_in_bucket_chain(self, key: int, entries: Span[CDT]) -> Optional[CDT]:
+        buckets = self._lookup_buckets(len(entries))
+        hash_code = key & 0x7FFFFFFF
+        # Buckets are one-based (0 = empty); collision links are zero-based (-1 = end).
+        index = buckets[hash_code % len(buckets)].value - 1
+        for _ in range(len(entries)):
+            if index == -1:
+                return None
+
+            if not 0 <= index < len(entries):
+                raise TransientContainerStateError("GenericDictionary entry index", index,
+                                                   entries.pointer.address, len(entries))
+            entry = entries[index]
+            integer_entry = type_cast(GenericIntDictionaryEntry, entry)
+            if integer_entry.hashCode < 0:
+                raise TransientContainerStateError("GenericDictionary linked free entry", integer_entry.hashCode,
+                                                   entries.pointer.address, len(entries))
+
+            if integer_entry.hashCode == hash_code and integer_entry.key == key:
+                return entry
+
+            index = integer_entry.next
+        if index != -1:
+            raise TransientContainerStateError("GenericDictionary collision cycle", index,
+                                               entries.pointer.address, len(entries))
+        return None
+
+    def get(self, key: int) -> Optional[CDT]:
+        """Find an Int32/enum entry by key; return None only when absent."""
+
+        self._validate_lookup_key(key)
+        if not (entries := self.span()):
+            return None
+
+        return self._find_in_bucket_chain(key, entries)
+
+    def __getitem__(self, key: int) -> CDT:
+        """Return an entry by key, not by storage index; raise KeyError when absent."""
+
+        if (entry := self.get(key)) is not None:
+            return entry
+
+        raise KeyError(key)
+
+    def __contains__(self, key: int) -> bool:
+        return self.get(key) is not None
+
     def __len__(self) -> int:
         count = self.fields.count
         free_count = self.fields.freeCount
@@ -186,10 +256,7 @@ class GenericDictionary[CDT: StructOrSimple](CStructureDataclass, RuntimeGeneric
     def last(self) -> Optional[CDT]:
         """Return the last active entry in used storage order."""
 
-        for entry in reversed(self.span()):
-            if type_cast(GenericDictionaryEntry, entry).hashCode >= 0:
-                return entry
-        return None
+        return next(reversed(self), None)
 
     @property
     def value(self) -> list[CDT]:
