@@ -15,16 +15,17 @@ import os
 import re
 import struct
 from bisect import bisect_right
-from contextlib import ExitStack, contextmanager
+from contextlib import AbstractContextManager, ExitStack, contextmanager
 from ctypes import (Array, POINTER as _POINTER, addressof, byref as _byref, c_char, c_int, c_long, c_size_t, c_ssize_t,
                     c_ulong, c_void_p, create_string_buffer, create_unicode_buffer, sizeof)
 from ctypes.wintypes import BOOL, DWORD, HANDLE, HMODULE, INT, LPWSTR, WCHAR
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from mmap import PAGESIZE
 from pathlib import Path
 from typing import (Any, Callable, Iterable, Iterator, Literal as L, Optional, Protocol, Self, TYPE_CHECKING, TypeAlias,
                     TypeVar, cast as type_cast)
 
-from ctypes_utils import CStructureDataclass, C_VoidPtr, StrArrayType, set_pointer_reader
+from ctypes_utils import CStructureDataclass, C_VoidPtr, PointerReader, StrArrayType, set_pointer_reader
 from minidump_zstd import open_compressed_dump
 
 if TYPE_CHECKING:
@@ -35,6 +36,11 @@ TARGET_PROCESS = "UmamusumePrettyDerby.exe"
 TARGET_MODULE = "GameAssembly.dll"
 POINTER_SIZE = 8  # x64 only
 DEFAULT_CACHE_FETCH_WINDOW_SIZE = 1 * 1024 * 1024
+_READ_VALIDATION_MAX_GAP = 1024
+type MemoryReadSet = dict[tuple[int, int], bytes]
+type MemoryReadValidator = Callable[[MemoryReadSet], None]
+type _ReadSamples = list[tuple[int, bytes]]
+type _PageReads = dict[int, _ReadSamples]
 
 
 class TransientMemoryReadError(RuntimeError):
@@ -61,6 +67,9 @@ class MemoryReader(Protocol):
 
     def clear_cache(self) -> None: ...
 
+    def observe_reads(self, previous: Optional[MemoryReadObservation] = None) \
+            -> AbstractContextManager[Optional[MemoryReadObservation]]: ...
+
     def is_alive(self) -> bool: ...
 
     def exe_path(self) -> str: ...
@@ -85,7 +94,7 @@ class MemoryReader(Protocol):
 # ---------------------------------------------------------------------------
 
 class _ReaderMixin:
-    """Implements scalar-read helpers in terms of self.read()."""
+    """Stateless scalar-read helpers and bounded cache-window calculations."""
 
     def read(self, address: int, size: int) -> bytes:
         raise NotImplementedError  # must be implemented by concrete subclass
@@ -136,12 +145,13 @@ class _ReadCache:
     order.  Both backends populate entries lazily on first access.
     """
 
-    __slots__ = ("_starts", "_entries")
+    __slots__ = ("_starts", "_entries", "_observed")
 
     def __init__(self) -> None:
         self._starts: list[int] = []
         # start -> (exclusive_end, data)
         self._entries: dict[int, tuple[int, bytes]] = {}
+        self._observed: Optional[MemoryReadSet] = None
 
     def lookup(self, address: int) -> Optional[tuple[int, int, bytes]]:
         """Return ``(start, end, data)`` for the cached block containing *address*, or ``None``."""
@@ -172,7 +182,105 @@ class _ReadCache:
         if address + size > end:
             return None  # request spans beyond this block
         off = address - start
-        return data[off: off + size]
+        return self.record_read(address, size, data[off: off + size])
+
+    def record_read(self, address: int, size: int, data: bytes) -> bytes:
+        if self._observed is not None and size:
+            if self._observed.setdefault((address, size), data) != data:
+                raise TransientMemoryReadError('Conflicting bytes observed during extraction',
+                                               address=address, size=size)
+        return data
+
+    @staticmethod
+    def _validate_read_batch(start: int, end: int, reads: _ReadSamples, fetch: PointerReader) -> None:
+        current = fetch(start, end - start)
+        if len(current) != end - start:
+            raise TransientMemoryReadError('Dependency validation returned an incomplete memory span',
+                                           address=start, size=end - start)
+        for address, expected in reads:
+            offset = address - start
+            if current[offset:offset + len(expected)] != expected:
+                raise TransientMemoryReadError('Cached dependency changed during extraction',
+                                               address=address, size=len(expected))
+
+    def _group_reads_by_window(self, observed: MemoryReadSet) -> Iterable[_PageReads]:
+        """Group reads by enclosing cache window and start page, retaining encounter order."""
+        windows: dict[tuple[int, int], _PageReads] = {}
+        for (address, size), expected in observed.items():
+            if not size:
+                continue
+            block = self.lookup(address)
+            window = (block[0], block[1]) if block and address + size <= block[1] else (address, address + size)
+            pages = windows.setdefault(window, {})
+            pages.setdefault(address // PAGESIZE, []).append((address, expected))
+        return windows.values()
+
+    def _validate_window_reads(self, pages: _PageReads, fetch: PointerReader) -> None:
+        """Merge nearby page spans within one window, then verify each batch."""
+        batch_start = batch_end = 0
+        merged_reads: _ReadSamples = []
+        for _, page_reads in sorted(pages.items()):
+            start = min(address for address, _ in page_reads)
+            end = max(address + len(expected) for address, expected in page_reads)
+            if merged_reads and start > batch_end + _READ_VALIDATION_MAX_GAP:
+                self._validate_read_batch(batch_start, batch_end, merged_reads, fetch)
+                merged_reads = []
+            if not merged_reads:
+                batch_start, batch_end = start, end
+            else:
+                batch_end = max(batch_end, end)
+            merged_reads.extend(page_reads)
+        if merged_reads:
+            self._validate_read_batch(batch_start, batch_end, merged_reads, fetch)
+
+    def validate_reads(self, observed: MemoryReadSet, fetch: PointerReader) -> None:
+        """Verify observed bytes without updating the cache or comparing padding.
+
+        Keep page buckets, merging gaps of at most 1 KiB within a cached window.
+        Cross-window requests retain their exact extent; every observation is
+        checked in full, including reads that cross pages or overlap other reads.
+        """
+        for pages in self._group_reads_by_window(observed):
+            self._validate_window_reads(pages, fetch)
+
+
+@dataclass(frozen=True)
+class MemoryReadObservation:
+    """Requested source bytes for one attempted live export, never a replacement cache.
+
+    A ctypes request includes the whole struct, not just its accessed fields.
+    Validation is conservative and best-effort, not an atomic target snapshot.
+    """
+
+    validator: MemoryReadValidator
+    reads: MemoryReadSet = field(default_factory=dict, repr=False)
+
+    def validate(self) -> None:
+        self.validator(self.reads)
+
+
+class _ReadObservationMixin(_ReaderMixin):
+    """Cache-owned observation scope lifecycle."""
+
+    _cache: _ReadCache
+
+    def _new_read_observation(self) -> Optional[MemoryReadObservation]:
+        """Immutable readers need no live-read validation."""
+        return None
+
+    @contextmanager
+    def observe_reads(self, previous: Optional[MemoryReadObservation] = None) \
+            -> Iterator[Optional[MemoryReadObservation]]:
+        """Collect a non-nested scope, optionally resuming the preflight observation."""
+        observation = previous if previous is not None else self._new_read_observation()
+        if observation is None:
+            yield None
+        else:
+            self._cache._observed = observation.reads
+            try:
+                yield observation
+            finally:
+                self._cache._observed = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -257,7 +365,7 @@ class _RegionChunkScanMixin(_ReaderMixin):
 # MinidumpMemory
 # ---------------------------------------------------------------------------
 
-class MinidumpMemory(_RegionChunkScanMixin):
+class MinidumpMemory(_ReadObservationMixin, _RegionChunkScanMixin):
     """Offline process memory via python-minidump.
 
     Span data is loaded into ``_ReadCache`` on first access so subsequent reads
@@ -679,7 +787,7 @@ def _iter_snapshot[_SnapshotEntryT: CStructureDataclass](
         ok = next_fn(snap, entry)
 
 
-class WindowsProcessMemory(_RegionChunkScanMixin):
+class WindowsProcessMemory(_ReadObservationMixin, _RegionChunkScanMixin):
     """Live process memory backend using Windows ntdll APIs through ctypes.
 
     Each readable VM region is fetched in full via a single ``NtReadVirtualMemory``
@@ -715,6 +823,12 @@ class WindowsProcessMemory(_RegionChunkScanMixin):
 
     def _deregister(self) -> None:
         set_pointer_reader(None)
+
+    def _new_read_observation(self) -> MemoryReadObservation:
+        return MemoryReadObservation(self._validate_read_set)
+
+    def _validate_read_set(self, observed: MemoryReadSet) -> None:
+        self._cache.validate_reads(observed, self._read_remote)
 
     def close(self) -> None:
         self._deregister()
@@ -779,7 +893,7 @@ class WindowsProcessMemory(_RegionChunkScanMixin):
             out.extend(block_data[off: off + take])
             cursor += take
 
-        return bytes(out)
+        return self._cache.record_read(address, size, bytes(out))
 
     def _fetch_region_into_cache(self, address: int, min_size: int) -> None:
         """Query and read a bounded window from the committed readable region containing *address*."""
@@ -809,27 +923,31 @@ class WindowsProcessMemory(_RegionChunkScanMixin):
         fetch_start, fetch_end = self._cache_fetch_bounds(region_base, region_end, address, min_size)
         fetch_size = fetch_end - fetch_start
 
-        buf = create_string_buffer(fetch_size)
+        data = self._read_remote(fetch_start, fetch_size)
+        if len(data) <= address - fetch_start:
+            raise TransientMemoryReadError(
+                    f"Read window 0x{fetch_start:X}-0x{fetch_end:X} did not cover 0x{address:X}",
+                    address=fetch_start, size=fetch_size)
+        self._cache.insert(fetch_start, fetch_start + len(data), data)
+
+    def _read_remote(self, address: int, size: int) -> bytes:
+        buf = create_string_buffer(size)
         read_len = c_size_t(0)
         status = _ntdll.NtReadVirtualMemory(
                 self._process,
-                c_void_p(fetch_start),
+                c_void_p(address),
                 buf,
-                fetch_size,
+                size,
                 byref(read_len),
         )
         actual = int(read_len.value)
-        read_ok = status >= 0 and actual > 0
-        if read_ok and actual <= address - fetch_start:
-            read_ok = False
-        if not read_ok:
+        if status < 0 or actual == 0:
             raise TransientMemoryReadError(
-                    f"NtReadVirtualMemory(0x{fetch_start:X}, size={fetch_size}) failed "
+                    f"NtReadVirtualMemory(0x{address:X}, size={size}) failed "
                     f"(status=0x{status & 0xFFFFFFFF:08X}, read={actual})",
-                    address=fetch_start,
-                    size=fetch_size)
-
-        self._cache.insert(fetch_start, fetch_start + actual, bytes(buf.raw[:actual]))
+                    address=address,
+                    size=size)
+        return bytes(buf.raw[:actual])
 
     @staticmethod
     def _find_pid_by_name(process_name: str) -> int:
@@ -907,7 +1025,7 @@ class WindowsProcessMemory(_RegionChunkScanMixin):
 # Linux ProcessMemory
 # -----------------------------------------------------------------------------
 
-class LinuxProcessMemory(_RegionChunkScanMixin):
+class LinuxProcessMemory(_ReadObservationMixin, _RegionChunkScanMixin):
     """
     Linux live process reader using:
 
@@ -937,6 +1055,12 @@ class LinuxProcessMemory(_RegionChunkScanMixin):
 
     def _deregister(self) -> None:
         set_pointer_reader(None)
+
+    def _new_read_observation(self) -> MemoryReadObservation:
+        return MemoryReadObservation(self._validate_read_set)
+
+    def _validate_read_set(self, observed: MemoryReadSet) -> None:
+        self._cache.validate_reads(observed, self._read_remote)
 
     def close(self) -> None:
         self._deregister()
@@ -1013,7 +1137,7 @@ class LinuxProcessMemory(_RegionChunkScanMixin):
             out.extend(block_data[offset: offset + take])
             cursor += take
 
-        return bytes(out)
+        return self._cache.record_read(address, size, bytes(out))
 
     def _read_remote(self, address: int, size: int) -> bytes:
         buf = create_string_buffer(size)

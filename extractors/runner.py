@@ -1,4 +1,4 @@
-"""Extractor preflight, fingerprint verification, persistence, and per-run bookkeeping."""
+"""Extractor preflight, source-read validation, persistence, and per-run bookkeeping."""
 from __future__ import annotations
 
 import json
@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Optional, TYPE_CHECKING, cast as type_cast
 
 from logger import logger
-from memory import TransientMemoryReadError
+from memory import MemoryReadObservation, MemoryReader, TransientMemoryReadError
 from schema_validation import RuntimeTypeMetadataHandleMismatchError, TransientRuntimeValidationError
 from .common import ExtractorFingerprint, FingerprintableExtractionData
 
@@ -29,11 +29,13 @@ def _write_multi_output_json(output_folder: Path, key: str, payload: Any) -> Non
 
 @dataclass(frozen=True)
 class PreparedExtractorRun:
-    """Resolved extractor input and fingerprint, retained for one memory pass."""
+    """Resolved input, shallow change key and source reads for one extraction attempt."""
 
     extractor: Extractor[Any, Any, Any]
     extraction_data: FingerprintableExtractionData
     fingerprint: ExtractorFingerprint
+    reader: MemoryReader
+    observation: Optional[MemoryReadObservation]
 
 
 @dataclass
@@ -77,6 +79,7 @@ class ExtractionRunState:
 
 
 def prepare_extractor_runs(
+        reader: MemoryReader,
         extractors: tuple[Extractor[Any, Any, Any], ...],
         data: Any,
         state: Optional[ExtractionRunState],
@@ -85,15 +88,18 @@ def prepare_extractor_runs(
     prepared_runs: list[PreparedExtractorRun] = []
     for extractor in extractors:
         try:
-            maybe_extraction_data = extractor.resolve(data)
-            if maybe_extraction_data is None:
-                if state is not None:
-                    state.clear_metadata_handle_mismatch(extractor.name)
-                if skips is not None:
-                    skips.unavailable.append(extractor.name)
-                continue
-            extraction_data = type_cast(FingerprintableExtractionData, maybe_extraction_data)
-            fingerprint = extraction_data.fingerprint()
+            with reader.observe_reads() as observation:
+                maybe_extraction_data = extractor.resolve(data)
+                if maybe_extraction_data is None:
+                    if state is not None:
+                        state.clear_metadata_handle_mismatch(extractor.name)
+                    if skips is not None:
+                        skips.unavailable.append(extractor.name)
+                    continue
+                extraction_data = type_cast(FingerprintableExtractionData, maybe_extraction_data)
+                fingerprint = extraction_data.fingerprint()
+            if observation is not None:
+                observation.validate()
         except RuntimeTypeMetadataHandleMismatchError as exc:
             failures = state.note_metadata_handle_mismatch(extractor.name) if state is not None else 1
             if failures < METADATA_HANDLE_MISMATCH_QUARANTINE_THRESHOLD:
@@ -119,28 +125,8 @@ def prepare_extractor_runs(
             state.clear_metadata_handle_mismatch(extractor.name)
         if _skip_unchanged_extractor(extractor.name, fingerprint, state, skips):
             continue
-        prepared_runs.append(PreparedExtractorRun(extractor, extraction_data, fingerprint))
+        prepared_runs.append(PreparedExtractorRun(extractor, extraction_data, fingerprint, reader, observation))
     return tuple(prepared_runs)
-
-
-def _prepared_fingerprint_is_current(prepared: PreparedExtractorRun) -> bool:
-    """Reject a payload if its live source changed after the access precheck."""
-    try:
-        current_fingerprint = prepared.extraction_data.fingerprint()
-    except RuntimeTypeMetadataHandleMismatchError as exc:
-        logger.warning("%s: post-decode type metadata mismatch; extraction skipped: %s",
-                       prepared.extractor.name, exc)
-        return False
-    except (TransientMemoryReadError, TransientRuntimeValidationError) as exc:
-        logger.debug("%s: post-decode fingerprint check deferred: %s", prepared.extractor.name, exc)
-        return False
-    except Exception:
-        logger.exception("Error verifying extractor %s fingerprint", prepared.extractor.name)
-        return False
-    if current_fingerprint == prepared.fingerprint:
-        return True
-    logger.debug("%s: input changed after access precheck; extraction deferred", prepared.extractor.name)
-    return False
 
 
 def run_extractor_runs(prepared_runs: tuple[PreparedExtractorRun, ...], state: Optional[ExtractionRunState]) -> None:
@@ -154,9 +140,10 @@ def _run_extractor_run(prepared: PreparedExtractorRun, state: Optional[Extractio
     extractor = prepared.extractor
     try:
         logger.info("Running extractor: %s", extractor.name)
-        payload = extractor.extract(prepared.extraction_data)
-        if not _prepared_fingerprint_is_current(prepared):
-            return
+        with prepared.reader.observe_reads(prepared.observation) as observation:
+            payload = extractor.extract(prepared.extraction_data)
+        if observation is not None:
+            observation.validate()
         _write_extractor_payload(extractor, payload)
         if state is not None:
             state.record(extractor.name, prepared.fingerprint)
@@ -167,6 +154,9 @@ def _run_extractor_run(prepared: PreparedExtractorRun, state: Optional[Extractio
         logger.warning("%s: transient memory state; extraction skipped: %s", extractor.name, exc)
     except Exception:
         logger.exception("Error in extractor %s", extractor.name)
+    finally:
+        if prepared.observation is not None:
+            prepared.observation.reads.clear()
 
 
 def _skip_unchanged_extractor(

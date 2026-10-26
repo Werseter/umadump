@@ -15,7 +15,7 @@ from il2cpp_structs import (RuntimeIl2CppClass, RuntimeIl2CppGenericClass, Runti
                             RuntimeIl2CppMetadataRegistration, RuntimeIl2CppType)
 from il2cpp_utils import Il2CppResolutionManager
 from logger import logger
-from schema_validation import RuntimeValidatableIl2CppClassManager
+from schema_validation import RuntimeValidatableIl2CppClassManager, TransientRuntimeValidationError
 
 
 @dataclass(frozen=True)
@@ -294,8 +294,14 @@ class ExtractionContext:
 
     def singleton[TStaticFields: SingletonStaticFields, TSingletonObject: SingletonObject](
             self, spec: SingletonSpec[TStaticFields, TSingletonObject]) -> Optional[C_Ptr[TSingletonObject]]:
+        instance = self.roots.instances.get(spec.name)
+        if anchor := self.roots.singleton_statics.get(spec.name):
+            # Include the mutable instance slot in the consumer's read observation.
+            current = anchor.contents._instance
+            if current.address != (instance.address if instance else 0):
+                raise TransientRuntimeValidationError(f'{spec.target_type} instance changed after root refresh')
         # noinspection PyTypeChecker
-        return type_cast(Optional[C_Ptr[TSingletonObject]], self.roots.instances.get(spec.name))
+        return type_cast(Optional[C_Ptr[TSingletonObject]], instance)
 
     def require_singleton[TStaticFields: SingletonStaticFields, TSingletonObject: SingletonObject](
             self, spec: SingletonSpec[TStaticFields, TSingletonObject]) -> TSingletonObject:

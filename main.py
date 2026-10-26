@@ -188,13 +188,14 @@ EXTRACTORS: tuple[Extractor[Any, Any, Any], ...] = (
 
 
 def _dump_from_singleton_roots(
+        mem: MemoryReader,
         roots: ResolvedSingletonRoots,
         state: Optional[ExtractionRunState] = None) -> float:
     """Run all extractors from already-resolved singleton roots and return elapsed seconds."""
     t_start = time.perf_counter()
     ctx = ExtractionContext(roots)
     skips = ExtractorPassSkips()
-    prepared_runs = prepare_extractor_runs(EXTRACTORS, ctx, state, skips)
+    prepared_runs = prepare_extractor_runs(mem, EXTRACTORS, ctx, state, skips)
     run_extractor_runs(prepared_runs, state)
     skips.log()
     return time.perf_counter() - t_start
@@ -213,7 +214,7 @@ def _run_extractor_pass(
     _clear_memory_cache(mem)
     try:
         refresh_live_singleton_roots(resolver, singleton_index, roots)
-        return _dump_from_singleton_roots(roots, state)
+        return _dump_from_singleton_roots(mem, roots, state)
     finally:
         _clear_memory_cache(mem)
 
