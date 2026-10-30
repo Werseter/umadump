@@ -391,6 +391,7 @@ def decode_idle_single_mode(data: IdleSingleModeExtractionData) -> dict[str, Any
             "is_umaplan": False
         },
         "extra_data": {
+            "viewer_id": data.viewer_id,
             "trained_chara": trained_chara,
         }
     }

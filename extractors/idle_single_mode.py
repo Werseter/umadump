@@ -36,6 +36,7 @@ class IdleSingleModeExtractionData:
     resume_factor_select: C_Ptr[SingleModeFactorSelectCommonObject]
     context: ExtractorContext
     finalized_veteran: C_Ptr[TrainedCharaDataObject] | None = None
+    viewer_id: int = 0
 
     def factor_sources(self) -> CareerFactorSources | None:
         character_id = self.finalized_chara_info.contents.fields.card_id // 100
@@ -46,6 +47,7 @@ class IdleSingleModeExtractionData:
         return (
             "idle_single_mode",
             self.state,
+            self.viewer_id,
             validated_object_pointer_fingerprint(self.chara_info),
             self.start_time,
             self.end_time,
@@ -108,6 +110,8 @@ def resolve_idle_single_mode(context: ExtractorContext) -> Optional[IdleSingleMo
         chara = finalized_chara_info_ptr.contents.fields
         finalized_veteran = resolve_finalized_veteran(wdm, (chara.card_id, chara.scenario_id, chara.fans))
 
+    user = wdm.fields.userData
+    viewer_id = user.contents.fields.viewerId.value if user else 0
     return IdleSingleModeExtractionData(
             state=IdleSingleModePlayingState(idle_career_data.state.value),
             chara_info=idle_career_data.charaInfo,
@@ -118,6 +122,7 @@ def resolve_idle_single_mode(context: ExtractorContext) -> Optional[IdleSingleMo
             resume_factor_select=career_data.fields.resumeFactorSelect,
             finalized_veteran=finalized_veteran,
             context=context,
+            viewer_id=viewer_id,
     )
 
 
