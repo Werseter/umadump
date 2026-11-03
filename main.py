@@ -93,7 +93,9 @@ def _write_trophy_data_json(output_folder: Path, key: str, trophies: TrophyDataO
     write_json_file(key, output_folder / f"{key}.json", trophies.payload)
 
 
-EXTRACTORS: tuple[Extractor[Any, Any, Any], ...] = (
+ExtractorSelection = tuple[Extractor[Any, Any, Any], ...]
+
+EXTRACTORS: ExtractorSelection = (
     Extractor(
             name="support_cards",
             output_path=Path("support_card_data.json"),
@@ -190,12 +192,13 @@ EXTRACTORS: tuple[Extractor[Any, Any, Any], ...] = (
 def _dump_from_singleton_roots(
         mem: MemoryReader,
         roots: ResolvedSingletonRoots,
-        state: Optional[ExtractionRunState] = None) -> float:
-    """Run all extractors from already-resolved singleton roots and return elapsed seconds."""
+        state: ExtractionRunState,
+        extractors: ExtractorSelection) -> float:
+    """Run the selected extractors from already-resolved roots and return elapsed seconds."""
     t_start = time.perf_counter()
     ctx = ExtractionContext(roots)
     skips = ExtractorPassSkips()
-    prepared_runs = prepare_extractor_runs(mem, EXTRACTORS, ctx, state, skips)
+    prepared_runs = prepare_extractor_runs(mem, extractors, ctx, state, skips)
     run_extractor_runs(prepared_runs, state)
     skips.log()
     return time.perf_counter() - t_start
@@ -210,11 +213,12 @@ def _run_extractor_pass(
         resolver: Il2CppResolutionManager,
         singleton_index: SingletonGenericIndex,
         roots: ResolvedSingletonRoots,
-        state: ExtractionRunState) -> float:
+        state: ExtractionRunState,
+        extractors: ExtractorSelection) -> float:
     _clear_memory_cache(mem)
     try:
         refresh_live_singleton_roots(resolver, singleton_index, roots)
-        return _dump_from_singleton_roots(mem, roots, state)
+        return _dump_from_singleton_roots(mem, roots, state, extractors)
     finally:
         _clear_memory_cache(mem)
 
@@ -225,9 +229,7 @@ def _run_extractor_pass(
 
 def _run_live_reload_loop(
         mem: MemoryReader,
-        resolver: Il2CppResolutionManager,
-        singleton_index: SingletonGenericIndex,
-        roots: ResolvedSingletonRoots,
+        run_pass: Callable[[ExtractionRunState], float],
         poll_interval: float) -> None:
     """Repeatedly rerun extractors using fixed singleton roots and fresh memory reads."""
     state = ExtractionRunState()
@@ -237,7 +239,7 @@ def _run_live_reload_loop(
             logger.info("Target process has exited; stopping live reload")
             return
 
-        elapsed = _run_extractor_pass(mem, resolver, singleton_index, roots, state)
+        elapsed = run_pass(state)
         logger.info("Reload extractor pass %d completed in %.2fs", pass_num, elapsed)
 
         try:
@@ -249,7 +251,7 @@ def _run_live_reload_loop(
         if response in {"q", "quit", "exit"}:
             return
         if response in {"d", "daemon"}:
-            _run_live_daemon_loop(mem, resolver, singleton_index, roots, poll_interval, state)
+            _run_live_daemon_loop(mem, run_pass, poll_interval, state)
             return
 
         pass_num += 1
@@ -257,9 +259,7 @@ def _run_live_reload_loop(
 
 def _run_live_daemon_loop(
         mem: MemoryReader,
-        resolver: Il2CppResolutionManager,
-        singleton_index: SingletonGenericIndex,
-        roots: ResolvedSingletonRoots,
+        run_pass: Callable[[ExtractionRunState], float],
         poll_interval: float,
         maybe_state: Optional[ExtractionRunState] = None) -> None:
     """Run extractors repeatedly without prompting until the target exits."""
@@ -268,7 +268,7 @@ def _run_live_daemon_loop(
     poll_interval = max(0.1, float(poll_interval))
     logger.info("Daemon mode started; polling every %.2fs", poll_interval)
     while mem.is_alive():
-        elapsed = _run_extractor_pass(mem, resolver, singleton_index, roots, state)
+        elapsed = run_pass(state)
         logger.debug("Daemon extractor pass %d completed in %.2fs", pass_num, elapsed)
 
         pass_num += 1
@@ -282,7 +282,8 @@ def _run_live_daemon_loop(
 
 
 def main() -> None:
-    args = _parse_args()
+    extractor_names = tuple(extractor.name for extractor in EXTRACTORS)
+    args = _parse_args(extractor_names=extractor_names)
     configure_logging(args.verbose)
     t_start = time.perf_counter()
 
@@ -301,6 +302,7 @@ def main() -> None:
             if args.validate_only:
                 return
 
+            extractors = tuple(extractor for extractor in EXTRACTORS if extractor.name in args.enabled_extractors)
             _clear_memory_cache(setup.mem)
             try:
                 logger.info("Scanning %d generic class instantiations...", resolver.meta_reg.genericClassesCount)
@@ -310,13 +312,16 @@ def main() -> None:
             finally:
                 _clear_memory_cache(setup.mem)
 
+            def run_pass(state: ExtractionRunState) -> float:
+                return _run_extractor_pass(setup.mem, resolver, singleton_index, roots, state, extractors)
+
             rerun_mode = args.rerun_mode
             if rerun_mode == "daemon":
-                _run_live_daemon_loop(setup.mem, resolver, singleton_index, roots, args.poll_interval)
+                _run_live_daemon_loop(setup.mem, run_pass, args.poll_interval)
             elif rerun_mode == "prompt":
-                _run_live_reload_loop(setup.mem, resolver, singleton_index, roots, args.poll_interval)
+                _run_live_reload_loop(setup.mem, run_pass, args.poll_interval)
             else:
-                elapsed = _run_extractor_pass(setup.mem, resolver, singleton_index, roots, ExtractionRunState())
+                elapsed = run_pass(ExtractionRunState())
                 logger.info("Extractor pass completed in %.2fs", elapsed)
         finally:
             logger.info("Total time: %.2fs", time.perf_counter() - t_start)

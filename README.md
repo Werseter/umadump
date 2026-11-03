@@ -285,6 +285,11 @@ The `minidump` section applies only when you pass `--minidump PATH`. Minidumps
 still run once, and the dump path is never saved. CLI options override saved
 settings for that run without changing the file.
 
+To skip an export, set its name to `false` under `.extractors`. All extractors,
+including ones added by an update, default to enabled. For one run, use `--extractor NAME`
+to enable one, `--no-extractor NAME` to disable one, or `--all-extractors` to enable them all.
+These flags apply in command-line order; `--help` lists the names.
+
 Updates add missing settings without changing saved values or the
 `generated_with` version recorded when the file was created.
 
