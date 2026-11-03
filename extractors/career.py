@@ -6,7 +6,8 @@ from typing import Optional, TypeAlias
 from career_archive import CareerArchiveSnapshot, career_archive_descriptor
 from ctypes_utils import C_Ptr
 from game_structs.collections import GenericDictionary, GenericList
-from game_structs.enums import SingleModePlayingState, SingleModeScenarioId, SingleModeState, TEAM_RACE_PLAYING_STATES
+from game_structs.enums import (IdleSingleModePlayingState, SingleModePlayingState, SingleModeScenarioId,
+                                SingleModeState, TEAM_RACE_PLAYING_STATES)
 from game_structs.race import RaceInfoObject, SingleRaceStartInfoObject
 from game_structs.single_mode import (FactorSelectInfoObject, PartsSingleModeResultRankScoreModelObject,
                                       SingleModeChangeViewManagerObject, SingleModeEventAccesorObject,
@@ -529,12 +530,18 @@ class CareerDataExtractionData:
 
 
 def resolve_active_career_data_ptr(context: ExtractorContext) -> Optional[C_Ptr[WorkSingleModeDataObject]]:
-    career_data_ptr = context.work_data_manager.fields.singleMode
+    wdm = context.work_data_manager
+    career_data_ptr = wdm.fields.singleMode
     if not career_data_ptr:
         return None
 
     fields = career_data_ptr.contents.fields
     if not fields.isPlaying:
+        # Idle finalization shares the result controller but has its own export.
+        idle = wdm.fields.idleSingleModeData
+        if idle and idle.contents.fields.state.value != IdleSingleModePlayingState.None_:
+            return None
+
         if not fields.character:
             return None
 
