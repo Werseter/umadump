@@ -290,6 +290,11 @@ including ones added by an update, default to enabled. For one run, use `--extra
 to enable one, `--no-extractor NAME` to disable one, or `--all-extractors` to enable them all.
 These flags apply in command-line order; `--help` lists the names.
 
+Set `output_dir`to save exports and archives somewhere other than the current working
+directory. A relative path in the config is relative to `config.json`; `null` keeps the default.
+Use --output-dir PATH` for a one-run override (relative to the working directory).
+The destination is created when an export is written; existing exports are not moved.
+
 Updates add missing settings without changing saved values or the
 `generated_with` version recorded when the file was created.
 

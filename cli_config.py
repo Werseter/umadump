@@ -57,6 +57,8 @@ def _setting_help(action: argparse.Action, default: object) -> str:
         description += ". Values: true, false"
     elif action.dest == "metadata_path":
         description += ". Use null for automatic discovery"
+    elif action.dest == "output_dir":
+        description += ". Use null for the current working directory"
     elif action.dest == "poll_interval":
         description += ". Must be a positive finite number"
 
@@ -107,6 +109,10 @@ def _validate_settings(values: dict[str, object], mode: str) -> None:
     if metadata is not None and not isinstance(metadata, str):
         raise ValueError("metadata_path must be a path string or null")
 
+    output_dir = values["output_dir"]
+    if output_dir is not None and (not isinstance(output_dir, str) or not output_dir or "\x00" in output_dir):
+        raise ValueError("output_dir must be a nonempty path string or null")
+
     rerun = values["rerun_mode"]
     if rerun not in _RERUN_MODES:
         raise ValueError(f"rerun_mode must be one of: {', '.join(_RERUN_MODES)}")
@@ -154,6 +160,7 @@ def parse_args(argv: list[str] | None = None, *, extractor_names: tuple[str, ...
     parser.add_argument("--minidump", help="Path to full-memory .dmp or .dmp.zst minidump (offline mode)")
     settings: dict[argparse.Action, object] = {
         parser.add_argument("--metadata-path", help="global-metadata.dat path override"): None,
+        parser.add_argument("--output-dir", help="Directory for exported files and archives"): None,
         parser.add_argument("--no-update-check", action="store_true",
                             help="Skip the startup GitHub release check"): False,
         parser.add_argument("--rerun-mode", choices=_RERUN_MODES, help="Live rerun behavior"): "prompt",
@@ -201,9 +208,12 @@ def parse_args(argv: list[str] | None = None, *, extractor_names: tuple[str, ...
         enabled = _enabled_extractors(section["extractors"], extractor_names, overrides)
         if not enabled and not values["validate_only"]:
             raise ValueError("no extractors enabled; use --extractor NAME or --all-extractors")
-        if "metadata_path" not in cli and (saved_path := values["metadata_path"]):
-            assert isinstance(saved_path, str)
-            values["metadata_path"] = str(path.parent / saved_path)
+
+        for key in ("metadata_path", "output_dir"):
+            if key not in cli and (saved_path := values[key]):
+                assert isinstance(saved_path, str)
+                values[key] = str(path.parent / saved_path)
+
     except (OSError, ValueError) as exc:
         parser.error(f"{path} ({mode}): {exc}")
 

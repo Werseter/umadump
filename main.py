@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable, Generic, Optional, TypeVar
 
@@ -77,6 +77,14 @@ class Extractor(Generic[TExtractorInput, TExtractionData, TMultiOutputPayload]):
     output_folder: Optional[Path] = None
     key_fn: Optional[Callable[[TMultiOutputPayload], str]] = None
     writer: Optional[Callable[[Path, str, TMultiOutputPayload], None]] = None
+
+    def with_output_dir(self, directory: Path) -> Extractor[TExtractorInput, TExtractionData, TMultiOutputPayload]:
+        """Prefix the registered output path or folder without changing the registry."""
+        return replace(
+                self,
+                output_path=directory / self.output_path if self.output_path is not None else None,
+                output_folder=directory / self.output_folder if self.output_folder is not None else None,
+        )
 
 
 def _write_race_replay_json(output_folder: Path, key: str, replay: RaceReplayOutput) -> None:
@@ -303,6 +311,10 @@ def main() -> None:
                 return
 
             extractors = tuple(extractor for extractor in EXTRACTORS if extractor.name in args.enabled_extractors)
+            if args.output_dir is not None:
+                output_dir = Path(args.output_dir)
+                extractors = tuple(extractor.with_output_dir(output_dir) for extractor in extractors)
+
             _clear_memory_cache(setup.mem)
             try:
                 logger.info("Scanning %d generic class instantiations...", resolver.meta_reg.genericClassesCount)
