@@ -65,39 +65,35 @@ def _setting_help(action: argparse.Action, default: object) -> str:
     return f"{description}. Default: {json.dumps(default)}."
 
 
-def _backfill_config(config: dict[str, object], mode_settings: dict[str, dict[argparse.Action, object]],
-                     extractor_names: tuple[str, ...]) -> bool:
-    changed = False
+def _config_help(config: dict[str, object], mode_settings: dict[str, dict[argparse.Action, object]]) -> dict[str, str]:
     help_text: dict[str, str] = {}
     for mode, settings in mode_settings.items():
-        if mode not in config:
-            config[mode] = {}
+        if mode in config:
+            for action, default in settings.items():
+                help_text[f"{mode}.{action.dest}"] = _setting_help(action, default)
+            help_text[f"{mode}.extractors"] = "Set an extractor to false to disable it. New extractors default to true."
+    return help_text
+
+
+def _backfill_section(section: dict[str, object], settings: dict[argparse.Action, object],
+                      extractor_names: tuple[str, ...]) -> bool:
+    changed = False
+    for action, default in settings.items():
+        if action.dest not in section:
+            section[action.dest] = default
             changed = True
-        section = config[mode]
 
-        for action, default in settings.items():
-            key = action.dest
-            help_text[f"{mode}.{key}"] = _setting_help(action, default)
-            if isinstance(section, dict) and key not in section:
-                section[key] = default
+    if "extractors" not in section:
+        section["extractors"] = {}
+        changed = True
+
+    switches = section["extractors"]
+    if isinstance(switches, dict):
+        for name in extractor_names:
+            if name not in switches:
+                switches[name] = True
                 changed = True
-
-        help_text[f"{mode}.extractors"] = "Set an extractor to false to disable it. New extractors default to true."
-        if isinstance(section, dict):
-            if "extractors" not in section:
-                section["extractors"] = {}
-                changed = True
-            switches = section["extractors"]
-            if isinstance(switches, dict):
-                for name in extractor_names:
-                    if name not in switches:
-                        switches[name] = True
-                        changed = True
-
-    if changed or "_help" not in config:
-        config["_help"] = help_text
-        return True
-    return False
+    return changed
 
 
 def _validate_settings(values: dict[str, object], mode: str) -> None:
@@ -193,10 +189,15 @@ def parse_args(argv: list[str] | None = None, *, extractor_names: tuple[str, ...
     path = _config_path()
     try:
         config = _read_config(path)
-        changed = _backfill_config(config, mode_settings, extractor_names)
-        section = config[mode]
+        section = config.setdefault(mode, {})
         if not isinstance(section, dict):
             raise ValueError(f"{mode} must be a JSON object")
+
+        changed = _backfill_section(section, mode_settings[mode], extractor_names)
+        help_text = _config_help(config, mode_settings)
+        if config.get("_help") != help_text:
+            config["_help"] = help_text
+            changed = True
 
         values = {action.dest: default for action, default in settings.items()}
         if mode == "minidump":
