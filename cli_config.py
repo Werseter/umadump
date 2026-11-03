@@ -12,6 +12,10 @@ _LIVE_ONLY = {"rerun_mode", "poll_interval"}
 _RERUN_MODES = ("once", "prompt", "daemon")
 
 
+class ConfigError(ValueError):
+    """The config could not be loaded or the effective settings are invalid."""
+
+
 class _ExtractorOverride(argparse.Action):
     def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: object,
                  option_string: str | None = None) -> None:
@@ -216,7 +220,7 @@ def parse_args(argv: list[str] | None = None, *, extractor_names: tuple[str, ...
                 values[key] = str(path.parent / saved_path)
 
     except (OSError, ValueError) as exc:
-        parser.error(f"{path} ({mode}): {exc}")
+        raise ConfigError(f"{path} ({mode}): {exc}") from exc
 
     if changed:
         try:

@@ -25,6 +25,7 @@ if sys.version_info < (3, 14):
     raise SystemExit(1)
 
 from career_archive import CAREER_ARCHIVE_OUTPUT_FOLDER, write_career_archive_snapshot
+from cli_config import ConfigError
 from cli_config import parse_args as _parse_args
 from extractors.cards import extract_card_data, extract_support_cards, resolve_card_data, resolve_support_cards
 from extractors.career import career_snapshot_output_key, extract_career_snapshot, resolve_career_snapshot_data
@@ -291,7 +292,14 @@ def _run_live_daemon_loop(
 
 def main() -> None:
     extractor_names = tuple(extractor.name for extractor in EXTRACTORS)
-    args = _parse_args(extractor_names=extractor_names)
+    try:
+        args = _parse_args(extractor_names=extractor_names)
+    except ConfigError as error:
+        print(f"ERROR: {error}", file=sys.stderr, flush=True)
+        if sys.stdin.isatty():
+            _wait_for_exit()
+        raise SystemExit(2) from None
+
     configure_logging(args.verbose)
     t_start = time.perf_counter()
 
