@@ -2,7 +2,6 @@
 """Structured game-data extraction from live processes and full-memory minidumps."""
 from __future__ import annotations
 
-import argparse
 import sys
 import time
 from dataclasses import dataclass
@@ -26,6 +25,7 @@ if sys.version_info < (3, 14):
     raise SystemExit(1)
 
 from career_archive import CAREER_ARCHIVE_OUTPUT_FOLDER, write_career_archive_snapshot
+from cli_config import parse_args as _parse_args
 from extractors.cards import extract_card_data, extract_support_cards, resolve_card_data, resolve_support_cards
 from extractors.career import career_snapshot_output_key, extract_career_snapshot, resolve_career_snapshot_data
 from extractors.common import FingerprintableExtractionData
@@ -220,36 +220,6 @@ def _run_extractor_pass(
 
 
 # ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
-
-def _parse_args() -> argparse.Namespace:
-    """Parse CLI flags for live/minidump mode and optional validation-only run."""
-
-    parser = argparse.ArgumentParser(
-            description="Resolve Gallop.WorkDataManager from a live process or an offline minidump")
-    parser.add_argument("--version", action="version", version=f"%(prog)s {CURRENT_VERSION}")
-    parser.add_argument("--minidump", help="Path to full-memory .dmp or .dmp.zst minidump (offline mode)")
-    parser.add_argument("--metadata-path", help="global-metadata.dat path override")
-    parser.add_argument("--no-update-check", action="store_true",
-                        help="Skip the startup GitHub release check")
-    parser.add_argument("--rerun-mode", choices=("once", "prompt", "daemon"),
-                        help="Live rerun behavior. Defaults to prompt in live mode and once in minidump mode.")
-    parser.add_argument("--poll-interval", type=float, default=2.0,
-                        help="Seconds between daemon extraction passes")
-    parser.add_argument("--validate-only", action="store_true",
-                        help="Only validate registered classes and exit")
-    parser.add_argument("-v", "--verbose", action="store_true",
-                        help="Enable debug logging")
-    args = parser.parse_args()
-    if args.minidump and args.rerun_mode in {"prompt", "daemon"}:
-        parser.error("--rerun-mode prompt/daemon requires live process mode")
-    if args.poll_interval <= 0:
-        parser.error("--poll-interval must be greater than 0")
-    return args
-
-
-# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -340,7 +310,7 @@ def main() -> None:
             finally:
                 _clear_memory_cache(setup.mem)
 
-            rerun_mode = args.rerun_mode or ("once" if args.minidump else "prompt")
+            rerun_mode = args.rerun_mode
             if rerun_mode == "daemon":
                 _run_live_daemon_loop(setup.mem, resolver, singleton_index, roots, args.poll_interval)
             elif rerun_mode == "prompt":

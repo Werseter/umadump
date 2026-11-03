@@ -273,6 +273,21 @@ python main.py --validate-only
 python main.py --no-update-check
 ```
 
+### Save your preferences
+
+On first run, umadump creates `config.json` next to the executable (or next to
+`main.py` when running from source). To start in background monitoring mode by
+default, change `live.rerun_mode` from `"prompt"` to `"daemon"`. Set it to
+`"once"` to run once and exit. The file's `_help` section explains each setting
+and its allowed values.
+
+The `minidump` section applies only when you pass `--minidump PATH`. Minidumps
+still run once, and the dump path is never saved. CLI options override saved
+settings for that run without changing the file.
+
+Updates add missing settings without changing saved values or the
+`generated_with` version recorded when the file was created.
+
 ---
 
 ## Versioning & update notifications
