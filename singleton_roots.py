@@ -308,7 +308,7 @@ class ExtractionContext:
         """Read a required singleton without caching its object snapshot."""
         instance = self.singleton(spec)
         if not instance:
-            raise RuntimeError(f"{spec.target_type} not resolved")
+            raise TransientRuntimeValidationError(f"{spec.target_type} not resolved")
         return instance.contents
 
 
