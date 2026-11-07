@@ -1536,33 +1536,33 @@ class SingleModeLogPoolObject(CStructureDataclass):
 
 class WorkSingleModeDataFields(CStructureDataclass):
     storyInfoListDic: C_Ptr[GenericDictionary[WorkSingleModeDataStoryInfoListDictionaryEntry]]
-    _ignored_1: c_bool  # omitted: isExistPlayingData
+    isExistPlayingData: C_Bool[c_bool]
     isPlaying: C_Bool[c_bool]
     totalTurnNum: ObscuredInt
     character: C_Ptr[WorkSingleModeCharaDataObject]
     raceConditions: C_Ptr[GenericList[C_Ptr[WorkSingleModeDataRaceConditionObject]]]
     homeInfo: C_Ptr[WorkSingleModeHomeInfoObject]
-    _ignored_2: ObscuredInt  # omitted: addMusicId
+    _ignored_1: ObscuredInt  # omitted: addMusicId
     state: C_EnumIn[SingleModeState, ObscuredInt]
     playingState: C_EnumIn[SingleModePlayingState, ObscuredInt]
-    _ignored_3: ArrayType[C_UDeclPtr, L[2]]  # omitted: scenarioIdList, difficultyInfoList
+    _ignored_2: ArrayType[C_UDeclPtr, L[2]]  # omitted: scenarioIdList, difficultyInfoList
     changeParameterInfo: C_Ptr[WorkSingleModeChangeParameterInfoObject]
     raceHistoryInfoList: C_Ptr[GenericList[C_Ptr[RaceHistoryInfoObject]]]
     winSaddleArray: GenericArrayPtr[C_Ptr[MasterSingleModeWinsSaddleSingleModeWinsSaddleObject]]
     groupLogPool: C_Ptr[SingleModeLogPoolObject]
-    _ignored_4: ArrayType[ObscuredBool, L[4]]  # omitted: isStepTurn … isForceChangeViewMonthStartView
-    _ignored_5: ArrayType[ObscuredInt, L[2]]  # omitted: selectedTrainingCommandId, rentalCount
-    _ignored_6: ObscuredLong  # omitted: prevFreeRentalTime
+    _ignored_3: ArrayType[ObscuredBool, L[4]]  # omitted: isStepTurn … isForceChangeViewMonthStartView
+    _ignored_4: ArrayType[ObscuredInt, L[2]]  # omitted: selectedTrainingCommandId, rentalCount
+    _ignored_5: ObscuredLong  # omitted: prevFreeRentalTime
     successionEventInfo: C_Ptr[WorkSingleModeDataSuccessionEventInfoObject]
     raceStartResultInfoData: C_Ptr[WorkSingleModeDataRaceStartResultInfoObject]
-    _ignored_7: ArrayType[C_UDeclPtr, L[2]]  # omitted: racePieceCampaignInfoList, storyEventBonusDict
+    _ignored_6: ArrayType[C_UDeclPtr, L[2]]  # omitted: racePieceCampaignInfoList, storyEventBonusDict
     resumeFactorSelect: C_Ptr[SingleModeFactorSelectCommonObject]
-    _ignored_8: C_UDeclPtr  # omitted: skillUpgradeFactorSelect
+    _ignored_7: C_UDeclPtr  # omitted: skillUpgradeFactorSelect
     eventChoiceRewardDict: C_Ptr[GenericDictionary[WorkSingleModeEventChoiceRewardDictionaryEntry]]
     cachedRewardEventId: C_Int[c_int32]
-    _ignored_9: C_UDeclPtr  # omitted: defaultRunningStyleArray
-    _ignored_10: ObscuredBool  # omitted: isUmaplan
-    _ignored_11: C_UDeclPtr  # omitted: logAdditiveBuffer
+    _ignored_8: C_UDeclPtr  # omitted: defaultRunningStyleArray
+    _ignored_9: ObscuredBool  # omitted: isUmaplan
+    _ignored_10: C_UDeclPtr  # omitted: logAdditiveBuffer
 
 
 @register_runtime_validatable('Gallop::WorkSingleModeData')
