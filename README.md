@@ -323,6 +323,19 @@ Updates add missing settings without changing saved values or the
 
 The old dumper is still available in the `legacy` branch, but it is no longer maintained.
 
+## License and credits
+
+Project-owned source code and documentation are licensed under the [Mozilla Public License 2.0](LICENSE).
+Distributed modifications to covered source files must remain available under MPL 2.0.
+Separate tools that consume exported JSON do not acquire this license merely by using the data.
+
+Example captures, third-party screenshots and locally supplied assets are not granted an MPL
+license by this project. Their respective owners' rights remain unchanged.
+
+Run `umadump.exe --licenses` (or `python main.py --licenses`) for the license texts and source link.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution terms.
+
 ## Is this bannable?
 
 The program accesses the game memory. Currently, the game does not have any tools to intercept this kind of scan.

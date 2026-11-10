@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from update_check import CURRENT_VERSION
+from update_check import CURRENT_VERSION, GITHUB_REPOSITORY
 
 _LIVE_ONLY = {"rerun_mode", "poll_interval"}
 _RERUN_MODES = ("once", "prompt", "daemon")
@@ -150,6 +150,14 @@ def _enabled_extractors(switches: object, names: tuple[str, ...],
     return frozenset(enabled)
 
 
+def _print_licenses() -> None:
+    print(f"umadump {CURRENT_VERSION} — Mozilla Public License 2.0")
+    print(f"Official release source: https://github.com/{GITHUB_REPOSITORY}/tree/v{CURRENT_VERSION}")
+    print("Local development builds may differ from the published release.")
+    print(f"\n--- {"LICENSE"} ---\n")
+    print(Path(__file__).with_name("LICENSE").read_text(encoding="utf-8"), end="")
+
+
 def parse_args(argv: list[str] | None = None, *, extractor_names: tuple[str, ...]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
             description="Run from a live process or an offline minidump",
@@ -157,6 +165,7 @@ def parse_args(argv: list[str] | None = None, *, extractor_names: tuple[str, ...
             argument_default=argparse.SUPPRESS,
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {CURRENT_VERSION}")
+    parser.add_argument("--licenses", action="store_true", help="Show licenses and source availability, then exit")
     parser.add_argument("--minidump", help="Path to full-memory .dmp or .dmp.zst minidump (offline mode)")
     settings: dict[argparse.Action, object] = {
         parser.add_argument("--metadata-path", help="global-metadata.dat path override"): None,
@@ -182,6 +191,9 @@ def parse_args(argv: list[str] | None = None, *, extractor_names: tuple[str, ...
                         help="Enable all extractors for this run")
 
     cli = vars(parser.parse_args(argv))
+    if cli.pop("licenses", False):
+        _print_licenses()
+        parser.exit()
     overrides = cli.pop("extractor_overrides", [])
     minidump = cli.get("minidump")
     mode = "minidump" if minidump else "live"
