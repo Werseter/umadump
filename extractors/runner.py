@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional, TYPE_CHECKING, cast as type_cast
+from typing import Any, Iterator, Optional, TYPE_CHECKING, cast as type_cast
 
 from logger import logger
 from memory import MemoryReadObservation, MemoryReader, TransientMemoryReadError
@@ -78,6 +79,19 @@ class ExtractionRunState:
         self.fingerprints[name] = fingerprint
 
 
+@contextmanager
+def _observe_extraction_reads(reader: MemoryReader, previous: Optional[MemoryReadObservation] = None) \
+        -> Iterator[Optional[MemoryReadObservation]]:
+    """Observe reads and recheck failed type guards before mismatch classification."""
+    with reader.observe_reads(previous) as observation:
+        try:
+            yield observation
+        except RuntimeTypeMetadataHandleMismatchError:
+            if observation is not None:
+                observation.validate()
+            raise
+
+
 def prepare_extractor_runs(
         reader: MemoryReader,
         extractors: tuple[Extractor[Any, Any, Any], ...],
@@ -88,7 +102,7 @@ def prepare_extractor_runs(
     prepared_runs: list[PreparedExtractorRun] = []
     for extractor in extractors:
         try:
-            with reader.observe_reads() as observation:
+            with _observe_extraction_reads(reader) as observation:
                 maybe_extraction_data = extractor.resolve(data)
                 if maybe_extraction_data is None:
                     if state is not None:
@@ -140,7 +154,7 @@ def _run_extractor_run(prepared: PreparedExtractorRun, state: Optional[Extractio
     extractor = prepared.extractor
     try:
         logger.info("Running extractor: %s", extractor.name)
-        with prepared.reader.observe_reads(prepared.observation) as observation:
+        with _observe_extraction_reads(prepared.reader, prepared.observation) as observation:
             payload = extractor.extract(prepared.extraction_data)
         if observation is not None:
             observation.validate()
