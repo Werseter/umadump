@@ -44,12 +44,17 @@ type _PageReads = dict[int, _ReadSamples]
 
 
 class TransientMemoryReadError(RuntimeError):
-    """Raised when a live target memory read fails because the target changed."""
+    """A failed live memory read eligible for transient retry."""
 
     def __init__(self, message: str, *, address: int, size: Optional[int] = None) -> None:
         super().__init__(message)
         self.address = address
         self.size = size
+
+
+class InconsistentMemoryReadError(TransientMemoryReadError):
+    """Repeated observations returned different bytes for the same source range."""
+    pass
 
 
 # ---------------------------------------------------------------------------
@@ -187,8 +192,8 @@ class _ReadCache:
     def record_read(self, address: int, size: int, data: bytes) -> bytes:
         if self._observed is not None and size:
             if self._observed.setdefault((address, size), data) != data:
-                raise TransientMemoryReadError('Conflicting bytes observed during extraction',
-                                               address=address, size=size)
+                raise InconsistentMemoryReadError('Conflicting bytes observed during extraction',
+                                                  address=address, size=size)
         return data
 
     @staticmethod
@@ -200,8 +205,8 @@ class _ReadCache:
         for address, expected in reads:
             offset = address - start
             if current[offset:offset + len(expected)] != expected:
-                raise TransientMemoryReadError('Cached dependency changed during extraction',
-                                               address=address, size=len(expected))
+                raise InconsistentMemoryReadError('Cached dependency changed during extraction',
+                                                  address=address, size=len(expected))
 
     def _group_reads_by_window(self, observed: MemoryReadSet) -> Iterable[_PageReads]:
         """Group reads by enclosing cache window and start page, retaining encounter order."""

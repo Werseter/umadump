@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Iterator, Optional, TYPE_CHECKING, cast as type_cast
 
 from logger import logger
-from memory import MemoryReadObservation, MemoryReader, TransientMemoryReadError
+from memory import InconsistentMemoryReadError, MemoryReadObservation, MemoryReader, TransientMemoryReadError
 from schema_validation import RuntimeTypeMetadataHandleMismatchError, TransientRuntimeValidationError
 from .common import ExtractorFingerprint, FingerprintableExtractionData
 
@@ -79,6 +79,13 @@ class ExtractionRunState:
         self.fingerprints[name] = fingerprint
 
 
+def _log_transient(message: str, name: str,
+                   error: TransientMemoryReadError | TransientRuntimeValidationError) -> None:
+    """Report confirmed byte changes at DEBUG and other transient failures at WARNING."""
+    log = logger.debug if isinstance(error, InconsistentMemoryReadError) else logger.warning
+    log(message, name, error)
+
+
 @contextmanager
 def _observe_extraction_reads(reader: MemoryReader, previous: Optional[MemoryReadObservation] = None) \
         -> Iterator[Optional[MemoryReadObservation]]:
@@ -130,7 +137,7 @@ def prepare_extractor_runs(
                 logger.debug("%s: quarantined type metadata mismatch persists: %s", extractor.name, exc)
             continue
         except (TransientMemoryReadError, TransientRuntimeValidationError) as exc:
-            logger.warning("%s: transient memory state; extractor pass deferred: %s", extractor.name, exc)
+            _log_transient("%s: transient memory state; extractor pass deferred: %s", extractor.name, exc)
             return ()
         except Exception:
             logger.exception("Error preparing extractor %s", extractor.name)
@@ -165,7 +172,7 @@ def _run_extractor_run(prepared: PreparedExtractorRun, state: Optional[Extractio
         logger.warning("%s: type metadata mismatch; extraction skipped: %s", extractor.name, exc)
     except (TransientMemoryReadError, TransientRuntimeValidationError) as exc:
         # Pointers below the precheck boundary can still change before decode.
-        logger.warning("%s: transient memory state; extraction skipped: %s", extractor.name, exc)
+        _log_transient("%s: transient memory state; extraction skipped: %s", extractor.name, exc)
     except Exception:
         logger.exception("Error in extractor %s", extractor.name)
     finally:
