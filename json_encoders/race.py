@@ -3,14 +3,17 @@ from __future__ import annotations
 
 from typing import Any
 
+from ctypes_utils import C_Ptr
 from game_structs.enums import (BgSeason, CardRarity, CharaGradeType, CourseDistanceType, DefeatType, InitialLaneType,
                                 MainStoryRaceGimmickType, ProperGrade, RaceDifficulty, RaceGroundCondition,
                                 RaceMotivation, RaceRunningType, RaceTime, RaceType, RaceWeather,
                                 ResultBoardConditionType, Rotation, RunningStyleEx, TurfVisionType)
 from game_structs.master_data import RaceCourseSetObject
 from game_structs.race import (HorseDataObject, RaceHorseDataObject, RaceHorseDataRaceResultObject, RaceInfoObject,
-                               RaceParameterObject)
-from .common import decode_skill_data
+                               RaceInfoRaceReplayCheckInfoObject, RaceInfoRaceRewardInfoSingleObject,
+                               RaceParameterObject, RaceRewardSetDataObject)
+from .common import decode_race_reward_item, decode_skill_data
+from .single_mode_chara import decode_single_mode_chara
 from .trained_chara import _decode_raw_trained_chara_data
 
 
@@ -193,6 +196,42 @@ def _decode_horse_data_entry(entry: HorseDataObject) -> dict[str, Any]:
     }
 
 
+def _decode_race_reward_set(entry: RaceRewardSetDataObject) -> dict[str, Any]:
+    f = entry.fields
+    return {
+        "reward_list": [decode_race_reward_item(reward.contents) for reward in f.reward_list if reward],
+        "trainer_exp": f.trainer_exp,
+        "love_point": f.love_point,
+        "trained_chara_param": {},
+    }
+
+
+def _decode_race_replay_check_info(entry: RaceInfoRaceReplayCheckInfoObject) -> dict[str, Any]:
+    f = entry.fields
+    return {
+        "rewardSetArray": [_decode_race_reward_set(reward.contents) for reward in f.rewardSetArray if reward],
+        "rewardPlusBonusSetArray": [
+            _decode_race_reward_set(reward.contents) for reward in f.rewardPlusBonusSetArray if reward],
+        "bonusRewardSetArray": [
+            _decode_race_reward_set(reward.contents) for reward in f.bonusRewardSetArray if reward],
+        "bonusRewardWinSetArray": [
+            _decode_race_reward_set(reward.contents) for reward in f.bonusRewardWinSetArray if reward],
+        "isItemNumLimit": f.isItemNumLimit,
+    }
+
+
+def _decode_race_reward_single(reward: C_Ptr[RaceInfoRaceRewardInfoSingleObject]) -> dict[str, Any]:
+    if not reward:
+        return {}
+    f = reward.contents.fields
+    after_player = f.raceAfterPlayer
+    return {
+        "reward": _decode_race_replay_check_info(f.reward.contents) if f.reward else {},
+        "raceGainedFanCount": f.raceGainedFanCount,
+        "raceAfterPlayer": decode_single_mode_chara(after_player.contents) if after_player else {},
+    }
+
+
 def decode_race_info(race_info_obj: RaceInfoObject) -> dict[str, Any]:
     f = race_info_obj.fields
 
@@ -252,7 +291,7 @@ def decode_race_info(race_info_obj: RaceInfoObject) -> dict[str, Any]:
         "replayCheckInfoLegend": {},
         "isDailyLegendRace": f.isDailyLegendRace,
         "replayCheckInfoChallengeMatch": {},
-        "raceRewardSingle": {},
+        "raceRewardSingle": _decode_race_reward_single(f.raceRewardSingle),
         "resultHorseIndex": f.resultHorseIndex,
         "prevGradeType": CharaGradeType.value_to_name(f.prevGradeType),
         "mainStoryRaceGimmickType": MainStoryRaceGimmickType.value_to_name(f.mainStoryRaceGimmickType),

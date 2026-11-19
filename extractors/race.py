@@ -6,11 +6,23 @@ from datetime import datetime
 from typing import Any, Optional
 
 from ctypes_utils import C_Ptr
-from game_structs.race import RaceInfoObject, RaceManagerStaticFields
+from game_structs.race import RaceInfoObject, RaceInfoRaceRewardInfoSingleObject, RaceManagerStaticFields
 from json_encoders.race import decode_race_info
 from logger import logger
-from .common import (ExtractorContext, ExtractorFingerprint, safe_filename_component,
-                     validated_object_pointer_fingerprint)
+from .common import ExtractorContext, ExtractorFingerprint, pointer_fingerprint, safe_filename_component
+
+
+def _reward_single_fingerprint(reward: C_Ptr[RaceInfoRaceRewardInfoSingleObject]) -> ExtractorFingerprint:
+    if not reward:
+        return 0, 0, 0, 0
+    fields = reward.contents.fields
+    reward_info = fields.reward
+    after_player = fields.raceAfterPlayer
+    if reward_info:
+        _ = reward_info.contents.fields
+    if after_player:
+        _ = after_player.contents.fields
+    return reward.address, reward_info.address, fields.raceGainedFanCount, after_player.address
 
 
 @dataclass(frozen=True)
@@ -27,12 +39,14 @@ class RaceInfoReplayExtractionData:
     race_horse_trained_chara_pointers: tuple[tuple[int, int], ...]
 
     def fingerprint(self) -> ExtractorFingerprint:
+        fields = self.race_info.contents.fields
         return (
             "race_info_replay",
-            validated_object_pointer_fingerprint(self.race_info),
+            pointer_fingerprint(self.race_info),
             self.race_type,
             self.random_seed,
             self.race_horse_trained_chara_pointers,
+            _reward_single_fingerprint(fields.raceRewardSingle),
         )
 
 

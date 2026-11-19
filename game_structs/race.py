@@ -10,6 +10,7 @@ from game_structs.enums import (BgSeason, CardRarity, CharaGradeType, CourseDist
                                 RaceMotivation, RaceRunningType, RaceTime, RaceType, RaceWeather,
                                 ResultBoardConditionType, Rotation, RunningStyleEx, TurfVisionType)
 from game_structs.master_data import RaceCourseSetObject
+from game_structs.single_mode_chara import SingleModeCharaObject
 from game_structs.skills import SkillDataObject
 from game_structs.strings import SystemStringObjectPtr
 from game_structs.trained_chara import TrainedCharaDataObject
@@ -242,8 +243,9 @@ class SingleRaceStartInfoObject(CStructureDataclass):
 
 class RaceRewardSetDataFields(CStructureDataclass):
     reward_list: GenericArrayPtr[C_Ptr[RaceRewardDataObject]]
-    _ignored_1: ArrayType[c_int32, L[2]]  # omitted: trainer_exp, love_point
-    _ignored_2: C_UDeclPtr  # omitted: trained_chara_param
+    trainer_exp: C_Int[c_int32]
+    love_point: C_Int[c_int32]
+    _ignored_1: C_UDeclPtr  # omitted: trained_chara_param
 
 
 @register_runtime_validatable('Gallop::RaceRewardSetData')
@@ -261,7 +263,7 @@ class RaceInfoRaceReplayCheckInfoFields(CStructureDataclass):
     rewardPlusBonusSetArray: GenericArrayPtr[C_Ptr[RaceRewardSetDataObject]]
     bonusRewardSetArray: GenericArrayPtr[C_Ptr[RaceRewardSetDataObject]]
     bonusRewardWinSetArray: GenericArrayPtr[C_Ptr[RaceRewardSetDataObject]]
-    _ignored_1: c_bool  # omitted: isItemNumLimit
+    isItemNumLimit: C_Bool[c_bool]
 
 
 @register_runtime_validatable('Gallop::RaceInfo.RaceReplayCheckInfo')
@@ -277,7 +279,7 @@ class RaceInfoRaceReplayCheckInfoObject(CStructureDataclass):
 class RaceInfoRaceRewardInfoSingleFields(CStructureDataclass):
     reward: C_Ptr[RaceInfoRaceReplayCheckInfoObject]
     raceGainedFanCount: C_Int[c_int32]
-    _ignored_1: C_UDeclPtr  # omitted: RaceAfterPlayer
+    raceAfterPlayer: C_Ptr[SingleModeCharaObject]
 
 
 @register_runtime_validatable('Gallop::RaceInfo.RaceRewardInfoSingle')
