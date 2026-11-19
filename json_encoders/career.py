@@ -13,38 +13,38 @@ from game_structs.master_data import MasterSingleModeWinsSaddleSingleModeWinsSad
 from game_structs.obscured import ObscuredInt
 from game_structs.race import (CharaRaceRewardObject, RaceHorseDataObject, RaceHorseDataRaceResultObject,
                                RaceRewardDataObject, RaceRewardSetDataObject, SingleRaceStartInfoObject)
-from game_structs.single_mode import (EquipSupportCardObject, FactorSelectInfoObject,
-                                      SingleModeFactorSelectCommonObject, SingleModeFreeCommandInfoObject,
-                                      SingleModeFreeItemEffectObject, SingleModeFreePickUpItemObject,
-                                      SingleModeFreeUserItemObject, SingleModeLogSubstanceObject,
-                                      SingleModeNpcTeamDataObject, SingleModeRivalRaceInfoObject,
-                                      SingleModeTeamEventEffectInfoObject, SingleModeTeamFrameOrderObject,
-                                      SingleModeTeamOpponentListObject, SingleModeTeamRaceCharaResultObject,
-                                      SingleModeTeamRaceHistoryObject, SingleModeTeamRandomInfoObject,
-                                      TeamSoulSkillDictionaryEntry, WorkSingleModeCharaDataEvaluationObject,
-                                      WorkSingleModeCharaDataGroupOutingInfoObject, WorkSingleModeCharaDataObject,
-                                      WorkSingleModeCharaDataSkillTipsObject,
-                                      WorkSingleModeCharaDataSuccessionFactorInfoObject,
-                                      WorkSingleModeDataEventInfoObject,
+from game_structs.single_mode import (FactorSelectInfoObject, SingleModeFactorSelectCommonObject,
+                                      SingleModeLogSubstanceObject, WorkSingleModeDataEventInfoObject,
                                       WorkSingleModeDataLivePerformanceIncDecInfoDictionaryEntry,
                                       WorkSingleModeDataObject, WorkSingleModeDataParamsIncDecInfoDictionaryEntry,
                                       WorkSingleModeDataRaceConditionObject,
                                       WorkSingleModeDataSuccessionEventInfoObject, WorkSingleModeDataTurnInfoObject,
-                                      WorkSingleModeEventChoiceRewardObject, WorkSingleModeHomeInfoObject,
-                                      WorkSingleModeScenarioFreeNpcResultObject,
-                                      WorkSingleModeScenarioFreeTwinkleRaceNpcInfoObject,
-                                      WorkSingleModeScenarioFreeTwinkleRaceNpcResultObject,
-                                      WorkSingleModeScenarioLivePerformanceDataObject,
-                                      WorkSingleModeScenarioLiveTrainingBonusObject,
-                                      WorkSingleModeScenarioTeamRaceDeckDataObject,
-                                      WorkSingleModeScenarioTeamRaceObject,
-                                      WorkSingleModeScenarioTeamRaceRunRaceDeckDataObject,
-                                      WorkSingleModeScenarioTeamRaceSingleTeamRaceResultObject,
-                                      WorkSingleModeScenarioTeamRaceTeamMemberObject)
+                                      WorkSingleModeEventChoiceRewardObject, WorkSingleModeHomeInfoObject)
+from game_structs.single_mode_scenarios import (SingleModeFreeCommandInfoObject, SingleModeFreeItemEffectObject,
+                                                SingleModeFreePickUpItemObject, SingleModeFreeUserItemObject,
+                                                SingleModeNpcTeamDataObject, SingleModeRivalRaceInfoObject,
+                                                SingleModeTeamEventEffectInfoObject, SingleModeTeamFrameOrderObject,
+                                                SingleModeTeamOpponentListObject, SingleModeTeamRaceCharaResultObject,
+                                                SingleModeTeamRaceHistoryObject, SingleModeTeamRandomInfoObject,
+                                                TeamSoulSkillDictionaryEntry, WorkSingleModeScenarioFreeNpcResultObject,
+                                                WorkSingleModeScenarioFreeTwinkleRaceNpcInfoObject,
+                                                WorkSingleModeScenarioFreeTwinkleRaceNpcResultObject,
+                                                WorkSingleModeScenarioLivePerformanceDataObject,
+                                                WorkSingleModeScenarioLiveTrainingBonusObject,
+                                                WorkSingleModeScenarioTeamRaceDeckDataObject,
+                                                WorkSingleModeScenarioTeamRaceObject,
+                                                WorkSingleModeScenarioTeamRaceRunRaceDeckDataObject,
+                                                WorkSingleModeScenarioTeamRaceSingleTeamRaceResultObject,
+                                                WorkSingleModeScenarioTeamRaceTeamMemberObject)
 from game_structs.skills import SkillTipsObject
 from game_structs.trained_chara import RaceHistoryInfoObject
+from game_structs.work_single_mode_chara import (EquipSupportCardObject, WorkSingleModeCharaDataEvaluationObject,
+                                                 WorkSingleModeCharaDataGroupOutingInfoObject,
+                                                 WorkSingleModeCharaDataObject, WorkSingleModeCharaDataSkillTipsObject,
+                                                 WorkSingleModeCharaDataSuccessionFactorInfoObject)
 from schema_validation import TransientRuntimeValidationError
-from .race import _decode_skill_data_entry, restore_race_horse_order
+from .common import decode_race_reward_item, decode_skill_data
+from .race import restore_race_horse_order
 from .trained_chara import _decode_acquired_skill_entry, _decode_factor_info_entry
 
 if TYPE_CHECKING:
@@ -782,7 +782,7 @@ def _decode_career_race_horse(entry: RaceHorseDataObject) -> dict[str, Any]:
         "mob_id": fields.mob_id,
         "rarity": fields.rarity,
         "talent_level": fields.talent_level,
-        "skill_array": [_decode_skill_data_entry(skill.contents) for skill in fields.skill_array if skill],
+        "skill_array": [decode_skill_data(skill.contents) for skill in fields.skill_array if skill],
         "stamina": fields.stamina,
         "speed": fields.speed,
         "pow": fields.pow,
@@ -823,15 +823,6 @@ def _decode_career_race_horse(entry: RaceHorseDataObject) -> dict[str, Any]:
     }
 
 
-def _decode_career_race_reward_data(entry: RaceRewardDataObject) -> dict[str, int]:
-    fields = entry.fields
-    return {
-        "item_type": fields.item_type,
-        "item_id": fields.item_id,
-        "item_num": fields.item_num,
-    }
-
-
 def _decode_career_trophy_reward(entry: RaceRewardDataObject) -> dict[str, int]:
     """Trophy rewards use a different API key order from ordinary race rewards."""
     fields = entry.fields
@@ -850,24 +841,24 @@ def _decode_career_race_reward(reward_info: C_Ptr[CharaRaceRewardObject]) -> dic
         "result_rank": fields.result_rank,
         "result_time": fields.result_time,
         "race_reward": [
-            _decode_career_race_reward_data(reward.contents)
+            decode_race_reward_item(reward.contents)
             for reward in fields.race_reward
             if reward
         ],
         "race_reward_bonus": [
-            _decode_career_race_reward_data(reward.contents)
+            decode_race_reward_item(reward.contents)
             for reward in fields.race_reward_bonus
             if reward
         ],
         "gained_fans": fields.gained_fans,
         "campaign_id_array": [value.value for value in fields.campaign_id_array],
         "race_reward_plus_bonus": [
-            _decode_career_race_reward_data(reward.contents)
+            decode_race_reward_item(reward.contents)
             for reward in fields.race_reward_plus_bonus
             if reward
         ],
         "race_reward_bonus_win": [
-            _decode_career_race_reward_data(reward.contents)
+            decode_race_reward_item(reward.contents)
             for reward in fields.race_reward_bonus_win
             if reward
         ],
@@ -882,7 +873,7 @@ def _decode_career_race_reward_set_array(value: RaceRewardSets) -> list[dict[str
         if not reward_set:
             continue
         rewards.extend(
-                _decode_career_race_reward_data(reward.contents)
+                decode_race_reward_item(reward.contents)
                 for reward in reward_set.contents.fields.reward_list
                 if reward
         )
@@ -1318,7 +1309,7 @@ def _decode_free_twinkle_race_npc(value: WorkSingleModeScenarioFreeTwinkleRaceNp
         "proper_running_style_oikomi": fields.properRunningStyleOikomi.value,
         "proper_ground_turf": fields.properGroundTurf.value,
         "proper_ground_dirt": fields.properGroundDirt.value,
-        "skill_array": [_decode_skill_data_entry(skill.contents) for skill in fields.skillArray if skill],
+        "skill_array": [decode_skill_data(skill.contents) for skill in fields.skillArray if skill],
     }
 
 

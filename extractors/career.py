@@ -12,15 +12,15 @@ from game_structs.single_mode import (FactorSelectInfoObject, PartsSingleModeRes
                                       SingleModeChangeViewManagerObject, SingleModeEventAccesorObject,
                                       SingleModeFactorSelectCommonObject, SingleModeResultSequenceObject,
                                       SingleModeResultSequencePartsObject, SingleModeResultViewControllerObject,
-                                      WorkSingleModeChangeParameterInfoObject, WorkSingleModeCharaDataObject,
-                                      WorkSingleModeDataEventInfoObject, WorkSingleModeDataObject,
-                                      WorkSingleModeDataRaceStartResultInfoObject,
-                                      WorkSingleModeEventChoiceRewardDictionaryEntry, WorkSingleModeHomeInfoObject,
-                                      WorkSingleModeScenarioFreeObject, WorkSingleModeScenarioLiveObject,
-                                      WorkSingleModeScenarioLivePerformanceDataObject,
-                                      WorkSingleModeScenarioTeamRaceObject)
+                                      WorkSingleModeChangeParameterInfoObject, WorkSingleModeDataEventInfoObject,
+                                      WorkSingleModeDataObject, WorkSingleModeDataRaceStartResultInfoObject,
+                                      WorkSingleModeEventChoiceRewardDictionaryEntry, WorkSingleModeHomeInfoObject)
+from game_structs.single_mode_scenarios import (WorkSingleModeScenarioFreeObject, WorkSingleModeScenarioLiveObject,
+                                                WorkSingleModeScenarioLivePerformanceDataObject,
+                                                WorkSingleModeScenarioTeamRaceObject)
 from game_structs.trained_chara import TrainedCharaDataObject
 from game_structs.ui import SceneManagerObject
+from game_structs.work_single_mode_chara import WorkSingleModeCharaDataObject
 from json_encoders.career import decode_career_data, decode_career_log
 from json_encoders.trained_chara import _decode_trained_chara_entry
 from logger import logger

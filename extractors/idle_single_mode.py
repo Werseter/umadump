@@ -6,8 +6,8 @@ from typing import Any, Optional
 from ctypes_utils import C_Ptr
 from game_structs.enums import IdleSingleModePlayingState, SingleModeState
 from game_structs.idle_single_mode import ObscuredIdleSingleModeProgressLogInfoObject, WorkIdleSingleModeDataObject
-from game_structs.single_mode import (SingleModeCharaObject, SingleModeFactorSelectCommonObject,
-                                      WorkSingleModeDataObject)
+from game_structs.single_mode import SingleModeFactorSelectCommonObject, WorkSingleModeDataObject
+from game_structs.single_mode_chara import SingleModeCharaObject
 from game_structs.trained_chara import TrainedCharaDataObject
 from game_structs.work_data_manager import WorkDataManagerObject
 from json_encoders.common import timestamp_to_str

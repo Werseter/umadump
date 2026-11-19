@@ -10,21 +10,13 @@ from game_structs.enums import (BgSeason, CardRarity, CharaGradeType, CourseDist
 from game_structs.master_data import RaceCourseSetObject
 from game_structs.race import (HorseDataObject, RaceHorseDataObject, RaceHorseDataRaceResultObject, RaceInfoObject,
                                RaceParameterObject)
-from game_structs.skills import SkillDataObject
+from .common import decode_skill_data
 from .trained_chara import _decode_raw_trained_chara_data
 
 
 # ---------------------------------------------------------------------------
 # Race replay extraction
 # ---------------------------------------------------------------------------
-
-def _decode_skill_data_entry(entry: SkillDataObject) -> dict[str, int]:
-    f = entry.fields
-    return {
-        "skill_id": f.skill_id,
-        "level": f.level,
-    }
-
 
 def _decode_race_horse_result_entry(entry: RaceHorseDataRaceResultObject) -> dict[str, int]:
     f = entry.fields
@@ -57,7 +49,7 @@ def _decode_race_horse_data_entry(entry: RaceHorseDataObject) -> dict[str, Any]:
         "mob_id": f.mob_id,
         "rarity": f.rarity,
         "talent_level": f.talent_level,
-        "skill_array": [_decode_skill_data_entry(x.contents) for x in f.skill_array],
+        "skill_array": [decode_skill_data(x.contents) for x in f.skill_array],
         "stamina": f.stamina,
         "speed": f.speed,
         "pow": f.pow,

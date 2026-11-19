@@ -7,7 +7,7 @@ from game_structs.collections import GenericArrayPtr
 from game_structs.enums import IdleSingleModePlayingState
 from game_structs.obscured import ObscuredBool, ObscuredInt
 from game_structs.race import CharaRaceRewardObject, SingleRaceHistoryObject
-from game_structs.single_mode import SingleModeCharaObject
+from game_structs.single_mode_chara import SingleModeCharaObject
 from game_structs.skills import SkillTipsObject
 from il2cpp_structs import RuntimeIl2CppObject
 from schema_validation import register_runtime_validatable
